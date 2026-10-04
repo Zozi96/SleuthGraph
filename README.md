@@ -725,18 +725,10 @@ Re-index (`codegraph index`) after adding or changing mappings.
 
 ## Telemetry
 
-CodeGraph collects **anonymous usage statistics** — which tools and commands get
-used, which languages get indexed — to guide where language and agent support
-work goes. **Never** any code, paths, file or symbol names, queries, or IP
-addresses; usage is aggregated locally into daily totals before anything is
-sent. The installer asks up front; turn it off any time:
-
-```bash
-codegraph telemetry off    # or: CODEGRAPH_TELEMETRY=0, or DO_NOT_TRACK=1
-```
-
-[`TELEMETRY.md`](TELEMETRY.md) lists every field, with the off-switches and the
-full data-handling story.
+**Disabled in this fork.** SleuthGraph collects nothing — no usage stats, no
+connection to any telemetry endpoint is ever opened. The `codegraph telemetry`
+command still exists and reports that telemetry is disabled in this build; see
+[`TELEMETRY.md`](TELEMETRY.md).
 
 ## Verified releases
 

@@ -65,7 +65,7 @@ import { installFatalHandlers } from './fatal-handler';
 import { relaunchWithWasmRuntimeFlagsIfNeeded } from '../extraction/wasm-runtime-flags';
 import { installCommandSupervision, watchParent } from './command-supervision';
 import { EXTRACTION_VERSION } from '../extraction/extraction-version';
-import { getTelemetry, TELEMETRY_DOCS, recordIndexEvent } from '../telemetry';
+import { getTelemetry, recordIndexEvent } from '../telemetry';
 // Value import, but dependency-free by design so `--help` text can name the
 // default port without dragging node:http into every other subcommand; the
 // server itself is loaded lazily inside the `ui` action. See ui-server/constants.
@@ -2791,43 +2791,15 @@ program
  */
 program
   .command('telemetry [action]')
-  .description('Show or change anonymous usage telemetry (status, on, off)')
+  .description('Show anonymous usage telemetry status (disabled in this build)')
   .action((action?: string) => {
-    const t = getTelemetry();
-
-    if (action === 'on' || action === 'off') {
-      t.setEnabled(action === 'on', 'cli');
-      if (action === 'on') {
-        success('Telemetry enabled — anonymous usage stats only (no code, paths, or names).');
-      } else {
-        success('Telemetry disabled. Buffered, unsent data was deleted.');
-      }
-      const effective = t.getStatus();
-      if (effective.decidedBy === 'DO_NOT_TRACK' || effective.decidedBy === 'CODEGRAPH_TELEMETRY') {
-        warn(
-          `The ${effective.decidedBy} environment variable overrides this choice — ` +
-          `effective state right now: ${effective.enabled ? 'enabled' : 'disabled'}.`
-        );
-      }
-      return;
-    }
-
-    if (action !== undefined && action !== 'status') {
+    // TODO(SleuthGraph): telemetry fully disabled — reimplement against our
+    // own endpoint if desired.
+    if (action !== undefined && action !== 'status' && action !== 'on' && action !== 'off') {
       error(`Unknown action: ${action} (expected status, on, or off)`);
       process.exit(1);
     }
-
-    const s = t.getStatus();
-    const decidedBy: Record<typeof s.decidedBy, string> = {
-      DO_NOT_TRACK: 'DO_NOT_TRACK environment variable',
-      CODEGRAPH_TELEMETRY: 'CODEGRAPH_TELEMETRY environment variable',
-      config: 'your saved choice',
-      default: 'default',
-    };
-    console.log(`\nTelemetry: ${s.enabled ? chalk.green('enabled') : chalk.yellow('disabled')} ${chalk.dim(`(${decidedBy[s.decidedBy]})`)}`);
-    console.log(`Machine ID: ${s.machineId ?? chalk.dim('(random UUID, created on first use)')}`);
-    console.log(`Config:     ${s.configPath}`);
-    console.log(chalk.dim(`\nExactly what is collected (and never collected): ${TELEMETRY_DOCS}\n`));
+    console.log(`\nTelemetry: ${chalk.yellow('disabled')} ${chalk.dim('(disabled in this build — nothing is collected or sent)')}\n`);
   });
 
 /**

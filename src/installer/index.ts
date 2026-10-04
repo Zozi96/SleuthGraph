@@ -29,7 +29,7 @@ import type { AgentTarget, Location, TargetId } from './targets/types';
 import { watchDisabledReason } from '../sync/watch-policy';
 import { isGitRepo, isSyncHookInstalled, installGitSyncHook } from '../sync/git-hooks';
 import { getCodeGraphDir } from '../directory';
-import { getTelemetry, TELEMETRY_DOCS } from '../telemetry';
+import { getTelemetry } from '../telemetry';
 
 // Backwards-compat: keep these named exports — downstream code may
 // import them. The shim in `config-writer.ts` continues to re-export
@@ -179,29 +179,6 @@ export async function runInstallerWithOptions(opts: RunInstallerOptions): Promis
     autoAllow = ans;
   } else {
     autoAllow = false;
-  }
-
-  // Step 4½: anonymous usage telemetry — a visible default-on toggle, asked
-  // exactly once. Skipped when an env var (DO_NOT_TRACK / CODEGRAPH_TELEMETRY)
-  // already decides, or when a previous run stored a choice — re-runs and
-  // upgrades never re-ask.
-  if (!useDefaults && getTelemetry().getStatus().decidedBy === 'default' && !getTelemetry().hasStoredChoice()) {
-    const share = await clack.confirm({
-      message: 'Share anonymous usage stats? (No code, paths, or names — see TELEMETRY.md)',
-      initialValue: true,
-    });
-    if (clack.isCancel(share)) {
-      // Don't kill the install over the telemetry question — leave it
-      // undecided (the documented default + first-run notice applies later).
-      clack.log.info('Skipped — manage anytime with `codegraph telemetry on|off`.');
-    } else {
-      getTelemetry().setEnabled(share, 'installer');
-      clack.log.info(
-        share
-          ? `Thanks! Exactly what is collected: ${TELEMETRY_DOCS}`
-          : 'Telemetry disabled — nothing will be collected or sent.',
-      );
-    }
   }
 
   // Step 4¾: front-load prompt hook (Claude Code only). A UserPromptSubmit hook

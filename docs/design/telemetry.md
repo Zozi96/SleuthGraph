@@ -1,5 +1,9 @@
 # Anonymous usage telemetry
 
+> **Disabled in the SleuthGraph fork — kept as design record.** The upstream
+> ingest Worker and dashboard this doc describes are not part of this
+> repository, and the client in `src/telemetry/` is a no-op.
+
 Status: implemented — client (`src/telemetry/`), `codegraph telemetry` CLI, MCP + installer
 wiring, `TELEMETRY.md`, ingest Worker (`telemetry-worker/`) storing to its own Cloudflare D1
 database, nightly rollup + retention cron, and the admin dashboard Worker
