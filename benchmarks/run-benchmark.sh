@@ -115,7 +115,9 @@ printf '%s\n' "$ROWS" | while IFS=$'\t' read -r name url lang size q; do
     echo "==> reusing checkout $repo"
   else
     echo "==> cloning $url"
-    git clone --depth 1 "$url" "$repo" || { echo "!! clone failed — skipping $name"; continue; }
+    # </dev/null on every command in this loop: they inherit the corpus rows
+    # on stdin and would swallow the remaining rows if they ever read it.
+    git clone --depth 1 "$url" "$repo" </dev/null || { echo "!! clone failed — skipping $name"; continue; }
   fi
 
   # Wipe + re-index with the binary under test: the index must be built by the
@@ -123,7 +125,7 @@ printf '%s\n' "$ROWS" | while IFS=$'\t' read -r name url lang size q; do
   # prompts non-interactive; -i is deprecated (indexing runs by default).
   echo "==> re-indexing with $(sleuth --version 2>/dev/null || echo '?')"
   rm -rf "$repo/.sleuth"
-  ( cd "$repo" && sleuth init --yes ) || { echo "!! indexing failed — skipping $name"; continue; }
+  ( cd "$repo" && sleuth init --yes </dev/null ) || { echo "!! indexing failed — skipping $name"; continue; }
 
   for i in $(seq 1 "$RUNS"); do
     w="$repodir/run-headless-with-$i.jsonl"
@@ -134,8 +136,11 @@ printf '%s\n' "$ROWS" | while IFS=$'\t' read -r name url lang size q; do
     fi
     repdir="$repodir/rep$i"
     mkdir -p "$repdir"
+    # Clear leftovers from an earlier attempt at this rep — a stale .tN
+    # segment would otherwise be stitched into the new run's session.
+    rm -f "$repodir"/run-headless-*-"$i".jsonl "$repodir"/run-headless-*-"$i".t*.jsonl "$repodir"/run-headless-*-"$i".err
     echo "-- rep $i/$RUNS: running A/B pair (log: $repdir/run.log)"
-    if AGENT_EVAL_OUT="$repdir" bash "$RUN_ALL" "$repo" "$q" headless >"$repdir/run.log" 2>&1; then
+    if AGENT_EVAL_OUT="$repdir" bash "$RUN_ALL" "$repo" "$q" headless </dev/null >"$repdir/run.log" 2>&1; then
       collect_rep "$repdir" "$repodir" "$i"
       if [ -s "$w" ] && [ -s "$wo" ]; then
         echo "   rep $i OK"

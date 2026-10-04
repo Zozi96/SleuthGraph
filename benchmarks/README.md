@@ -95,3 +95,9 @@ node benchmarks/report.mjs benchmarks/results/<timestamp>
   small-n caveats from `docs/benchmarks/agent-eval-feedback-metrics.md` apply.
 - Clones are `--depth 1` snapshots under `--corpus` (default
   `/tmp/sleuth-corpus`); upstream drift is a confound across campaigns.
+- The `.sleuth/` index stays inside each corpus repo, so a without-arm agent
+  can `ls`/Read/Grep it — those reads are counted as file-access calls, and
+  the database is binary, so the leak is small but real. `sleuth init` may
+  also drop agent-instruction files (`.mcp.json`, rules) into the clone; both
+  arms see them identically, so they are not a between-arms confound — they
+  just make "without" mean "no sleuth tools", not "never heard of sleuth".
