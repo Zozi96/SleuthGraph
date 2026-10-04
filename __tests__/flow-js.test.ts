@@ -10,12 +10,12 @@ import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { detectLanguage } from '../src/extraction/grammars';
 import { blankFlowSyntax } from '../src/extraction/languages/typescript';
 
 let root = '';
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 const FLOW = `/**
  * @flow strict-local
@@ -49,7 +49,7 @@ beforeAll(async () => {
   fs.mkdirSync(path.join(root, 'js'), { recursive: true });
   fs.writeFileSync(path.join(root, 'js/SegmentedControl.js'), FLOW);
   fs.writeFileSync(path.join(root, 'js/plain.js'), `function plain() { return 1; }\nmodule.exports = plain;\n`);
-  cg = await CodeGraph.init(root, { index: true });
+  cg = await SleuthGraph.init(root, { index: true });
 });
 
 afterAll(() => {

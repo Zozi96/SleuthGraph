@@ -1,13 +1,13 @@
 /**
  * Background update-availability check for long-lived servers (#1243).
  *
- * The recommended MCP config launches the LOCAL `codegraph` binary, so the
+ * The recommended MCP config launches the LOCAL `sleuth` binary, so the
  * server (and the prompt hook alongside it) silently stays on whatever version
  * was last manually upgraded — users discover the drift only when something
  * breaks. This module gives the running server *visibility* without changing
  * behavior: a non-blocking check against the latest GitHub release, surfaced
  * as a one-line notice (stderr log, MCP initialize instructions, and
- * `codegraph_status`) telling the user to run `codegraph upgrade`.
+ * `sleuth_status`) telling the user to run `sleuth upgrade`.
  *
  * Invariants (mirrors the telemetry module's contract):
  *   - Never stdout — stdio is the MCP protocol channel.
@@ -16,13 +16,13 @@
  *     respond-fast handshake contract holds.
  *   - Fail silent: offline / rate-limited / disk-full all degrade to "no
  *     notice", never an error, never a retry loop.
- *   - Off is off: `CODEGRAPH_NO_UPDATE_CHECK` (dedicated) or `DO_NOT_TRACK`
+ *   - Off is off: `SLEUTH_NO_UPDATE_CHECK` (dedicated) or `DO_NOT_TRACK`
  *     (broad don't-phone-home convention — set by e.g. the Pro container's
  *     data plane) suppresses the network call AND the notice entirely.
  *
  * The check itself reuses `resolveLatestVersion` — the GitHub release-redirect
  * trick with the API fallback — so version resolution can't drift from what
- * `codegraph upgrade` installs. Results are cached in `~/.codegraph/` (the
+ * `sleuth upgrade` installs. Results are cached in `~/.sleuth/` (the
  * same global state dir telemetry and the daemon registry use) with a 24h TTL
  * on success and a 1h backoff after failure, shared across every proxy /
  * daemon process on the machine.
@@ -32,7 +32,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { resolveLatestVersion, isUpdateAvailable, parseSemver } from './index';
-import { CodeGraphPackageVersion } from '../mcp/version';
+import { SleuthGraphPackageVersion } from '../mcp/version';
 
 /** Re-check the release feed after this long (successful checks). */
 export const UPDATE_CHECK_TTL_MS = 24 * 60 * 60 * 1000;
@@ -51,7 +51,7 @@ export interface UpdateCheckCacheFile {
 }
 
 export interface UpdateCheckDeps {
-  /** Global state dir; defaults to ~/.codegraph. Tests inject a temp dir. */
+  /** Global state dir; defaults to ~/.sleuth. Tests inject a temp dir. */
   dir?: string;
   env?: NodeJS.ProcessEnv;
   now?: () => number;
@@ -69,12 +69,12 @@ interface ResolvedDeps {
 
 function resolveDeps(deps: UpdateCheckDeps = {}): ResolvedDeps {
   return {
-    dir: deps.dir ?? path.join(os.homedir(), '.codegraph'),
+    dir: deps.dir ?? path.join(os.homedir(), '.sleuth'),
     env: deps.env ?? process.env,
     now: deps.now ?? Date.now,
     resolveLatest:
       deps.resolveLatest ?? (() => resolveLatestVersion(undefined, UPDATE_CHECK_NETWORK_TIMEOUT_MS)),
-    currentVersion: deps.currentVersion ?? CodeGraphPackageVersion,
+    currentVersion: deps.currentVersion ?? SleuthGraphPackageVersion,
   };
 }
 
@@ -87,7 +87,7 @@ function envTruthy(raw: string | undefined): boolean {
  * notice. `DO_NOT_TRACK` uses the same truthiness the telemetry opt-out does.
  */
 export function updateCheckDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return envTruthy(env.CODEGRAPH_NO_UPDATE_CHECK) || envTruthy(env.DO_NOT_TRACK);
+  return envTruthy(env.SLEUTH_NO_UPDATE_CHECK) || envTruthy(env.DO_NOT_TRACK);
 }
 
 export function updateCheckCachePath(dir: string): string {
@@ -133,8 +133,8 @@ export function canonicalVersionTag(v: string): string | null {
 /** One user-facing sentence; every surface (stderr, instructions, status) shows this. */
 export function formatUpdateNotice(current: string, latest: string): string {
   return (
-    `CodeGraph ${latest} is available (this server is running ` +
-    `${current}). Update with \`codegraph upgrade\`.`
+    `SleuthGraph ${latest} is available (this server is running ` +
+    `${current}). Update with \`sleuth upgrade\`.`
   );
 }
 
@@ -194,7 +194,7 @@ export async function refreshUpdateCheck(deps: UpdateCheckDeps = {}): Promise<st
   }
 }
 
-// Per-process memo so the sync read path (MCP initialize, codegraph_status)
+// Per-process memo so the sync read path (MCP initialize, sleuth_status)
 // touches the disk at most once a minute, not once per handshake.
 const NOTICE_MEMO_TTL_MS = 60 * 1000;
 let noticeMemo: { at: number; value: string | null } | null = null;
@@ -242,9 +242,9 @@ export function checkForUpdateInBackground(
 ): void {
   refreshUpdateCheck(deps)
     .then((notice) => {
-      // The shared notice sentence starts with "CodeGraph …"; drop the word
-      // after the log tag so the line doesn't read "[CodeGraph] CodeGraph …".
-      if (notice) log(`[CodeGraph] ${notice.replace(/^CodeGraph /, '')}\n`);
+      // The shared notice sentence starts with "SleuthGraph …"; drop the word
+      // after the log tag so the line doesn't read "[SleuthGraph] SleuthGraph …".
+      if (notice) log(`[SleuthGraph] ${notice.replace(/^SleuthGraph /, '')}\n`);
     })
     .catch(() => { /* fail silent */ });
 }

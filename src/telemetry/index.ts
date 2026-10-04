@@ -63,13 +63,13 @@ export interface ClientInfo {
 export interface TelemetryStatus {
   enabled: boolean;
   /** What decided the current state — always 'default' while telemetry is disabled. */
-  decidedBy: 'DO_NOT_TRACK' | 'CODEGRAPH_TELEMETRY' | 'config' | 'default';
+  decidedBy: 'DO_NOT_TRACK' | 'SLEUTH_TELEMETRY' | 'config' | 'default';
   machineId: string | null;
   configPath: string;
 }
 
 export interface TelemetryOptions {
-  /** Global state dir; defaults to ~/.codegraph. Tests inject a temp dir. */
+  /** Global state dir; defaults to ~/.sleuth. Tests inject a temp dir. */
   dir?: string;
   fetchImpl?: typeof globalThis.fetch;
   now?: () => Date;
@@ -83,7 +83,7 @@ export class Telemetry {
   private readonly dir: string;
 
   constructor(opts: TelemetryOptions = {}) {
-    this.dir = opts.dir ?? path.join(os.homedir(), '.codegraph');
+    this.dir = opts.dir ?? path.join(os.homedir(), '.sleuth');
   }
 
   // ---------------------------------------------------------------- consent

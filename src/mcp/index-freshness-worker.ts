@@ -7,11 +7,11 @@ if (parentPort) {
   let cg: import('../index').default | null = null;
   let counts: { added: number; modified: number; removed: number } | null = null;
   try {
-    const CodeGraph = (require('../index') as typeof import('../index')).default;
+    const SleuthGraph = (require('../index') as typeof import('../index')).default;
     // Loaded: from here on the owner may terminate this worker. Ending it while
     // it loads those modules can crash the process on Windows (worker-teardown.ts).
     port.postMessage({ type: 'loaded' });
-    cg = CodeGraph.openSync((workerData as { root: string }).root);
+    cg = SleuthGraph.openSync((workerData as { root: string }).root);
     const changes = cg.getChangedFiles();
     counts = {
       added: changes.added.length,

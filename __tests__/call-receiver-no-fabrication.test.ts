@@ -11,12 +11,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { extractFromSource } from '../src/extraction';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   await initGrammars();
@@ -37,7 +37,7 @@ beforeAll(async () => {
       'function bucket(d, k, v) { d.setdefault(k, []).append(v); make().run(); (0, make)().run(); }\n' +
       'module.exports = { append, run, make, bucket };\n'
   );
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 });
 

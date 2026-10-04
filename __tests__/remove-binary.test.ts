@@ -1,10 +1,10 @@
 /**
- * `codegraph uninstall` — CLI binary removal (the #1071 shadow, uninstall
+ * `sleuth uninstall` — CLI binary removal (the #1071 shadow, uninstall
  * edition).
  *
- * Before this feature, `codegraph uninstall` removed agent configs only:
+ * Before this feature, `sleuth uninstall` removed agent configs only:
  * a user with both a bundle install and an npm global install (the shadow
- * scenario) still had a working `codegraph` on PATH afterward. The planner
+ * scenario) still had a working `sleuth` on PATH afterward. The planner
  * must find EVERY install present on the machine — not just the one the
  * running binary belongs to — and the executor must remove them all, with
  * the Windows locked-exe rename dance instead of a hard failure.
@@ -21,13 +21,13 @@ import {
 import { NPM_PACKAGE, npmInvocation } from '../src/upgrade';
 
 const HOME = '/home/u';
-const STATE = `${HOME}/.codegraph`;
+const STATE = `${HOME}/.sleuth`;
 
 function probes(over: Partial<RemoveBinaryProbes> & { present?: Set<string>; links?: Map<string, string> }): RemoveBinaryProbes {
   const present = over.present ?? new Set<string>();
   const links = over.links ?? new Map<string, string>();
   return {
-    filename: `${STATE}/versions/v1.4.0/lib/dist/bin/codegraph.js`,
+    filename: `${STATE}/versions/v1.4.0/lib/dist/bin/sleuth.js`,
     platform: 'linux',
     cwd: `${HOME}/project`,
     env: {},
@@ -39,39 +39,39 @@ function probes(over: Partial<RemoveBinaryProbes> & { present?: Set<string>; lin
   };
 }
 
-/** A standard unix bundle install under ~/.codegraph, running from it. */
+/** A standard unix bundle install under ~/.sleuth, running from it. */
 function bundlePresent(): Set<string> {
   const root = `${STATE}/versions/v1.4.0`;
   return new Set([
     STATE,
     `${STATE}/versions`,
     `${root}/node`,
-    `${root}/bin/codegraph`,
+    `${root}/bin/sleuth`,
   ]);
 }
 
 describe('planBinaryRemoval', () => {
-  it('unix bundle at ~/.codegraph: removes artifacts only, never the state dir itself', () => {
+  it('unix bundle at ~/.sleuth: removes artifacts only, never the state dir itself', () => {
     const links = new Map([
       [`${STATE}/current`, `${STATE}/versions/v1.4.0`],
-      [`${HOME}/.local/bin/codegraph`, `${STATE}/versions/v1.4.0/bin/codegraph`],
+      [`${HOME}/.local/bin/sleuth`, `${STATE}/versions/v1.4.0/bin/sleuth`],
     ]);
     const plan = planBinaryRemoval(probes({ present: bundlePresent(), links }));
     expect(plan.paths).toContain(`${STATE}/versions`);
     expect(plan.paths).toContain(`${STATE}/current`);
-    expect(plan.paths).toContain(`${HOME}/.local/bin/codegraph`);
+    expect(plan.paths).toContain(`${HOME}/.local/bin/sleuth`);
     // The state dir (telemetry choice, daemon records) must survive.
     expect(plan.paths).not.toContain(STATE);
     expect(plan.npmGlobal).toBe(false);
     expect(plan.sourceRoot).toBeNull();
   });
 
-  it('a custom CODEGRAPH_INSTALL_DIR is removed wholesale (it is not the state dir)', () => {
+  it('a custom SLEUTH_INSTALL_DIR is removed wholesale (it is not the state dir)', () => {
     const dir = '/opt/cg';
-    const present = new Set([dir, `${dir}/versions`, `${dir}/versions/v1.4.0/node`, `${dir}/versions/v1.4.0/bin/codegraph`]);
+    const present = new Set([dir, `${dir}/versions`, `${dir}/versions/v1.4.0/node`, `${dir}/versions/v1.4.0/bin/sleuth`]);
     const plan = planBinaryRemoval(probes({
-      filename: `${dir}/versions/v1.4.0/lib/dist/bin/codegraph.js`,
-      env: { CODEGRAPH_INSTALL_DIR: dir },
+      filename: `${dir}/versions/v1.4.0/lib/dist/bin/sleuth.js`,
+      env: { SLEUTH_INSTALL_DIR: dir },
       present,
     }));
     expect(plan.paths).toContain(dir);
@@ -102,10 +102,10 @@ describe('planBinaryRemoval', () => {
   });
 
   it('a source checkout is reported and never listed for deletion', () => {
-    const repo = `${HOME}/dev/codegraph`;
+    const repo = `${HOME}/dev/sleuth`;
     const present = new Set([`${repo}/package.json`, `${repo}/.git`]);
     const plan = planBinaryRemoval(probes({
-      filename: `${repo}/dist/bin/codegraph.js`,
+      filename: `${repo}/dist/bin/sleuth.js`,
       present,
     }));
     expect(plan.sourceRoot).toBe(repo);
@@ -115,27 +115,27 @@ describe('planBinaryRemoval', () => {
   it('a bin-dir shim pointing somewhere ELSE is left alone', () => {
     const links = new Map([
       [`${STATE}/current`, `${STATE}/versions/v1.4.0`],
-      [`${HOME}/.local/bin/codegraph`, '/usr/local/other-tool/bin/codegraph'],
+      [`${HOME}/.local/bin/sleuth`, '/usr/local/other-tool/bin/sleuth'],
     ]);
     const plan = planBinaryRemoval(probes({ present: bundlePresent(), links }));
-    expect(plan.paths).not.toContain(`${HOME}/.local/bin/codegraph`);
+    expect(plan.paths).not.toContain(`${HOME}/.local/bin/sleuth`);
   });
 
-  it('CODEGRAPH_BIN_DIR override is honored for the shim', () => {
+  it('SLEUTH_BIN_DIR override is honored for the shim', () => {
     const links = new Map([
       [`${STATE}/current`, `${STATE}/versions/v1.4.0`],
-      ['/opt/bin/codegraph', `${STATE}/versions/v1.4.0/bin/codegraph`],
+      ['/opt/bin/sleuth', `${STATE}/versions/v1.4.0/bin/sleuth`],
     ]);
     const plan = planBinaryRemoval(probes({
-      env: { CODEGRAPH_BIN_DIR: '/opt/bin' },
+      env: { SLEUTH_BIN_DIR: '/opt/bin' },
       present: bundlePresent(),
       links,
     }));
-    expect(plan.paths).toContain('/opt/bin/codegraph');
+    expect(plan.paths).toContain('/opt/bin/sleuth');
   });
 
   it('nothing installed → empty plan', () => {
-    const plan = planBinaryRemoval(probes({ filename: '/somewhere/odd/codegraph.js' }));
+    const plan = planBinaryRemoval(probes({ filename: '/somewhere/odd/sleuth.js' }));
     expect(plan.paths).toHaveLength(0);
     expect(plan.npmGlobal).toBe(false);
     expect(plan.summary).toHaveLength(0);
@@ -188,14 +188,14 @@ describe('executeBinaryRemoval', () => {
   });
 
   it('windows: a locked exe inside the tree is renamed aside, then the tree deletes', () => {
-    const dir = 'C:\\Users\\u\\AppData\\Local\\codegraph';
+    const dir = 'C:\\Users\\u\\AppData\\Local\\sleuth';
     const exe = path.join(dir, 'current', 'node.exe');
     const d = deps({ platform: 'win32', execPath: exe, rmFails: new Set([dir]) });
     const result = executeBinaryRemoval(plan({ paths: [dir] }), d);
     expect(result.removed).toEqual([dir]);
     // The renamed exe is surfaced as a leftover for the user to delete.
     expect(result.leftovers).toHaveLength(1);
-    expect(result.leftovers[0]).toContain('codegraph-old-node-');
+    expect(result.leftovers[0]).toContain('sleuth-old-node-');
     expect(d.calls.some((c) => c.startsWith(`mv ${exe} `))).toBe(true);
   });
 

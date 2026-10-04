@@ -10,13 +10,13 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 
 let tempDir: string;
-let cg: CodeGraph | null = null;
+let cg: SleuthGraph | null = null;
 
 function project(files: Record<string, string>): void {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-visibility-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-visibility-'));
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(tempDir, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
@@ -26,7 +26,7 @@ function project(files: Record<string, string>): void {
 
 /** `calls` targets of the function named `caller`, as `file:name` strings. */
 async function calleesOf(caller: string): Promise<string[]> {
-  cg = await CodeGraph.init(tempDir, { index: true });
+  cg = await SleuthGraph.init(tempDir, { index: true });
   cg.resolveReferences();
   const from = cg.getNodesByKind('function').concat(cg.getNodesByKind('method')).find((n) => n.name === caller)!;
   expect(from).toBeDefined();

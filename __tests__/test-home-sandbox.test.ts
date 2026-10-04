@@ -23,7 +23,7 @@ function sandboxHome(): string {
 describe('test home sandbox', () => {
   it('os.homedir() is a throwaway dir under the temp root, not the real home', () => {
     const home = sandboxHome();
-    expect(path.basename(home)).toMatch(/^codegraph-test-home-/);
+    expect(path.basename(home)).toMatch(/^sleuth-test-home-/);
     // The account's profile dir, which ignores HOME / USERPROFILE.
     expect(home).not.toBe(os.userInfo().homedir);
   });
@@ -50,7 +50,7 @@ describe('test home sandbox', () => {
       encoding: 'utf-8',
       windowsHide: true,
     }).trim();
-    expect(name).toBe('CodeGraph Test');
+    expect(name).toBe('SleuthGraph Test');
   });
 
   // os.homedir() reads USERPROFILE there, and git falls back to

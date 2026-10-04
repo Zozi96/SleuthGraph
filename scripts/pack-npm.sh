@@ -3,9 +3,9 @@
 # Assemble the npm thin-installer packages from built bundles (esbuild pattern).
 #
 # Produces, under release/npm/:
-#   codegraph-<target>/   one per built bundle — the vendored Node + app, tagged
+#   sleuth-<target>/   one per built bundle — the vendored Node + app, tagged
 #                         with os/cpu so npm installs only the matching one.
-#   main/                 the @colbymchenry/codegraph shim package: a tiny bin
+#   main/                 the @zozi96/sleuthgraph shim package: a tiny bin
 #                         that execs the matching platform bundle, with every
 #                         platform package in optionalDependencies.
 #
@@ -13,13 +13,13 @@
 # repo's package.json — the dev/from-source path keeps working; the *published*
 # main package's shape is generated here.
 #
-# Prereq: run build-bundle.sh for each target first (release/codegraph-*.tar.gz).
+# Prereq: run build-bundle.sh for each target first (release/sleuth-*.tar.gz).
 # Usage:  scripts/pack-npm.sh [version]    (default: version from package.json)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="${1:-$(node -p "require('$ROOT/package.json').version")}"
-SCOPE="@colbymchenry"
+SCOPE="@zozi96"
 REL="$ROOT/release"
 NPM="$REL/npm"
 
@@ -27,17 +27,17 @@ rm -rf "$NPM"
 mkdir -p "$NPM/main"
 
 shopt -s nullglob
-archives=("$REL"/codegraph-*.tar.gz "$REL"/codegraph-*.zip)
+archives=("$REL"/sleuth-*.tar.gz "$REL"/sleuth-*.zip)
 [ ${#archives[@]} -gt 0 ] || { echo "[pack-npm] no bundles in $REL — run build-bundle.sh first" >&2; exit 1; }
 
 targets=()
 for archive in "${archives[@]}"; do
   fname="$(basename "$archive")"
   case "$fname" in
-    *.tar.gz) base="${fname%.tar.gz}" ;;   # codegraph-<target>
+    *.tar.gz) base="${fname%.tar.gz}" ;;   # sleuth-<target>
     *.zip)    base="${fname%.zip}" ;;
   esac
-  target="${base#codegraph-}"             # <target>, e.g. darwin-arm64 / win32-x64
+  target="${base#sleuth-}"             # <target>, e.g. darwin-arm64 / win32-x64
   os="${target%-*}"                       # darwin | linux | win32
   arch="${target##*-}"                    # arm64 | x64
   pkgdir="$NPM/$base"
@@ -46,7 +46,7 @@ for archive in "${archives[@]}"; do
     *.zip)
       tmpx="$(mktemp -d)"
       unzip -q "$archive" -d "$tmpx"
-      mv "$tmpx/codegraph-${target}"/* "$pkgdir"/
+      mv "$tmpx/sleuthgraph-${target}"/* "$pkgdir"/
       rm -rf "$tmpx"
       nodefile="node.exe"
       ;;
@@ -56,26 +56,26 @@ for archive in "${archives[@]}"; do
       ;;
   esac
   # The browser viewer must survive the archive round-trip too: a tar/zip that
-  # dropped dist/viewer would publish a platform package whose `codegraph ui`
+  # dropped dist/viewer would publish a platform package whose `sleuth ui`
   # serves a 404.
   node "$ROOT/scripts/check-ui-build.mjs" --root "$pkgdir/lib"
   VERSION="$VERSION" SCOPE="$SCOPE" TARGET="$target" OSV="$os" ARCHV="$arch" NODEFILE="$nodefile" \
     node -e '
       const fs=require("fs");
       fs.writeFileSync(process.argv[1], JSON.stringify({
-        name: `${process.env.SCOPE}/codegraph-${process.env.TARGET}`,
+        name: `${process.env.SCOPE}/sleuth-${process.env.TARGET}`,
         version: process.env.VERSION,
-        description: `CodeGraph self-contained bundle for ${process.env.TARGET}`,
+        description: `SleuthGraph self-contained bundle for ${process.env.TARGET}`,
         os: [process.env.OSV], cpu: [process.env.ARCHV],
         files: [process.env.NODEFILE, "lib", "bin"],
         license: "MIT",
         // npm --provenance refuses to publish unless this matches the repo
         // the release workflow runs in.
-        repository: { type: "git", url: "git+https://github.com/colbymchenry/codegraph.git" }
+        repository: { type: "git", url: "git+https://github.com/Zozi96/SleuthGraph.git" }
       }, null, 2) + "\n");
     ' "$pkgdir/package.json"
   targets+=("$target")
-  echo "[pack-npm] ${SCOPE}/codegraph-${target}@${VERSION}"
+  echo "[pack-npm] ${SCOPE}/sleuthgraph-${target}@${VERSION}"
 done
 
 # Main shim package.
@@ -104,12 +104,12 @@ VERSION="$VERSION" SCOPE="$SCOPE" TARGETS="${targets[*]}" \
     const fs=require("fs");
     const opt={};
     for (const t of process.env.TARGETS.split(/\s+/).filter(Boolean))
-      opt[`${process.env.SCOPE}/codegraph-${t}`]=process.env.VERSION;
+      opt[`${process.env.SCOPE}/sleuth-${t}`]=process.env.VERSION;
     fs.writeFileSync(process.argv[1], JSON.stringify({
-      name: `${process.env.SCOPE}/codegraph`,
+      name: `${process.env.SCOPE}/sleuth`,
       version: process.env.VERSION,
       description: "Local-first code intelligence for AI agents (MCP). Self-contained — bundles its own runtime.",
-      bin: { codegraph: "npm-shim.js" },
+      bin: { sleuth: "npm-shim.js" },
       main: "npm-sdk.js",
       types: "dist/index.d.ts",
       exports: {
@@ -119,27 +119,27 @@ VERSION="$VERSION" SCOPE="$SCOPE" TARGETS="${targets[*]}" \
       optionalDependencies: opt,
       files: ["npm-shim.js","npm-sdk.js","dist","README.md"],
       license: "MIT",
-      repository: { type: "git", url: "git+https://github.com/colbymchenry/codegraph.git" }
+      repository: { type: "git", url: "git+https://github.com/Zozi96/SleuthGraph.git" }
     }, null, 2) + "\n");
   ' "$NPM/main/package.json"
 
-echo "[pack-npm] ${SCOPE}/codegraph@${VERSION} (${#targets[@]} platform packages in optionalDependencies)"
+echo "[pack-npm] ${SCOPE}/sleuth@${VERSION} (${#targets[@]} platform packages in optionalDependencies)"
 echo "[pack-npm] output: $NPM"
 
 # ---------------------------------------------------------------------------
-# @colbymchenry/codegraph-ui — the viewer's components as a Svelte library.
+# @zozi96/sleuthgraph-ui — the viewer's components as a Svelte library.
 #
 # Staged into release/npm-ui/, NOT release/npm/: the workflow publishes
-# `release/npm/codegraph-*` by glob, and a directory named codegraph-ui in
+# `release/npm/sleuth-*` by glob, and a directory named sleuthgraph-ui in
 # there would be swept into that loop the moment it existed.
 #
 # OFF by default. The package is prepared, versioned with the engine and
 # tested (CG-61), but publishing it is a decision the maintainer has not
 # made — and `ui/package.json` still carries `"private": true`, which is what
-# actually stops an accidental `npm publish`. Set CODEGRAPH_PACK_UI=1 to build
+# actually stops an accidental `npm publish`. Set SLEUTH_PACK_UI=1 to build
 # the tarball; publishing it additionally means removing that flag.
 # ---------------------------------------------------------------------------
-if [ "${CODEGRAPH_PACK_UI:-0}" = "1" ]; then
+if [ "${SLEUTH_PACK_UI:-0}" = "1" ]; then
   UIREL="$REL/npm-ui"
   rm -rf "$UIREL"
   mkdir -p "$UIREL"
@@ -147,7 +147,7 @@ if [ "${CODEGRAPH_PACK_UI:-0}" = "1" ]; then
   # `npm pack` honours "files" and works on a private package; `npm publish`
   # does not, which is exactly the guard we want to keep for now.
   ( cd "$ROOT/ui" && npm pack --pack-destination "$UIREL" >/dev/null )
-  echo "[pack-npm] ${SCOPE}/codegraph-ui@${VERSION} packed (not published) -> $UIREL"
+  echo "[pack-npm] ${SCOPE}/sleuthgraph-ui@${VERSION} packed (not published) -> $UIREL"
 else
-  echo "[pack-npm] skipping ${SCOPE}/codegraph-ui (set CODEGRAPH_PACK_UI=1 to pack it)"
+  echo "[pack-npm] skipping ${SCOPE}/sleuthgraph-ui (set SLEUTH_PACK_UI=1 to pack it)"
 fi

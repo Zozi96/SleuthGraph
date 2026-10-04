@@ -1,5 +1,5 @@
 /**
- * Regression for #1711 — when codegraph_explore trims a file, elided symbols
+ * Regression for #1711 — when sleuth_explore trims a file, elided symbols
  * must be named (gap markers + header bias), not left as a bare `... (gap) ...`
  * while the footer asks for "exact names" the model was never given.
  */
@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import {
   ToolHandler,
   formatGapMarker,
@@ -74,11 +74,11 @@ describe('#1711 helpers — name what a trim dropped', () => {
 
 describe('#1711 explore — trimmed file names its elisions', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let response: string;
 
   beforeAll(async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1711-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1711-'));
     fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"cg1711","version":"1.0.0"}\n');
     const srcDir = path.join(dir, 'src');
     fs.mkdirSync(srcDir);
@@ -107,9 +107,9 @@ describe('#1711 explore — trimmed file names its elisions', () => {
       fs.writeFileSync(path.join(srcDir, `noise${i}.ts`), `export const n${i} = ${i};\n`);
     }
 
-    cg = CodeGraph.initSync(dir);
+    cg = SleuthGraph.initSync(dir);
     await cg.indexAll();
-    const result = await new ToolHandler(cg).execute('codegraph_explore', {
+    const result = await new ToolHandler(cg).execute('sleuth_explore', {
       query:
         'In this repos ESPN draft observer (espn-draft-observer.ts), name in order the chain of methods from scrapeFullDraftState to the method that calls storage.saveDraftState. One line.',
     });

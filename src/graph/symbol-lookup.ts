@@ -2,7 +2,7 @@
  * Symbol Lookup — the single "what did the user mean by this name?" path.
  *
  * Every verb that takes a symbol NAME from a human (or an agent) has to turn
- * that string into node(s). `codegraph_node` and `codegraph_explore` went
+ * that string into node(s). `sleuth_node` and `sleuth_explore` went
  * through the matcher below; the `callers` / `callees` / `impact` CLI verbs
  * carried their own ad-hoc filter instead:
  *
@@ -114,7 +114,7 @@ export function matchesSymbol(node: Node, symbol: string): boolean {
   );
 }
 
-/** The slice of CodeGraph a symbol lookup needs — keeps this module testable. */
+/** The slice of SleuthGraph a symbol lookup needs — keeps this module testable. */
 export interface SymbolLookupHost {
   getNodesByName(name: string): Node[];
   searchNodes(query: string, options?: { limit?: number }): Array<{ node: Node }>;

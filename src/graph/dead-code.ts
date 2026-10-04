@@ -47,7 +47,7 @@
  *   follow, and a symbol whose name we failed to follow cannot be called
  *   unreferenced.
  * - **another symbol of the same name IS referenced.** This is the one that
- *   matters most and the one nothing else would catch. `CodeGraph.getTopRouteFile`
+ *   matters most and the one nothing else would catch. `SleuthGraph.getTopRouteFile`
  *   calls `this.queries.getTopRouteFile()`; the resolver prefers a same-name
  *   definition in the call site's own file, so the edge lands on the caller
  *   itself and the real target is left with nothing. From the edge table,
@@ -89,7 +89,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import type CodeGraph from '../index';
+import type SleuthGraph from '../index';
 import type { Node, NodeKind } from '../types';
 import { isTestFile } from '../search/query-utils';
 
@@ -420,7 +420,7 @@ export interface DeadCodeQuery {
  * The dead code report: unreferenced symbols, minus every reason to doubt it,
  * plus a count of every doubt.
  */
-export function buildDeadCodeReport(cg: CodeGraph, query: DeadCodeQuery = {}): DeadCodeReport {
+export function buildDeadCodeReport(cg: SleuthGraph, query: DeadCodeQuery = {}): DeadCodeReport {
   const kinds = normalizeKinds(query.kinds);
   const includeExported = query.includeExported === true;
   const includeTests = query.includeTests === true;
@@ -663,7 +663,7 @@ export function buildDeadCodeReport(cg: CodeGraph, query: DeadCodeQuery = {}): D
  * project root — a `filePath` comes out of the index, but the index is a file
  * on disk and this module should not be the thing that trusts it.
  */
-function defaultSourceReader(cg: CodeGraph): (filePath: string) => string | null {
+function defaultSourceReader(cg: SleuthGraph): (filePath: string) => string | null {
   const root = path.resolve(cg.getProjectRoot());
   return (filePath: string): string | null => {
     try {
@@ -716,7 +716,7 @@ function isIdentifierChar(char: string | undefined): boolean {
  * file node almost never receives one). Zero means nothing else in the index
  * reaches into this file at all.
  */
-function filesNothingReaches(cg: CodeGraph, filePaths: readonly string[]): Set<string> {
+function filesNothingReaches(cg: SleuthGraph, filePaths: readonly string[]): Set<string> {
   const unique = [...new Set(filePaths)];
   if (unique.length === 0) return new Set();
   const dependents = cg.getFileDependentCounts(unique);
@@ -763,7 +763,7 @@ function normalizeKinds(requested: readonly NodeKind[] | undefined): NodeKind[] 
  * themselves — never a lookup per row. Only type-ish containers are returned: a
  * function's container is the file, which tells us nothing.
  */
-function containersOf(cg: CodeGraph, nodes: readonly Node[]): Map<string, Node> {
+function containersOf(cg: SleuthGraph, nodes: readonly Node[]): Map<string, Node> {
   const memberIds = nodes.filter((node) => OVERRIDABLE_KINDS.has(node.kind)).map((n) => n.id);
   const out = new Map<string, Node>();
   if (memberIds.length === 0) return out;
@@ -806,7 +806,7 @@ function containersOf(cg: CodeGraph, nodes: readonly Node[]): Map<string, Node> 
  * ancestor of one that has it, counts as having an opaque ancestor (#1973).
  */
 function overrideCandidates(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   nodes: readonly Node[],
   containers: ReadonlyMap<string, Node>
 ): Set<string> {

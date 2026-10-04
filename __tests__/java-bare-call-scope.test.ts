@@ -7,7 +7,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const roots: string[] = [];
 afterAll(() => {
@@ -59,7 +59,7 @@ describe('Java: a bare call reaches what is in scope', () => {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const callsFrom = (name: string): string[] => {
         const from = cg.getNodesByName(name).find((n) => n.kind === 'method')!;

@@ -1,11 +1,11 @@
 /**
  * Tiny TOML helpers — just enough to inject / replace / remove a
- * single dotted-key table block (`[mcp_servers.codegraph]`) inside an
+ * single dotted-key table block (`[mcp_servers.sleuth]`) inside an
  * existing `~/.codex/config.toml`. We deliberately do NOT try to be a
  * general TOML parser/serializer; that would mean pulling in a
  * dependency (~50KB) for ~6 lines of output.
  *
- * Strategy: treat the file as text. Find the `[mcp_servers.codegraph]`
+ * Strategy: treat the file as text. Find the `[mcp_servers.sleuth]`
  * header line, splice it (and the lines that follow it until the next
  * `[...]` / `[[...]]` header or EOF) in or out. A small lexical scan keeps
  * header-shaped text inside multiline values out of the boundary search.
@@ -14,7 +14,7 @@
  * Limitations (acceptable for our narrow use):
  *   - Only writes a top-level table header. Array-of-tables and sibling
  *     subtables are preserved as opaque blocks (we always write the full
- *     dotted key `[mcp_servers.codegraph]`).
+ *     dotted key `[mcp_servers.sleuth]`).
  *   - Doesn't validate sibling TOML — if the file is malformed
  *     elsewhere, our injection won't fix it but won't make it worse.
  *   - Quotes string values with double quotes; escapes `\` and `"`.

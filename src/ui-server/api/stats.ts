@@ -10,7 +10,7 @@
  */
 
 import * as path from 'path';
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import { BLAST_DEPTH, HUB_THRESHOLD, UNCERTAIN_BELOW } from './wire';
 
 /**
@@ -53,7 +53,7 @@ export interface WireBlastScale {
 let cachedScale: { key: string; value: WireBlastScale } | null = null;
 
 export function blastScaleFor(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   edgeCount: number
 ): WireBlastScale {
@@ -92,7 +92,7 @@ export function resetBlastScaleCache(): void {
   cachedScale = null;
 }
 
-export function buildStats(cg: CodeGraph, projectRoot: string): unknown {
+export function buildStats(cg: SleuthGraph, projectRoot: string): unknown {
   const stats = cg.getStats();
   const build = cg.getIndexBuildInfo();
 

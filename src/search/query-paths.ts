@@ -1,7 +1,7 @@
 /**
  * File-path recognition for explore queries.
  *
- * Agents routinely name files by path in a `codegraph_explore` query —
+ * Agents routinely name files by path in a `sleuth_explore` query —
  * "the scroll logic in src/routes/m/projects/[id]/runs/[runId]/+page.svelte" —
  * and until this module existed those spans were SHREDDED by the downstream
  * tokenizers instead of being read as file references:

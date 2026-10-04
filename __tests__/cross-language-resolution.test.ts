@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { matchReference, matchByQualifiedName, matchFuzzy, gateLanguageMatch } from '../src/resolution/name-matcher';
 import type { ResolutionContext, UnresolvedRef } from '../src/resolution/types';
 
 describe('cross-language name resolution (#1986)', () => {
   let dir: string;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
   beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-language-')); });
   afterEach(() => {
     cg?.close();
@@ -21,7 +21,7 @@ describe('cross-language name resolution (#1986)', () => {
       fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
       fs.writeFileSync(path.join(dir, file), source);
     }
-    cg = await CodeGraph.init(dir, { silent: true });
+    cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     return cg;
   }

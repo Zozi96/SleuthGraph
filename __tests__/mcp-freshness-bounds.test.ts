@@ -32,7 +32,7 @@ describe('bounded freshness validation (#1959)', () => {
   });
 
   it('marks a file beyond the byte budget unchecked instead of fresh', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-freshness-bounds-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-freshness-bounds-'));
     const content = 'x'.repeat(9 * 1024 * 1024);
     fs.writeFileSync(path.join(root, 'large.ts'), content);
     const result = await validateAnswerFiles(root, [{
@@ -94,7 +94,7 @@ describe('bounded freshness validation (#1959)', () => {
   });
 
   it('aborts stalled file reads and reports all remaining paths as unchecked', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-freshness-deadline-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-freshness-deadline-'));
     fs.writeFileSync(path.join(root, 'stalled.ts'), 'export const x = 1;');
     vi.mocked(fs.createReadStream).mockImplementationOnce((_file, options) => new Readable({
       read() {}, signal: (options as { signal: AbortSignal }).signal,

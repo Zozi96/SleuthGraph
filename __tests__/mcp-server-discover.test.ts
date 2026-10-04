@@ -15,16 +15,16 @@ import { once } from 'events';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { WASM_RUNTIME_FLAGS } from '../src/extraction/wasm-runtime-flags';
 import { recordSpawns, removeSpawnLog, settleLosingCandidates, spawnLogFor } from './daemon-candidates';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 const DISCOVER = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'server/discover' }) + '\n';
 
 function readLockPid(root: string): number | null {
   try {
-    const info = JSON.parse(fs.readFileSync(path.join(root, '.codegraph', 'daemon.pid'), 'utf8'));
+    const info = JSON.parse(fs.readFileSync(path.join(root, '.sleuth', 'daemon.pid'), 'utf8'));
     return typeof info === 'number' ? info : typeof info.pid === 'number' ? info.pid : null;
   } catch { return null; }
 }
@@ -36,7 +36,7 @@ function isAlive(pid: number): boolean {
 /**
  * Send one `server/discover` line and resolve with everything the server wrote
  * to stdout once it has exited. `closeStdin: 'at-once'` is the shape of the
- * `printf … | codegraph serve --mcp` repro; `'after-reply'` is a client that
+ * `printf … | sleuth serve --mcp` repro; `'after-reply'` is a client that
  * waits for the answer (stdin is closed on the first stdout line).
  */
 async function discover(
@@ -49,7 +49,7 @@ async function discover(
   const child = spawn(process.execPath, [...WASM_RUNTIME_FLAGS, ...recorder.args, BIN, 'serve', '--mcp', '--no-watch'], {
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, ...recorder.env, CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '1000', ...env },
+    env: { ...process.env, ...recorder.env, SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '1000', ...env },
   }) as ChildProcessWithoutNullStreams;
   children.push(child);
   child.on('error', () => { /* ignore */ });
@@ -80,7 +80,7 @@ describe('server/discover probe (issue #2084)', () => {
   const children: ChildProcessWithoutNullStreams[] = [];
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-mcp-discover-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-mcp-discover-'));
     realRoot = fs.realpathSync(tempDir);
   });
 
@@ -108,26 +108,26 @@ describe('server/discover probe (issue #2084)', () => {
   }, 45_000);
 
   it('proxy mode answers -32601 even when the client closes stdin right after the probe', async () => {
-    const cg = await CodeGraph.init(tempDir);
+    const cg = await SleuthGraph.init(tempDir);
     cg.close();
     expectMethodNotFound(await discover(tempDir, {}, children));
   }, 20_000);
 
   it('proxy mode answers -32601, not "daemon unavailable", when the daemon cannot start', async () => {
-    const cg = await CodeGraph.init(tempDir);
+    const cg = await SleuthGraph.init(tempDir);
     cg.close();
     // A legacy plain-pid lock held by a live process (this worker) makes every
     // daemon candidate step aside, so the proxy never gets a daemon.
-    fs.writeFileSync(path.join(realRoot, '.codegraph', 'daemon.pid'), `${process.pid}\n`);
+    fs.writeFileSync(path.join(realRoot, '.sleuth', 'daemon.pid'), `${process.pid}\n`);
     expectMethodNotFound(await discover(tempDir, {}, children, 'after-reply'));
   }, 20_000);
 
   it.each([
-    ['CODEGRAPH_NO_DAEMON=1 on an indexed project', true, { CODEGRAPH_NO_DAEMON: '1' }],
-    ['no .codegraph/ in the working directory', false, {}],
+    ['SLEUTH_NO_DAEMON=1 on an indexed project', true, { SLEUTH_NO_DAEMON: '1' }],
+    ['no .sleuth/ in the working directory', false, {}],
   ])('direct mode answers -32601 (%s)', async (_label, indexed, env) => {
     if (indexed) {
-      const cg = await CodeGraph.init(tempDir);
+      const cg = await SleuthGraph.init(tempDir);
       cg.close();
     }
     expectMethodNotFound(await discover(tempDir, env, children));

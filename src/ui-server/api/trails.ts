@@ -35,12 +35,12 @@
  * does not exist. So the payload carries the longest run of consecutive
  * resolved hops, and the row says when that is less than the whole trail.
  *
- * Storage — the only write `codegraph ui` makes — is `./trail-store.ts`.
+ * Storage — the only write `sleuth ui` makes — is `./trail-store.ts`.
  */
 
 import { execFileSync } from 'child_process';
 import * as os from 'os';
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import type { Node } from '../../types';
 import { ApiError, badRequest, notFound } from './respond';
 import {
@@ -140,7 +140,7 @@ export interface WireTrails {
  * identity, and a recycled one pointing at a different symbol would put a
  * stranger in the middle of somebody's explanation.
  */
-export function resolveHop(cg: CodeGraph, hop: StoredHop): WireTrailHop {
+export function resolveHop(cg: SleuthGraph, hop: StoredHop): WireTrailHop {
   const base = {
     dir: hop.dir,
     name: hop.name,
@@ -254,7 +254,7 @@ export function encodeResolvedRun(hops: readonly WireTrailHop[]): {
   };
 }
 
-export function resolveTrail(cg: CodeGraph, stored: StoredTrail): WireTrail {
+export function resolveTrail(cg: SleuthGraph, stored: StoredTrail): WireTrail {
   const hops = stored.hops.map((hop) => resolveHop(cg, hop));
   const run = encodeResolvedRun(hops);
   return {
@@ -280,7 +280,7 @@ export interface TrailsOptions {
 }
 
 export function buildTrails(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   options: TrailsOptions
 ): WireTrails {
@@ -318,7 +318,7 @@ export interface SaveTrailRequest {
  * answer says `replaced` so the screen can too.
  */
 export function saveTrail(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   body: unknown,
   options: TrailsOptions
@@ -372,7 +372,7 @@ export function saveTrail(
 }
 
 export function removeTrail(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   id: string,
   options: TrailsOptions
@@ -436,7 +436,7 @@ function parseSaveRequest(body: unknown): { name: string; note: string; hops: Sa
  * others to read and that is the name they already sign work with in this
  * project; the OS user is the fallback. Read ONCE per process — `git config` is
  * a subprocess, and a save should not pay for it twice — and never sent
- * anywhere: it goes into a file inside the user's own `.codegraph/`.
+ * anywhere: it goes into a file inside the user's own `.sleuth/`.
  */
 let cachedAuthor: string | null = null;
 

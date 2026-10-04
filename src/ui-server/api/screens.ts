@@ -28,7 +28,7 @@
  */
 
 import * as fs from 'fs';
-import type CodeGraph from '../../index';
+import type SleuthGraph from '../../index';
 import type { Edge, Node } from '../../types';
 import { routeLayouts, routeRoots } from './route-roots';
 import { resolveProjectFile } from '../security';
@@ -221,7 +221,7 @@ function isScreenRoute(route: Node): boolean {
   return route.name.startsWith('/') && !`/${route.filePath}`.includes('/server/api/');
 }
 
-export async function buildScreens(cg: CodeGraph, projectRoot: string): Promise<WireScreensPayload> {
+export async function buildScreens(cg: SleuthGraph, projectRoot: string): Promise<WireScreensPayload> {
   const started = Date.now();
   const stats = cg.getStats();
   const index = { lastIndexedAt: cg.getLastIndexedAt() ?? null, edges: stats.edgeCount, files: stats.fileCount };
@@ -445,7 +445,7 @@ interface Attribution {
  * answer would be a guess.
  */
 async function attribute(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   holder: Node,
   screenOfComponent: Map<string, string[]>,
@@ -577,7 +577,7 @@ function collapseSharedChrome(starts: Attribution[], origins: Map<string, WireSc
  * name in the files importing it (the import line itself excepted), read from
  * the source at request time. Bounded: a handful of files, a handful of hits.
  */
-function mentionsOf(cg: CodeGraph, projectRoot: string, value: Node): Edge[] {
+function mentionsOf(cg: SleuthGraph, projectRoot: string, value: Node): Edge[] {
   const out: Edge[] = [];
   const importers = cg
     .getIncomingEdgesTo([value.id], ['imports'])
@@ -616,7 +616,7 @@ function mentionsOf(cg: CodeGraph, projectRoot: string, value: Node): Edge[] {
 }
 
 /** The smallest constant / variable of a file whose lines contain `line`, or null. */
-function valueSpanning(cg: CodeGraph, filePath: string, line: number, memo: Map<string, Node[]>): Node | null {
+function valueSpanning(cg: SleuthGraph, filePath: string, line: number, memo: Map<string, Node[]>): Node | null {
   let values = memo.get(filePath);
   if (!values) {
     values = cg.getNodesInFile(filePath).filter((n) => n.kind === 'constant' || n.kind === 'variable');

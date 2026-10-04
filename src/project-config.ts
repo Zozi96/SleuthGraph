@@ -1,9 +1,9 @@
 /**
- * Project-scoped configuration: a committed `codegraph.json` at the project
+ * Project-scoped configuration: a committed `sleuth.json` at the project
  * root that a team shares through version control.
  *
  * Today it carries one thing — `extensions`, an opt-in map from a custom file
- * extension to one of CodeGraph's supported languages. The built-in
+ * extension to one of SleuthGraph's supported languages. The built-in
  * extension → language table (`EXTENSION_MAP` in `extraction/grammars.ts`) is
  * otherwise hardcoded, so a codebase that uses a non-standard extension for a
  * supported language (e.g. `.dota_lua` for Lua) sees those files silently
@@ -29,7 +29,7 @@ import { isLanguageSupported } from './extraction/grammars';
 import { logWarn } from './errors';
 
 /** Filename of the project-scoped config, resolved relative to the project root. */
-export const PROJECT_CONFIG_FILENAME = 'codegraph.json';
+export const PROJECT_CONFIG_FILENAME = 'sleuth.json';
 
 export interface ProjectConfig {
   /** Map of custom file extension (`.foo`) to a supported language id. */
@@ -63,7 +63,7 @@ export interface ProjectConfig {
    * paths, so `"Tools/"`, a recursive `"Tools/**"` glob, or `"Local/typescript"`
    * all work.
    * Built-in default-ignored dirs (`node_modules`, `dist`, …), `.git`, and
-   * CodeGraph's own data dir are never resurfaced; an explicit `exclude` still
+   * SleuthGraph's own data dir are never resurfaced; an explicit `exclude` still
    * wins. Absent/empty (the default) forces nothing in.
    */
   include?: string[];
@@ -84,7 +84,7 @@ export interface ProjectConfig {
   deprioritize?: string[];
 }
 
-/** Parsed, validated view of a project's `codegraph.json`. */
+/** Parsed, validated view of a project's `sleuth.json`. */
 interface ParsedConfig {
   extensions: Record<string, Language>;
   includeIgnored: string[];
@@ -101,7 +101,7 @@ interface CacheEntry {
 /**
  * Cache keyed by project root. The loader is called once per indexing/scan/sync
  * operation (and per watch event), so the mtime guard keeps repeat calls to one
- * `stat` while a single `codegraph.json` is in force. Keying by root keeps two
+ * `stat` while a single `sleuth.json` is in force. Keying by root keeps two
  * projects in the same process (the daemon / multi-project MCP server) isolated.
  */
 const cache = new Map<string, CacheEntry>();
@@ -137,7 +137,7 @@ function normalizeExtKey(raw: string): string | null {
 }
 
 /**
- * Read + JSON-parse a `codegraph.json` once and return its validated view.
+ * Read + JSON-parse a `sleuth.json` once and return its validated view.
  * Every failure mode degrades to the zero-config default — a missing file, bad
  * JSON, or a typo'd value never throws.
  */
@@ -307,7 +307,7 @@ function extractInclude(parsed: object, file: string): string[] {
 }
 
 /**
- * Load the parsed `codegraph.json` for a project, mtime-cached. A missing or
+ * Load the parsed `sleuth.json` for a project, mtime-cached. A missing or
  * malformed file yields the zero-config default. One `stat` (and at most one
  * read/parse) while a single config file is in force, shared across every field.
  */
@@ -337,7 +337,7 @@ function loadParsedConfig(rootDir: string): ParsedConfig {
  * Returns a map of `.ext` → supported language id. The result merges on top of
  * the built-in extension map at the point of use (see `detectLanguage` /
  * `isSourceFile`), with these user mappings taking precedence. Returns an empty
- * map when there is no `codegraph.json` (the zero-config default).
+ * map when there is no `sleuth.json` (the zero-config default).
  */
 export function loadExtensionOverrides(rootDir: string): Record<string, Language> {
   return loadParsedConfig(rootDir).extensions;
@@ -384,7 +384,7 @@ export function loadDeprioritizePatterns(rootDir: string): string[] {
  * These name first-party source to force INTO the index even when `.gitignore`
  * would drop it — the whitelist for SVN/Perforce-only source a project
  * gitignores out of Git. An empty result — the zero-config default — forces
- * nothing in. Built-in default-ignored dirs, `.git`, and CodeGraph's data dir
+ * nothing in. Built-in default-ignored dirs, `.git`, and SleuthGraph's data dir
  * are never resurfaced, and an explicit `exclude` still wins.
  */
 export function loadIncludePatterns(rootDir: string): string[] {
@@ -397,13 +397,13 @@ export function clearProjectConfigCache(): void {
 }
 
 /**
- * Add gitignore-style patterns to a project's `codegraph.json` `includeIgnored`
+ * Add gitignore-style patterns to a project's `sleuth.json` `includeIgnored`
  * list, creating the file if absent and preserving every other key. Used by the
  * CLI to opt a "super-repo of gitignored child repos" (#1156) into the index on
  * the user's say-so. Returns the count of patterns actually ADDED (ones already
  * present are skipped, so a re-run is idempotent).
  *
- * A plain-JSON round-trip: a `codegraph.json` carrying comments (not valid JSON)
+ * A plain-JSON round-trip: a `sleuth.json` carrying comments (not valid JSON)
  * already fails to load with a warning, so rather than silently clobber such a
  * file this throws when an existing config won't parse — the caller falls back
  * to printing the manual snippet. Invalidates the config cache so a subsequent

@@ -3,15 +3,15 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { stopDaemonAt, isProcessAlive } from '../src/mcp/daemon-registry';
 import { readWriterLock, releaseWriterLock, tryAcquireWriterLock } from '../src/mcp/writer-lock';
 
-const bin = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const bin = path.resolve(__dirname, '../dist/bin/sleuth.js');
 let root: string;
 let children: ChildProcessWithoutNullStreams[];
-const env = { ...process.env, CODEGRAPH_TELEMETRY: '0', DO_NOT_TRACK: '1',
-  CODEGRAPH_NO_PROMPT_HOOK: '1', CODEGRAPH_NO_DAEMON: '', CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '60000' };
+const env = { ...process.env, SLEUTH_TELEMETRY: '0', DO_NOT_TRACK: '1',
+  SLEUTH_NO_PROMPT_HOOK: '1', SLEUTH_NO_DAEMON: '', SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '60000' };
 
 async function until<T>(fn: () => T, timeout = 20000): Promise<NonNullable<T>> {
   const end = Date.now() + timeout;
@@ -45,7 +45,7 @@ async function client() {
   send(server, 1, 'initialize', { protocolVersion: '2024-11-05', capabilities: {},
     clientInfo: { name: 'rebuild-test', version: '1' } });
   await response(server, 1);
-  send(server, 2, 'tools/call', { name: 'codegraph_explore', arguments: { query: 'originalSymbol' } });
+  send(server, 2, 'tools/call', { name: 'sleuth_explore', arguments: { query: 'originalSymbol' } });
   expect((await response(server, 2)).result.isError).not.toBe(true);
   return server;
 }
@@ -59,7 +59,7 @@ beforeEach(async () => {
   root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cg-rebuild-')));
   children = [];
   fs.writeFileSync(path.join(root, 'app.ts'), 'export function originalSymbol() {}\n');
-  const cg = await CodeGraph.init(root);
+  const cg = await SleuthGraph.init(root);
   await cg.indexAll();
   cg.close();
 });
@@ -76,13 +76,13 @@ afterEach(async () => {
 
 it.runIf(process.platform === 'win32')('rebuilds after the real MCP client closes with SQLite held by its daemon (#1325)', async () => {
   const server = await client();
-  const pid = JSON.parse(fs.readFileSync(path.join(root, '.codegraph/daemon.pid'), 'utf8')).pid;
+  const pid = JSON.parse(fs.readFileSync(path.join(root, '.sleuth/daemon.pid'), 'utf8')).pid;
   server.child.stdin.end();
   await until(() => server.child.exitCode !== null);
   expect(isProcessAlive(pid)).toBe(true);
   await rebuild();
   expect(isProcessAlive(pid)).toBe(false);
-  const cg = CodeGraph.openSync(root);
+  const cg = SleuthGraph.openSync(root);
   try { expect(cg.searchNodes('originalSymbol').length).toBeGreaterThan(0); }
   finally { cg.close(); }
 }, 90000);
@@ -94,13 +94,13 @@ it('keeps an active client from reopening SQLite during rebuild and serves the n
   expect(tryAcquireWriterLock(root, 'rebuild', 'rebuild.pid').kind).toBe('acquired');
   expect((await stopDaemonAt(root)).outcome).toMatch(/term|kill/);
   await until(() => server.errors().includes('connection lost'));
-  send(server, 3, 'tools/call', { name: 'codegraph_explore', arguments: { query: 'originalSymbol' } });
+  send(server, 3, 'tools/call', { name: 'sleuth_explore', arguments: { query: 'originalSymbol' } });
   expect((await response(server, 3)).error.message).toContain('rebuild is in progress');
   expect(readWriterLock(root)?.mode).not.toBe('fallback');
   releaseWriterLock(root, 'rebuild.pid');
   fs.writeFileSync(path.join(root, 'app.ts'), 'export function replacementSymbol() {}\n');
   await rebuild();
-  send(server, 4, 'tools/call', { name: 'codegraph_explore', arguments: { query: 'replacementSymbol' } });
+  send(server, 4, 'tools/call', { name: 'sleuth_explore', arguments: { query: 'replacementSymbol' } });
   const reply = await response(server, 4);
   expect(reply.error).toBeUndefined();
   expect(reply.result.isError).not.toBe(true);
@@ -109,13 +109,13 @@ it('keeps an active client from reopening SQLite during rebuild and serves the n
 
 it('preserves a foreign writer and the existing database', async () => {
   expect(tryAcquireWriterLock(root, 'direct').kind).toBe('acquired');
-  const before = fs.readFileSync(path.join(root, '.codegraph/codegraph.db'));
+  const before = fs.readFileSync(path.join(root, '.sleuth/sleuth.db'));
   try {
     const cmd = start(['index', '--quiet']);
     await until(() => cmd.child.exitCode !== null);
     expect(cmd.child.exitCode).toBe(1);
     expect(cmd.errors()).toContain('writer lock held');
     expect(readWriterLock(root)?.pid).toBe(process.pid);
-    expect(fs.readFileSync(path.join(root, '.codegraph/codegraph.db'))).toEqual(before);
+    expect(fs.readFileSync(path.join(root, '.sleuth/sleuth.db'))).toEqual(before);
   } finally { releaseWriterLock(root); }
 });

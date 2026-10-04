@@ -10,10 +10,10 @@ import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 let root = '';
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-objc-super-'));
@@ -57,7 +57,7 @@ beforeAll(async () => {
   for (const [rel, content] of Object.entries(files)) {
     fs.writeFileSync(path.join(root, rel), content);
   }
-  cg = await CodeGraph.init(root, { index: true });
+  cg = await SleuthGraph.init(root, { index: true });
 });
 
 afterAll(() => {

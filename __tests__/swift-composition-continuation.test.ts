@@ -13,7 +13,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { joinSwiftCompositionContinuations as join } from '../src/extraction/languages/swift';
 
 describe('joinSwiftCompositionContinuations', () => {
@@ -105,7 +105,7 @@ enum Assistant {
 }
 `
     );
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const inFile = cg.getNodesInFile('Sources/Editor/EditorStore.swift');
       const store = inFile.find((n) => n.name === 'EditorStore' && n.kind === 'class');

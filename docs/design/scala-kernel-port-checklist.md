@@ -675,7 +675,7 @@ nothing**. Line-comment runs are CRLF-clean (per-comment trim eats the
 
 ### Value-reference edges (:398-931) — scala IS in VALUE_REF_LANGS (:401)
 
-Port the full machinery (crib kotlin.rs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib kotlin.rs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES 20,000; isGeneratedFile skip.
 
 - **Targets** (captureValueRefScope:735): kind constant|variable, name len ≥3
@@ -884,10 +884,10 @@ No layers/special/ungatedModes/addressOfOnly. NAME_STOPLIST applies
     parity denominator).
   (cloned fresh at survey; re-clone public OSS if gone — agent-eval policy.)
   Expect 0-diff on every NON-deferred file. Then **full-init dump-diffs
-  byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`, `dump-graph.mjs`,
+  byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`, `dump-graph.mjs`,
   cmp) on all three.
 - **Suite**: kernel-scala-parity torture + CRLF variants + `.sc` fixture +
-  defer fixtures (§Fixtures 5-6) ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  defer fixtures (§Fixtures 5-6) ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'scala'`** (kernel/index.ts:37 list) only after ALL of
   the above; changelog rides the existing kernel entry.
 - Post-route perf sanity: gate repos ride the raw path; a Play-detected repo

@@ -24,7 +24,7 @@
  * The full-repo sweeps live in scripts/kernel-parity.mjs (kong/lazy.nvim/
  * lua-resty-core + lune/Fusion for the §5 gate); this suite keeps the
  * invariant alive in `npm test`. Skips when no kernel binary is staged;
- * CODEGRAPH_KERNEL_EXPECT=1 turns that into a failure.
+ * SLEUTH_KERNEL_EXPECT=1 turns that into a failure.
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
@@ -59,7 +59,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel Lua/Luau extraction parity', () => {
@@ -87,14 +87,14 @@ describe.skipIf(!kernelBuilt)('kernel Lua/Luau extraction parity', () => {
     lang: Language,
     minNodes = 3
   ): ExtractionResult {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, lang);
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, lang);
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -205,15 +205,15 @@ describe.skipIf(!kernelBuilt)('kernel Lua/Luau extraction parity', () => {
   it('cross-dialect syntax defers to the wasm extractor', () => {
     // Luau syntax in a .lua file and a luau default type parameter both
     // ERROR (grammar-inherent, both-arm) — the kernel defers per-file.
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/compound.lua', 'x += 1\n', 'lua')).toBeNull();
     expect(
       tryKernelExtract('src/defaultparam.luau', 'type S<T = U> = {}\n', 'luau')
     ).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/compound.lua', 'x += 1\n', 'lua');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'file')).toBe(true);
   });
 });

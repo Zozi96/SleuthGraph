@@ -1,6 +1,6 @@
 # payroll-go — the #1500 regression fixture
 
-A synthetic Go service reproducing the repo shape from [issue #1500](https://github.com/colbymchenry/codegraph/issues/1500):
+A synthetic Go service reproducing the repo shape from [issue #1500](https://github.com/Zozi96/SleuthGraph/issues/1500):
 **generated CRUD sitting beside the hand-written use-case that does the real work.**
 
 This tree is a fixture, not a program. It never compiles or runs — it exists to be

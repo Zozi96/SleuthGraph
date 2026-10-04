@@ -13,7 +13,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src';
+import SleuthGraph from '../src';
 import { QueryBuilder } from '../src/db/queries';
 import { DatabaseConnection, getDatabasePath } from '../src/db';
 
@@ -27,17 +27,17 @@ function chain(prefix: string, n: number): string {
   return lines.join('\n') + '\n';
 }
 
-function queriesOf(cg: CodeGraph): QueryBuilder {
+function queriesOf(cg: SleuthGraph): QueryBuilder {
   return (cg as unknown as { queries: QueryBuilder }).queries;
 }
 
-function spyCompute(cg: CodeGraph) {
+function spyCompute(cg: SleuthGraph) {
   return vi.spyOn(queriesOf(cg) as unknown as { computeDominantFile: () => unknown }, 'computeDominantFile');
 }
 
 describe('dominant file — computed once per index state (#1864)', () => {
   let dir: string;
-  const open: CodeGraph[] = [];
+  const open: SleuthGraph[] = [];
 
   afterEach(() => {
     for (const cg of open.splice(0)) cg.close();
@@ -45,13 +45,13 @@ describe('dominant file — computed once per index state (#1864)', () => {
     if (dir) fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  async function setup(): Promise<CodeGraph> {
+  async function setup(): Promise<SleuthGraph> {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-dominant-'));
     fs.mkdirSync(path.join(dir, 'core'));
     fs.mkdirSync(path.join(dir, 'ext'));
     fs.writeFileSync(path.join(dir, 'core', 'engine.ts'), chain('engineStep', 40));
     fs.writeFileSync(path.join(dir, 'ext', 'plugin.ts'), chain('pluginStep', 5));
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     open.push(cg);
     return cg;
   }
@@ -82,7 +82,7 @@ describe('dominant file — computed once per index state (#1864)', () => {
 
   it('sees a sync made through another connection (another process)', async () => {
     const writer = await setup();
-    const reader = await CodeGraph.open(dir);
+    const reader = await SleuthGraph.open(dir);
     open.push(reader);
     expect(queriesOf(reader).getDominantFile()?.filePath).toBe('core/engine.ts');
 
@@ -114,7 +114,7 @@ describe('dominant file — computed once per index state (#1864)', () => {
     try {
       fs.mkdirSync(path.join(other, 'ext'));
       fs.writeFileSync(path.join(other, 'ext', 'plugin.ts'), chain('pluginStep', 120));
-      (await CodeGraph.init(other, { index: true })).close();
+      (await SleuthGraph.init(other, { index: true })).close();
       conns.push(DatabaseConnection.open(getDatabasePath(dir)), DatabaseConnection.open(getDatabasePath(other)));
       const q = new QueryBuilder(conns[0]!.getDb());
       expect(q.getDominantFile()?.filePath).toBe('core/engine.ts');
@@ -132,7 +132,7 @@ describe('dominant file — computed once per index state (#1864)', () => {
     const reader = await setup();
     expect(queriesOf(reader).getDominantFile()?.filePath).toBe('core/engine.ts');
     fs.writeFileSync(path.join(dir, 'ext', 'plugin.ts'), chain('pluginStep', 120));
-    const rebuilt = await CodeGraph.recreate(dir);
+    const rebuilt = await SleuthGraph.recreate(dir);
     try { await rebuilt.indexAll(); } finally { rebuilt.close(); }
     expect(reader.reopenIfReplaced()).toBe(true);
     expect(queriesOf(reader).getDominantFile()?.filePath).toBe('ext/plugin.ts');

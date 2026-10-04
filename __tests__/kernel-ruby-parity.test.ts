@@ -16,7 +16,7 @@
  *
  * The full-repo sweep lives in scripts/kernel-parity.mjs (sinatra/jekyll/
  * rails for the §5 gate); this suite keeps the invariant alive in `npm test`.
- * Skips when no kernel binary is staged; CODEGRAPH_KERNEL_EXPECT=1 turns that
+ * Skips when no kernel binary is staged; SLEUTH_KERNEL_EXPECT=1 turns that
  * into a failure (kernel-scaffold.test.ts).
  */
 
@@ -52,7 +52,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel Ruby extraction parity', () => {
@@ -75,14 +75,14 @@ describe.skipIf(!kernelBuilt)('kernel Ruby extraction parity', () => {
   });
 
   function assertParity(filePath: string, source: string, minNodes = 3): void {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, 'ruby');
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, 'ruby');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -109,8 +109,8 @@ describe.skipIf(!kernelBuilt)('kernel Ruby extraction parity', () => {
 
   it('mixin implements refs carry filePath through the v2 ref-flag wire path', () => {
     const src = 'class Widget\n  include Comparable\nend\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract('src/widget.rb', src, 'ruby');
     expect(viaKernel).not.toBeNull();
     const impl = viaKernel!.unresolvedReferences.find((r) => r.referenceKind === 'implements');
@@ -123,12 +123,12 @@ describe.skipIf(!kernelBuilt)('kernel Ruby extraction parity', () => {
 
   it('files with parse errors defer to the wasm extractor (recovery is encoding-dependent)', () => {
     const broken = 'def broken(\n  x = [1,\nend\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/broken.rb', broken, 'ruby')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/broken.rb', broken, 'ruby');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'file')).toBe(true);
   });
 });

@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('namespace object default exports', () => {
   let dir: string;
@@ -50,7 +50,7 @@ describe('namespace object default exports', () => {
         '}\n'
     );
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const handler = cg.getNodesByName('handleZipComplete')[0]!;
     const callees = cg.getCallees(handler.id).map((c) => c.node.name).sort();
@@ -65,7 +65,7 @@ describe('namespace object default exports', () => {
       'const useStore = {\n  read() {\n    return 1\n  },\n}\nexport function unrelated() {\n  return 2\n}\nexport default useStore\n'
     );
     write('src/use.ts', "import store from './store'\nexport function consume() {\n  return store.read()\n}\n");
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const consume = cg.getNodesByName('consume')[0]!;
     const callees = cg.getCallees(consume.id).map((c) => c.node.name);

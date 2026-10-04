@@ -555,7 +555,7 @@ special: {`call`, `simple_symbol`}. No unwrap/ungatedModes/addressOfOnly.
 ### Value-reference edges (398-931) — ruby IS in VALUE_REF_LANGS (401)
 
 Port the full machinery (crib python.rs — python is also a member):
-`CODEGRAPH_VALUE_REFS=0` kill; MAX_VALUE_REF_NODES=20_000 caps prune scan and
+`SLEUTH_VALUE_REFS=0` kill; MAX_VALUE_REF_NODES=20_000 caps prune scan and
 each reader scan; isGeneratedFile skip.
 
 - Targets (captureValueRefScope:735): created nodes of kind
@@ -709,7 +709,7 @@ config/routes.rb.
   rails (large, 3,452)** — gate-repo clones from the survey lived at the
   prior session's scratchpad (`…/765a9532…/scratchpad/{sinatra,jekyll,rails}`;
   re-clone fresh if gone — agent-eval policy, public OSS only). Then
-  **full-init dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+  **full-init dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   `dump-graph.mjs`, cmp) on the same three.
 - **Deferral-rate guard: default `--max-deferral 0.1` and expect ~0** —
   measured 0.00% parse-error incidence on all three repos, both grammars.
@@ -717,7 +717,7 @@ config/routes.rb.
 - Suite: new `__tests__/kernel-ruby-parity.test.ts` (torture + CRLF-derived
   variant + one intentionally-erroring defer fixture — e.g. an unclosed
   `def` — asserting the wasm fallback path); full suite green ×2 with
-  `CODEGRAPH_KERNEL_EXPECT=1`.
+  `SLEUTH_KERNEL_EXPECT=1`.
 - `DEFAULT_ROUTED += ruby` (kernel/index.ts:37) only after ALL of the above;
   changelog rides the existing kernel entry.
 - Post-route perf sanity: remember §arch-2 — a real Rails app forces the

@@ -145,7 +145,7 @@ shared WASM heap). Provenance was verified in the batch-4 grammar probe
    contract-pinned in §Resolution consumers.
 4. **`.lua` → `lua`, `.luau` → `luau`** purely by extension
    (grammars.ts:122-123, `detectLanguage` :469 — no content sniffing; project
-   `codegraph.json` extension overrides are TS-side and upstream of the
+   `sleuth.json` extension overrides are TS-side and upstream of the
    kernel). MAX_FILE_SIZE (1 MiB) and generated-file skips are
    orchestrator-side and shared.
 5. **REF_FLAG_FILE_PATH (wire v2) is NOT needed.** The lua hook's
@@ -652,7 +652,7 @@ special, no unwrap, no ungatedModes, no addressOfOnly.
   untouched.
 - **Torture fixtures** per §Fixtures below, in a new
   `__tests__/kernel-lua-parity.test.ts` (or kernel-lua-luau-parity) with
-  CRLF variants; full suite ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  CRLF variants; full suite ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **Parity sweeps** (`scripts/kernel-parity.mjs <dir>`, default
   `--max-deferral 0.1`):
   - `…/svy-lua/gate-repos/kong` (large lua, 1,309 files — expect ≤1 deferral:
@@ -667,7 +667,7 @@ special, no unwrap, no ungatedModes, no addressOfOnly.
     only the non-deferred parity).
   (Re-clone public OSS fresh if the scratchpad is gone — agent-eval policy.)
   Then **full-init dump-diffs byte-identical** (kernel arm vs
-  `CODEGRAPH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on kong + lazy.nvim +
+  `SLEUTH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on kong + lazy.nvim +
   lune + Fusion.
 - **`DEFAULT_ROUTED += 'lua', 'luau'`** (kernel/index.ts:37) only after all
   of the above; changelog rides the existing kernel entry.

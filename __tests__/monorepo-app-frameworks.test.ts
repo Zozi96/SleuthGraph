@@ -11,24 +11,24 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const roots: string[] = [];
 afterAll(() => {
   for (const r of roots.splice(0)) fs.rmSync(r, { recursive: true, force: true });
 });
 
-async function project(files: Record<string, string>): Promise<CodeGraph> {
+async function project(files: Record<string, string>): Promise<SleuthGraph> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-app-frameworks-'));
   roots.push(root);
   for (const [rel, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return CodeGraph.init(root, { index: true });
+  return SleuthGraph.init(root, { index: true });
 }
 
-const routesIn = (cg: CodeGraph, dir: string): string[] =>
+const routesIn = (cg: SleuthGraph, dir: string): string[] =>
   cg
     .getNodesByKind('route')
     .filter((n) => n.filePath.startsWith(dir))

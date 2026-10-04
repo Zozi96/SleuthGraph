@@ -1,5 +1,5 @@
 /**
- * EXACT targets in `codegraph_explore`: a qualified name (`SQLCompiler.as_sql`)
+ * EXACT targets in `sleuth_explore`: a qualified name (`SQLCompiler.as_sql`)
  * or a line anchor (`compiler.py:776`, `compiler.py lines 900-1003`).
  *
  * The originating gap (django, measured 2026-09-27 on main and on every branch
@@ -24,7 +24,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { ToolHandler } from '../src/mcp/tools';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 
 /** Line numbers rendered for `file` in an explore response. */
 function renderedLines(text: string, file: string): Set<number> {
@@ -80,14 +80,14 @@ function helpers(n: number): string {
 const COMPILER = 'compiler.py';
 const PLANNER = 'planner.py';
 
-describe('codegraph_explore — exact targets (qualified names, line anchors)', () => {
+describe('sleuth_explore — exact targets (qualified names, line anchors)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
   const lineOf: Record<string, number> = {};
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-explore-exact-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-explore-exact-'));
 
     // compiler.py — get_select and get_qualify_sql ABOVE as_sql, as in django.
     const compiler = `
@@ -220,7 +220,7 @@ class IExact:
         return "UPPER(%s) = UPPER(%s)"
 `.trimStart());
 
-    cg = CodeGraph.initSync(testDir, { config: { include: ['**/*.py'], exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include: ['**/*.py'], exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   });
@@ -231,7 +231,7 @@ class IExact:
   });
 
   const explore = async (query: string): Promise<string> => {
-    const result = await handler.execute('codegraph_explore', { query });
+    const result = await handler.execute('sleuth_explore', { query });
     return result.content?.[0]?.text ?? '';
   };
 
@@ -299,7 +299,7 @@ class IExact:
     // Windowed, not dumped: most of the 430-line body is elided...
     expect(lines.size).toBeLessThan(300);
     // ...and each hole is named with the explore query that returns it.
-    expect(section).toMatch(/lines \d+-\d+ of `plan` elided — codegraph_explore `planner\.py:\d+-\d+` returns them/);
+    expect(section).toMatch(/lines \d+-\d+ of `plan` elided — sleuth_explore `planner\.py:\d+-\d+` returns them/);
     // Steered to explore, never to Read (the tag's own "do NOT Read" aside).
     expect(section.replace(/do NOT Read/g, '')).not.toMatch(/\bRead\b/);
   });

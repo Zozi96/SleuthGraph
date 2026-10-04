@@ -9,12 +9,12 @@
  *   only says *when to ask again*, so the banner appears about a third of a
  *   second after a save instead of on the next navigation.
  * - **"has the index moved?"** — the live refresh. Something else (an agent's
- *   MCP daemon, `codegraph sync`, a git hook) writes the graph; when it does,
+ *   MCP daemon, `sleuth sync`, a git hook) writes the graph; when it does,
  *   every screen the viewer is showing is one round-trip out of date.
  *
  * ## This server watches. It never syncs.
  *
- * `codegraph ui` is read-only in every sense — the banner it prints says so —
+ * `sleuth ui` is read-only in every sense — the banner it prints says so —
  * so the obvious implementation (run the engine's watcher, let it sync) is out.
  * What is left is *observation*, from two independent directions:
  *
@@ -47,8 +47,8 @@
 
 import * as fs from 'fs';
 import type { IncomingMessage, ServerResponse } from 'http';
-import type { CodeGraph } from '../../index';
-import { getCodeGraphDir } from '../../directory';
+import type { SleuthGraph } from '../../index';
+import { getSleuthGraphDir } from '../../directory';
 import { FileWatcher } from '../../sync/watcher';
 import type { GraphSession } from './session';
 
@@ -346,7 +346,7 @@ export class EventHub {
     this.sourceWatcher = watcher;
     this.sourceUp = watcher.start();
     if (!this.sourceUp) {
-      // Watching is off by policy (CODEGRAPH_NO_WATCH, a WSL2 /mnt drive) or
+      // Watching is off by policy (SLEUTH_NO_WATCH, a WSL2 /mnt drive) or
       // the OS refused. The stream stays — the index watcher is independent —
       // and `hello` already told the client which half is live.
       this.sourceWatcher = null;
@@ -370,13 +370,13 @@ export class EventHub {
    * The index, through one watch on the data directory.
    *
    * Non-recursive and on the directory rather than the database file: SQLite
-   * writes land in `codegraph.db-wal`, and a full re-index REPLACES
-   * `codegraph.db` outright (a watch on the file itself would follow the
+   * writes land in `sleuth.db-wal`, and a full re-index REPLACES
+   * `sleuth.db` outright (a watch on the file itself would follow the
    * unlinked inode and never fire again).
    */
   private startIndexWatcher(): void {
     if (this.indexWatcher) return;
-    const dir = getCodeGraphDir(this.projectRoot);
+    const dir = getSleuthGraphDir(this.projectRoot);
     try {
       const watcher = fs.watch(dir, { persistent: false }, () => this.scheduleProbe());
       watcher.on('error', () => {
@@ -464,13 +464,13 @@ export class EventHub {
   /**
    * The current revision, or null when there is no readable index.
    *
-   * A missing index is not an error here: `codegraph ui` refuses to start
-   * without one, but a user can delete `.codegraph/` with the viewer open, and
+   * A missing index is not an error here: `sleuth ui` refuses to start
+   * without one, but a user can delete `.sleuth/` with the viewer open, and
    * every endpoint already says so in its own words when asked.
    */
   private probe(): WireIndexRevision | null {
     try {
-      const cg: CodeGraph = this.session.acquire();
+      const cg: SleuthGraph = this.session.acquire();
       const revision = cg.getIndexRevision();
       return { lastIndexedAt: revision.lastIndexedAt, files: revision.fileCount };
     } catch {

@@ -8,7 +8,7 @@
  *
  * They are also the vocabulary of {@link GraphAdapter} (`adapter.ts`): a host
  * embedding these components answers in exactly these shapes, whether it is
- * reading them over HTTP from `codegraph ui` or building them in-process from
+ * reading them over HTTP from `sleuth ui` or building them in-process from
  * its own engine. Keeping them in a file with no imports and no side effects is
  * what lets a host depend on the vocabulary without pulling in the transport.
  */

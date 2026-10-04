@@ -9,7 +9,7 @@
   plausibly be on the other side.
 
   Every claim on it comes from the server, which builds it with the same
-  detector `codegraph_explore` announces boundaries with. Nothing here guesses:
+  detector `sleuth_explore` announces boundaries with. Nothing here guesses:
   a candidate row is a shortlist, and it says so by being under a heading that
   counts it rather than under an arrow that asserts it.
 

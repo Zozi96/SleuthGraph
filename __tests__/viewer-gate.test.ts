@@ -1,19 +1,19 @@
 /**
- * `codegraph ui` (alias `web`) is withheld until the viewer is released: every
+ * `sleuth ui` (alias `web`) is withheld until the viewer is released: every
  * way of reaching it is refused before startup, and it is left out of `--help`,
- * unless CODEGRAPH_UI=1 opts in (src/bin/viewer-gate.ts).
+ * unless SLEUTH_UI=1 opts in (src/bin/viewer-gate.ts).
  */
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'child_process';
 import * as path from 'path';
 import { requestedViewerCommand, viewerEnabled } from '../src/bin/viewer-gate';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 function runCli(args: string[], optIn: boolean): { code: number; output: string } {
-  const env: NodeJS.ProcessEnv = { ...process.env, CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_WASM_RELAUNCHED: '1', NO_COLOR: '1' };
-  if (optIn) env.CODEGRAPH_UI = '1';
-  else delete env.CODEGRAPH_UI;
+  const env: NodeJS.ProcessEnv = { ...process.env, SLEUTH_NO_DAEMON: '1', SLEUTH_WASM_RELAUNCHED: '1', NO_COLOR: '1' };
+  if (optIn) env.SLEUTH_UI = '1';
+  else delete env.SLEUTH_UI;
   try {
     const output = execFileSync(process.execPath, [BIN, ...args], { encoding: 'utf-8', env, stdio: ['ignore', 'pipe', 'pipe'] });
     return { code: 0, output };
@@ -36,15 +36,15 @@ describe('viewer gate', () => {
     expect(requestedViewerCommand(['query', 'web'])).toBeNull();
   });
 
-  it('is enabled only by CODEGRAPH_UI=1', () => {
+  it('is enabled only by SLEUTH_UI=1', () => {
     expect(viewerEnabled({})).toBe(false);
-    expect(viewerEnabled({ CODEGRAPH_UI: '0' })).toBe(false);
-    expect(viewerEnabled({ CODEGRAPH_UI: 'true' })).toBe(false);
-    expect(viewerEnabled({ CODEGRAPH_UI: '1' })).toBe(true);
+    expect(viewerEnabled({ SLEUTH_UI: '0' })).toBe(false);
+    expect(viewerEnabled({ SLEUTH_UI: 'true' })).toBe(false);
+    expect(viewerEnabled({ SLEUTH_UI: '1' })).toBe(true);
   });
 
   it.each([['ui'], ['web'], ['help', 'ui'], ['ui', '--help'], ['--no-color', 'web', '--no-open']])(
-    'refuses `codegraph %s` without the opt-in',
+    'refuses `sleuth %s` without the opt-in',
     (...args) => {
       const r = runCli(args, false);
       expect(r.code).toBe(1);

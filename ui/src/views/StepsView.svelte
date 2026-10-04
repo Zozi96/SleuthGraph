@@ -104,7 +104,7 @@
       .sort((a, b) => b.entries.length - a.entries.length || a.file.localeCompare(b.file));
   }
 
-  const LEGEND_KEY = 'codegraph-ui:steps-legend';
+  const LEGEND_KEY = 'sleuthgraph-ui:steps-legend';
   let legendOpen = $state(readLegendOpen());
   function readLegendOpen(): boolean {
     try {

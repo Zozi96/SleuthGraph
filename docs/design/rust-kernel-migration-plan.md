@@ -41,14 +41,14 @@ them are the ORIGINAL plan and carry expectations that measurement later correct
 - [x] **O1. Merge the `rust-kernel` branch** — DONE 2026-07-17: PR #1326, **merge
       commit** (the integration-branch exception — 9 milestone commits preserved),
       main tip `c1dc78d`. Suite green pre-merge (2,472 passed / 4 skipped,
-      `CODEGRAPH_KERNEL_EXPECT=1`).
+      `SLEUTH_KERNEL_EXPECT=1`).
 - [x] **O2. Windows VM validation** — DONE 2026-07-17. Guest (ARM64 Win11):
       rustc 1.97.1 aarch64-pc-windows-msvc + MSVC Build Tools (VCTools workload +
       VC.Tools.ARM64 + Win11 SDK; installed via **scheduled task** — Windows sshd
       kills detached children on session close, `schtasks` is the survival
       pattern). `build-kernel.sh --target aarch64-pc-windows-msvc` builds native
       win32-arm64 in ~2min; **all three kernel suites green with
-      `CODEGRAPH_KERNEL_EXPECT=1` (33/33)**. The leg EARNED ITS KEEP: the guest's
+      `SLEUTH_KERNEL_EXPECT=1` (33/33)**. The leg EARNED ITS KEEP: the guest's
       autocrlf checkout exposed a real CRLF parity bug (docstring cleaning; JS
       multiline `^` anchors after `\r` — §0a traps) — fixed + CRLF fixtures pinned
       cross-platform in #1329. Every prebuild target platform is now validated.
@@ -181,9 +181,9 @@ and has the current build deployed at `/app` (tree at `/work/linux`).
   (UTF-16 columns/slices, generated-file patterns, shared regexes), `langs.rs`
   (grammar registry).
 - `src/extraction/kernel/` — loader (contract-verifies before routing; a stale
-  .node silently degrades to wasm; `CODEGRAPH_KERNEL_DEBUG=1` explains), decode,
+  .node silently degrades to wasm; `SLEUTH_KERNEL_DEBUG=1` explains), decode,
   routing (`DEFAULT_ROUTED` = ts/tsx/js/jsx/java/python/go/c/cpp;
-  `CODEGRAPH_KERNEL_LANGS` REPLACES the set; `CODEGRAPH_KERNEL=0` kills), the
+  `SLEUTH_KERNEL_LANGS` REPLACES the set; `SLEUTH_KERNEL=0` kills), the
   deferred-decode transport (`tryKernelExtractRaw` → buffers ride to the store
   worker; files with applicable framework `extract()` hooks keep the decoded
   path), and the **preParse hoist** (`preParsedSource` — a language's
@@ -196,12 +196,12 @@ and has the current build deployed at `/app` (tree at `/work/linux`).
   fixtures under `__tests__/fixtures/kernel-parity/`) — all in `npm test`;
   the release workflow builds a 6-target prebuild matrix (continue-on-error;
   kernel is optional everywhere) and runs the suites with
-  `CODEGRAPH_KERNEL_EXPECT=1`.
+  `SLEUTH_KERNEL_EXPECT=1`.
 
 **Build/run:** `npm run build:kernel` (needs rustup; stages
 `sleuth-kernel/prebuilds/<plat>-<arch>/sleuth-kernel.node`) → `npm run build`
 → `npm test`. Parity sweep: `node scripts/kernel-parity.mjs <dir>`. Dump gate:
-init twice (kernel arm vs `CODEGRAPH_KERNEL=0`), `dump-graph.mjs` each, `cmp`.
+init twice (kernel arm vs `SLEUTH_KERNEL=0`), `dump-graph.mjs` each, `cmp`.
 
 **Adding a language (the proven recipe, ~a day for a T1):**
 1. Read its `languages/<lang>.ts` config AND every branch of tree-sitter.ts it
@@ -243,7 +243,7 @@ init twice (kernel arm vs `CODEGRAPH_KERNEL=0`), `dump-graph.mjs` each, `cmp`.
 
 ## 1. Mission and the numbers that motivate it
 
-CodeGraph's remaining fresh-index gap vs codebase-memory-mcp (cbm) is the parse+extract
+SleuthGraph's remaining fresh-index gap vs codebase-memory-mcp (cbm) is the parse+extract
 phase, and its floor is per-node JS↔WASM marshaling — proven, not suspected:
 
 | Measurement (2026-07-16, M3 Pro) | Result |
@@ -304,7 +304,7 @@ to wasm is the universal fallback. Zero-native-build-on-install stays true.
    config (node-kind → NodeKind mapping, name-field conventions). Escape hatch: a
    per-language `post(buffers, source)` TS hook for logic queries can't express.
 4. Build integration: napi prebuilds wired into the release workflow next to the Node
-   bundles; `CODEGRAPH_KERNEL=0` kill switch; wasm fallback auto-selected when the
+   bundles; `SLEUTH_KERNEL=0` kill switch; wasm fallback auto-selected when the
    `.node` is absent (source runs, unsupported platforms).
 5. CI: assert native grammars and wasm grammars are built from the SAME grammar source
    revisions (ABI drift between paths would make per-language routing non-deterministic).
@@ -328,9 +328,9 @@ to wasm is the universal fallback. Zero-native-build-on-install stays true.
   TreeSitterExtractor conventions. Seed TS/JS queries are SMOKE-level only; R2 replaces.
 - **Routing:** inside `extractFromSource` (tree-sitter.ts) — `tryKernelExtract` first,
   wasm `TreeSitterExtractor` as fallback (also per-FILE fallback on any kernel error).
-  DEFAULT_ROUTED is EMPTY; dev opt-in via `CODEGRAPH_KERNEL_LANGS=<langs|all>`; global
-  kill switch `CODEGRAPH_KERNEL=0`; loader verifies ABI + kind tables before routing
-  (stale .node → silent wasm, `CODEGRAPH_KERNEL_DEBUG=1` to see why). The escape hatch
+  DEFAULT_ROUTED is EMPTY; dev opt-in via `SLEUTH_KERNEL_LANGS=<langs|all>`; global
+  kill switch `SLEUTH_KERNEL=0`; loader verifies ABI + kind tables before routing
+  (stale .node → silent wasm, `SLEUTH_KERNEL_DEBUG=1` to see why). The escape hatch
   landed as `post(result, source)` over the DECODED result (not raw buffers) — decoded
   is what TS logic wants; see POST_PASSES in `src/extraction/kernel/index.ts`.
 - **Grammar parity (the §3.5 CI) — and a decision that changed the wasm path:** the
@@ -347,9 +347,9 @@ to wasm is the universal fallback. Zero-native-build-on-install stays true.
   ubuntu-22.04, ubuntu-22.04-arm, windows-latest ×2 — all continue-on-error: kernel is
   optional, a toolchain flake never blocks a release) → artifacts → `release/kernel/` →
   build-bundle.sh stages `lib/kernel/sleuth-kernel.node` when present. The release
-  job runs the kernel tests with `CODEGRAPH_KERNEL_EXPECT=1` (missing binary = FAILURE
+  job runs the kernel tests with `SLEUTH_KERNEL_EXPECT=1` (missing binary = FAILURE
   there, skip elsewhere).
-- **Loader search order:** `CODEGRAPH_KERNEL_PATH` → `<pkgroot>/kernel/` (bundle) →
+- **Loader search order:** `SLEUTH_KERNEL_PATH` → `<pkgroot>/kernel/` (bundle) →
   `<pkgroot>/sleuth-kernel/prebuilds/<plat>-<arch>/` (source runs).
 - **Known R2 gate item:** native columns are UTF-8 byte offsets; web-tree-sitter's are
   UTF-16-derived — column NUMBERS on non-ASCII lines will differ in parity dumps
@@ -389,7 +389,7 @@ to wasm is the universal fallback. Zero-native-build-on-install stays true.
   languages (worker cold-start).
 - **Not yet done (R3 gate):** large-repo parity (vscode-class), full-repo dump-diff
   through the DB, retrieval invariants, agent A/B, Linux docker + Windows VM parity
-  runs, control-repo perf. Routing stays opt-in (`CODEGRAPH_KERNEL_LANGS`) until then.
+  runs, control-repo perf. Routing stays opt-in (`SLEUTH_KERNEL_LANGS`) until then.
   **→ Done same day, §4b.**
 
 ### 4b. R3 — gate PASSED, TS/JS DEFAULT-ON (2026-07-16)
@@ -433,7 +433,7 @@ in a different emission order would shift rowids and change resolution — and
    (**~1.5×**, n=2 interleaved); Mac excalidraw ≈ neutral-to-slightly-better (parse
    already a small pool-parallelized slice at 11 cores). Control unchanged.
 6. **Platforms:** Linux (arm64 bookworm container, in-container cargo build): all 22
-   kernel tests green under `CODEGRAPH_KERNEL_EXPECT=1`. **Windows VM: deferred** —
+   kernel tests green under `SLEUTH_KERNEL_EXPECT=1`. **Windows VM: deferred** —
    VM stopped and `prlctl start` needs Parallels Pro; benign because a missing/broken
    `.node` falls back to wasm, and the release workflow builds + gates win32
    prebuilds. Run the kernel suites on the VM when it's next up.
@@ -441,8 +441,8 @@ in a different emission order would shift rowids and change resolution — and
    corpus now exercises the kernel for TS/JS on machines with a staged `.node`.
 
 Default routing: `DEFAULT_ROUTED = {typescript, tsx, javascript, jsx}` in
-`src/extraction/kernel/index.ts`. `CODEGRAPH_KERNEL_LANGS` REPLACES the set;
-`CODEGRAPH_KERNEL=0` kills. Changelog entry added under [Unreleased].
+`src/extraction/kernel/index.ts`. `SLEUTH_KERNEL_LANGS` REPLACES the set;
+`SLEUTH_KERNEL=0` kills. Changelog entry added under [Unreleased].
 
 ### 4c. R4 — Java PORTED + gate PASSED + DEFAULT-ON (2026-07-16)
 
@@ -509,7 +509,7 @@ Default routing: `DEFAULT_ROUTED = {typescript, tsx, javascript, jsx}` in
 ### 4f. R6 — kernel-scale re-validation (2026-07-17)
 
 Fresh init of the Linux kernel in the cg1212 container (2 CPUs / 6GB), current build
-(R5 kernel + direct-to-store active), CODEGRAPH_SYNTH_TIMINGS:
+(R5 kernel + direct-to-store active), SLEUTH_SYNTH_TIMINGS:
 
 - **Completes, exit 0: 1,586s (26.4min) vs the ~27min #1212/#1323 baseline — no
   regression** with per-file routing checks, error-file deferral, and the d2s store
@@ -653,7 +653,7 @@ parity before porting the language.
 
 **Do-not-regress invariants during any port** (extraction-side, will show up in the gate):
 node metadata is re-read from source, never persisted; parse commits stay in FILE ORDER
-(#1015); `MAX_FILE_SIZE` skip; generated-file detection; `CODEGRAPH_PARSE_WORKERS`
+(#1015); `MAX_FILE_SIZE` skip; generated-file detection; `SLEUTH_PARSE_WORKERS`
 semantics; framework `extract()` hooks keep running TS-side per file after the kernel pass.
 
 ## 5. Equivalence gate (run per language, no exceptions)
@@ -665,10 +665,10 @@ Byte-identity vs hand-written extractors is NOT expected — the gate is behavio
    Node/edge/ref deltas ≤0.5% AND every diff category manually classified (the 13-edge
    supertype-visibility bug this week was caught exactly this way — small diffs are real).
 2. **Retrieval invariants:** the language's canonical flows still connect end-to-end in
-   `codegraph_explore` (playbook: `docs/design/dynamic-dispatch-coverage-playbook.md`);
+   `sleuth_explore` (playbook: `docs/design/dynamic-dispatch-coverage-playbook.md`);
    node counts stable; synthesized-edge spot-check.
 3. **Agent A/B non-regression** per the standard methodology (CLAUDE.md): `--model sonnet
-   --effort high` ALWAYS, ≥2 runs/arm, pre-warmed daemon, `CODEGRAPH_NO_PROMPT_HOOK=1`,
+   --effort high` ALWAYS, ≥2 runs/arm, pre-warmed daemon, `SLEUTH_NO_PROMPT_HOOK=1`,
    forbid subagent delegation in the prompt.
 4. **Perf:** fresh-index improves on the language's repos; a NON-migrated control repo is
    unchanged; suite green; Linux docker + Windows VM passes for platform-sensitive bits.
@@ -691,7 +691,7 @@ Measurement discipline (hard-won this week — do NOT relearn these):
 - Profile first. Ideas killed by measurement this week: sorted-chunk inserts (zero),
   statement-batching the persist (zero — B-tree maintenance is the cost), RAM-disk/
   in-memory DB build (SLOWER — fastInit already writes at page-cache speed).
-- `CODEGRAPH_SYNTH_TIMINGS=1` now emits full phase walls (`[phase-timing]`) + pool/batch
+- `SLEUTH_SYNTH_TIMINGS=1` now emits full phase walls (`[phase-timing]`) + pool/batch
   timings. UI distorts phase walls — pipe stdout away.
 - Check host load before timing (iOS simulators inflated every phase ~30%); the
   Monitor-on-loadavg pattern (fire <3.5) gives clean windows.
@@ -728,7 +728,7 @@ the premise and surfaced two structural defects that now gate any speed work.
   as code 1, no output). Died mid-parallel-synthesis, 4 passes in. At 8 real cores
   all 6 workers hold peak anon memory *simultaneously* — the 2-core runs survived
   only because time-slicing kept concurrent peak lower. **The pool sizes by cores
-  only; there is no memory-aware term and no size knob** (`CODEGRAPH_NO_PARALLEL_
+  only; there is no memory-aware term and no size knob** (`SLEUTH_NO_PARALLEL_
   RESOLVE` is all-or-nothing).
 - **Failure 2 — WAL blowup at kernel scale: 22.2GB WAL on a 4.6GB DB** (container,
   at death; the Mac-native attempt was watchdog-killed at 5GB free disk with the
@@ -799,14 +799,14 @@ synthesis — parallelize/window WITHIN the pass), (c) the R7a C/C++ port
    cold worker caches + serialization + time-slicing exceed the parallelism),
    and pooled synthesis is Amdahl-bound by `cFnPtrEdges` (306s of 358s) at
    kernel scale. Sizing: `min(availableParallelism − 1, 6)` + memory term +
-   `CODEGRAPH_RESOLVE_WORKERS` knob (#1333/#1335); ap=2 → sequential by choice.
+   `SLEUTH_RESOLVE_WORKERS` knob (#1333/#1335); ap=2 → sequential by choice.
 4. **Parse needs ≥2 workers even on 2 cores** (1 worker = +34%; main + store
    worker don't fill the second core). Floored (#1335): 373.5s ≈ the 369s
    oversubscribed baseline, at a fraction of the memory.
 5. **Silent failure modes burned three 25-minute cycles**: give-ups were
    verbose-gated, sizing's null path logged nothing, the timer path logged
-   nothing. All valve/sizing decisions now print under `CODEGRAPH_SYNTH_TIMINGS`
-   / `CODEGRAPH_WAL_VALVE_DEBUG` — the armed line answers "is it even alive"
+   nothing. All valve/sizing decisions now print under `SLEUTH_SYNTH_TIMINGS`
+   / `SLEUTH_WAL_VALVE_DEBUG` — the armed line answers "is it even alive"
    in one glance.
 
 **New synthesis lever surfaced:** `cFnPtrEdges` is 86% of kernel-scale synthesis
@@ -815,7 +815,7 @@ than pooling all 36 passes. Filed under the next P1 profiling round.
 
 #### 7a.3 Batch-loop profile + de-quadratic round (2026-07-17, #1339)
 
-`CODEGRAPH_RESOLVE_PROFILE` (shipped in #1339: per-outcome resolveOne histogram
+`SLEUTH_RESOLVE_PROFILE` (shipped in #1339: per-outcome resolveOne histogram
 + loop-stage attribution) overturned the arc's founding assumption — resolveOne
 owns only **~93s** of the ~433s kernel-scale batch loop. Stage attribution and
 what happened to each:
@@ -838,7 +838,7 @@ shrinks only by writing fewer bytes); settle 88s; read-mapping 57s.
 
 Iterated with a STANDALONE in-container probe against the live kernel DB
 (readonly; ~4min/cycle instead of 25-min inits) with per-sweep sub-timings
-(`CODEGRAPH_SYNTH_TIMINGS` prints the `cFnPtr sub:` line):
+(`SLEUTH_SYNTH_TIMINGS` prints the `cFnPtr sub:` line):
 
 | Iteration | Standalone total | What moved |
 |---|---|---|
@@ -887,7 +887,7 @@ the per-ref resolution path (§7a.2's lever (a)).
 
 #### 7a.6 Per-ref path measurement round (2026-07-18) — fresh tables, two falsifications, two live levers
 
-Fresh `CODEGRAPH_RESOLVE_PROFILE` tables on the round-2 build (v7.2-rc2 tree,
+Fresh `SLEUTH_RESOLVE_PROFILE` tables on the round-2 build (v7.2-rc2 tree,
 cg1212), then two cache experiments run against them — both killed by
 measurement, code reverted same-day; this section is what survives.
 
@@ -1101,7 +1101,7 @@ Step 2 shipped: `cfnptr_scan_files` in the kernel (sleuth-kernel/src/
 cfnptr.rs) runs the entire extraction sweep natively — strip + all ten
 scanners — batched 16 files per NAPI call; the TS sweep remains as the
 fallback (no binary, feature detection against older binaries,
-`CODEGRAPH_KERNEL=0`, or the scanner's own `CODEGRAPH_KERNEL_CFNPTR=0`).
+`SLEUTH_KERNEL=0`, or the scanner's own `SLEUTH_KERNEL_CFNPTR=0`).
 What made it land at byte-parity:
 
 - **Hand-rolled byte machines, not the regex crate.** The JS engine's
@@ -1151,7 +1151,7 @@ sufficient for it; rebuild the `.node` per platform (cg1212: cargo build in
 The §7a.7 queue's next lever — close the gap between recycling's attributed
 write-stage costs and the valve-64 shallow floors via passive-checkpoint
 nudges at the recycle boundary — was probed in two shapes at 8c
-(`CODEGRAPH_RESOLVE_PROFILE` stage tables, caffeinated, same day/build,
+(`SLEUTH_RESOLVE_PROFILE` stage tables, caffeinated, same day/build,
 counts exact 2,049,153/6,413,518 in every arm):
 
 | arm | read | backpressure | insertEdges | deletes | recycle | resolution |

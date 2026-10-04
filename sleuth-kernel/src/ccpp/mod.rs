@@ -61,7 +61,7 @@
 //!    initializer_list → `instantiates` (most-vexing-parse excluded).
 //!  - value-reference edges: C only (VALUE_REF_LANGS has 'c', not 'cpp') —
 //!    shadow prune via init_declarator counts, MAX_VALUE_REF_NODES cap,
-//!    CODEGRAPH_VALUE_REFS=0 kill switch.
+//!    SLEUTH_VALUE_REFS=0 kill switch.
 //!  - fn-ref capture (#756): cFamilySpec for both; cpp adds addressOfOnly
 //!    (bare identifiers only qualify in file-scope value/list positions).
 //!
@@ -378,7 +378,7 @@ pub fn extract(file_path: &str, source: &str, language: &str) -> Result<EmitOut,
     // Measurement hatch (parity sweeps only — never set in production): skip
     // the defer so the sweep can QUANTIFY how often UTF-8 vs UTF-16 error
     // recovery actually diverges on this language's erroring files.
-    let no_defer = std::env::var("CODEGRAPH_KERNEL_CCPP_ERROR_EXTRACT").as_deref() == Ok("1");
+    let no_defer = std::env::var("SLEUTH_KERNEL_CCPP_ERROR_EXTRACT").as_deref() == Ok("1");
     if tree.root_node().has_error() && !no_defer {
         return Err("defer: parse tree contains errors — wasm recovery is canonical".to_string());
     }
@@ -2103,7 +2103,7 @@ impl<'t> Walker<'t> {
         if self.variant != Variant::C {
             return;
         }
-        if std::env::var("CODEGRAPH_VALUE_REFS").as_deref() == Ok("0") {
+        if std::env::var("SLEUTH_VALUE_REFS").as_deref() == Ok("0") {
             return;
         }
         if targets.is_empty() || scopes.is_empty() || util::is_generated_file(self.file_path) {

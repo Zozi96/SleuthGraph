@@ -1,5 +1,5 @@
 /**
- * Session-scoped `codegraph_explore` call state (CG-17).
+ * Session-scoped `sleuth_explore` call state (CG-17).
  *
  * What it holds: for ONE MCP session, per project it queried, what explore has
  * already returned — the files, the line ranges of source inside them, the bytes

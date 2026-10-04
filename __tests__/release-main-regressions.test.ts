@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 beforeAll(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-release-regressions-'));
   const write = (name: string, source: string) => fs.writeFileSync(path.join(dir, name), source);
@@ -100,7 +100,7 @@ beforeAll(async () => {
   }
   `);
   write('client.ts', `export const client = {};`);
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 }, 60000);
 afterAll(() => {

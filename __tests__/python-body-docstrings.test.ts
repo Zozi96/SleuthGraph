@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { ToolHandler } from '../src/mcp/tools';
 import { getKernel, resetKernelForTests } from '../src/extraction/kernel';
 import { extractFromSource } from '../src/extraction';
@@ -36,11 +36,11 @@ const kernelBuilt = fs.existsSync(path.join(__dirname, '../sleuth-kernel/prebuil
 describe.each(['native', 'wasm'].filter((backend) => backend === 'wasm' || kernelBuilt))(
   'Python body docstrings (%s)', (backend) => {
   let dir: string | undefined;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
 
   beforeEach(() => {
-    vi.stubEnv('CODEGRAPH_KERNEL', backend === 'wasm' ? '0' : '1');
-    vi.stubEnv('CODEGRAPH_KERNEL_LANGS', 'all');
+    vi.stubEnv('SLEUTH_KERNEL', backend === 'wasm' ? '0' : '1');
+    vi.stubEnv('SLEUTH_KERNEL_LANGS', 'all');
     resetKernelForTests();
     if (backend === 'native') expect(getKernel()).not.toBeNull();
   });
@@ -85,22 +85,22 @@ describe.each(['native', 'wasm'].filter((backend) => backend === 'wasm' || kerne
   it('persists prose for FTS, keeps exact names first, and renders it through MCP and CLI', async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-1905-'));
     fs.writeFileSync(path.join(dir, 'ledger.py'), fixture);
-    cg = CodeGraph.initSync(dir);
+    cg = SleuthGraph.initSync(dir);
     await cg.indexAll();
     cg.close();
-    cg = CodeGraph.openSync(dir);
+    cg = SleuthGraph.openSync(dir);
     expect(cg.getNodesByName('reconcile_ledger')[0].docstring)
       .toBe('Legacy reconciliation path.\n\nSettle the nightly discrepancy with the bank.');
     expect(cg.searchNodes('discrepancy bank').map(({ node }) => node.name))
       .toEqual(expect.arrayContaining(['reconcile_ledger', 'audit_ledger']));
     expect(cg.searchNodes('reconcile_ledger')[0].node.name).toBe('reconcile_ledger');
     expect(cg.searchNodes('documentation').some(({ node }) => node.kind === 'file' && node.name === 'ledger.py')).toBe(true);
-    const result = await new ToolHandler(cg).execute('codegraph_node', { symbol: 'reconcile_ledger', includeCode: true });
+    const result = await new ToolHandler(cg).execute('sleuth_node', { symbol: 'reconcile_ledger', includeCode: true });
     expect(result.isError).not.toBe(true);
     const text = result.content.filter((c) => c.type === 'text').map((c) => c.text).join('\n');
     // Prose must occur before the verbatim source, not only inside it.
     expect(text.split('```')[0]).toContain('Settle the nightly discrepancy with the bank.');
-    const cli = execFileSync(process.execPath, [path.join(__dirname, '../dist/bin/codegraph.js'),
+    const cli = execFileSync(process.execPath, [path.join(__dirname, '../dist/bin/sleuth.js'),
       'node', 'reconcile_ledger', '--path', dir], { encoding: 'utf8', env: process.env });
     expect(cli.split('```')[0]).toContain('Settle the nightly discrepancy with the bank.');
   });

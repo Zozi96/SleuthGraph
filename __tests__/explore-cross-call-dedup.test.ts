@@ -1,12 +1,12 @@
 /**
  * Cross-call source dedup (CG-18).
  *
- * A later `codegraph_explore` call in a session must not re-send source an
+ * A later `sleuth_explore` call in a session must not re-send source an
  * earlier call already delivered — but every byte it withholds has to be
  * replaced by a POINTER, never a silence. That asymmetry is what this suite
  * guards, because the two failure directions cost wildly different amounts: a
  * duplicate range wastes a few thousand chars, while a response that reads as
- * "codegraph doesn't have it" costs a Read — and one or two of those early in a
+ * "sleuth doesn't have it" costs a Read — and one or two of those early in a
  * session teach an agent to stop calling the tool at all.
  *
  * Three layers:
@@ -22,7 +22,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import { ExploreSessionState, type ExploreProjectState } from '../src/mcp/explore-session-state';
 import {
@@ -44,21 +44,21 @@ const POINTER = 'Already sent earlier in this conversation';
 
 describe('dedup configuration', () => {
   it('defaults off and requires an explicit truthy opt-in', () => {
-    const previous = process.env.CODEGRAPH_EXPLORE_DEDUP;
+    const previous = process.env.SLEUTH_EXPLORE_DEDUP;
     try {
-      delete process.env.CODEGRAPH_EXPLORE_DEDUP;
+      delete process.env.SLEUTH_EXPLORE_DEDUP;
       expect(exploreDedupEnabled()).toBe(false);
       for (const enabled of ['1', 'true', 'on', 'yes', ' YES ']) {
-        process.env.CODEGRAPH_EXPLORE_DEDUP = enabled;
+        process.env.SLEUTH_EXPLORE_DEDUP = enabled;
         expect(exploreDedupEnabled()).toBe(true);
       }
       for (const disabled of ['0', 'false', 'off', 'no', 'unexpected']) {
-        process.env.CODEGRAPH_EXPLORE_DEDUP = disabled;
+        process.env.SLEUTH_EXPLORE_DEDUP = disabled;
         expect(exploreDedupEnabled()).toBe(false);
       }
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEDUP;
-      else process.env.CODEGRAPH_EXPLORE_DEDUP = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEDUP;
+      else process.env.SLEUTH_EXPLORE_DEDUP = previous;
     }
   });
 });
@@ -203,30 +203,30 @@ describe('the back-reference itself', () => {
 
 describe('a second call against a real index', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
   let previousDedup: string | undefined;
 
   beforeAll(async () => {
-    previousDedup = process.env.CODEGRAPH_EXPLORE_DEDUP;
-    process.env.CODEGRAPH_EXPLORE_DEDUP = '1';
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cg18-'));
+    previousDedup = process.env.SLEUTH_EXPLORE_DEDUP;
+    process.env.SLEUTH_EXPLORE_DEDUP = '1';
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cg18-'));
     fs.cpSync(FIXTURE_SRC, testDir, { recursive: true });
-    fs.rmSync(path.join(testDir, '.codegraph'), { recursive: true, force: true });
-    cg = CodeGraph.initSync(testDir);
+    fs.rmSync(path.join(testDir, '.sleuth'), { recursive: true, force: true });
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
     handler = new ToolHandler(cg);
   }, 120_000);
 
   afterAll(() => {
-    if (previousDedup === undefined) delete process.env.CODEGRAPH_EXPLORE_DEDUP;
-    else process.env.CODEGRAPH_EXPLORE_DEDUP = previousDedup;
+    if (previousDedup === undefined) delete process.env.SLEUTH_EXPLORE_DEDUP;
+    else process.env.SLEUTH_EXPLORE_DEDUP = previousDedup;
     if (cg) cg.destroy();
     if (testDir && fs.existsSync(testDir)) fs.rmSync(testDir, { recursive: true, force: true });
   });
 
   const explore = (query: string, session?: ExploreSessionState, args: Record<string, unknown> = {}) =>
-    handler.execute('codegraph_explore', { query, ...args }, session).then((r) => r.content[0]!.text);
+    handler.execute('sleuth_explore', { query, ...args }, session).then((r) => r.content[0]!.text);
 
   /**
    * The line numbers actually inside each file's fenced source. Read off the
@@ -340,25 +340,25 @@ describe('a second call against a real index', () => {
     expect(await explore(QUERY, b)).toBe(firstForA);
   }, 180_000);
 
-  it('is off entirely under CODEGRAPH_EXPLORE_DEDUP=0', async () => {
+  it('is off entirely under SLEUTH_EXPLORE_DEDUP=0', async () => {
     const session = new ExploreSessionState();
-    const previous = process.env.CODEGRAPH_EXPLORE_DEDUP;
-    process.env.CODEGRAPH_EXPLORE_DEDUP = '0';
+    const previous = process.env.SLEUTH_EXPLORE_DEDUP;
+    process.env.SLEUTH_EXPLORE_DEDUP = '0';
     try {
       const first = await explore(QUERY, session);
       const second = await explore(QUERY, session);
       expect(second).toBe(first);
       expect(second).not.toContain(POINTER);
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEDUP;
-      else process.env.CODEGRAPH_EXPLORE_DEDUP = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEDUP;
+      else process.env.SLEUTH_EXPLORE_DEDUP = previous;
     }
   }, 120_000);
 
   it('re-serves source by default when a connection may outlive the current context', async () => {
     const session = new ExploreSessionState();
-    const previous = process.env.CODEGRAPH_EXPLORE_DEDUP;
-    delete process.env.CODEGRAPH_EXPLORE_DEDUP;
+    const previous = process.env.SLEUTH_EXPLORE_DEDUP;
+    delete process.env.SLEUTH_EXPLORE_DEDUP;
     try {
       const first = await explore(QUERY, session);
       const second = await explore(QUERY, session);
@@ -367,22 +367,22 @@ describe('a second call against a real index', () => {
       expect([...fencedLines(second).values()].reduce((sum, lines) => sum + lines.size, 0))
         .toBeGreaterThan(20);
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEDUP;
-      else process.env.CODEGRAPH_EXPLORE_DEDUP = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEDUP;
+      else process.env.SLEUTH_EXPLORE_DEDUP = previous;
     }
   }, 120_000);
 
   it('reports the reclaimed bytes through the CG-4 diagnostic', async () => {
     const sidecar = path.join(testDir, 'cg18-diagnostic.jsonl');
     const session = new ExploreSessionState();
-    const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+    const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
     try {
       await explore(QUERY, session);
       await explore(QUERY, session);
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-      else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+      else process.env.SLEUTH_EXPLORE_DEBUG = previous;
     }
     const [one, two] = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').map((l) => JSON.parse(l));
 

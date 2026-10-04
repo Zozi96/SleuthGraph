@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('synthesis-tail scaling (#1212)', () => {
   let dir: string;
@@ -37,7 +37,7 @@ expect fun platformName(): String
 actual fun platformName(): String = "JVM"
 `
     );
-    const cg = await CodeGraph.init(dir);
+    const cg = await SleuthGraph.init(dir);
     await cg.indexAll();
 
     const db = (cg as any).db.db;
@@ -69,7 +69,7 @@ class C {
 }
 `
     );
-    const cg = await CodeGraph.init(dir);
+    const cg = await SleuthGraph.init(dir);
     await cg.indexAll();
 
     const queries = (cg as unknown as { queries: import('../src/db/queries').QueryBuilder }).queries;
@@ -90,7 +90,7 @@ class C {
   it('getDistinctFileLanguages reports exactly the languages present', async () => {
     fs.writeFileSync(path.join(dir, 'x.ts'), 'export const a = 1;\n');
     fs.writeFileSync(path.join(dir, 'y.py'), 'def f():\n    return 1\n');
-    const cg = await CodeGraph.init(dir);
+    const cg = await SleuthGraph.init(dir);
     await cg.indexAll();
 
     const queries = (cg as unknown as { queries: import('../src/db/queries').QueryBuilder }).queries;

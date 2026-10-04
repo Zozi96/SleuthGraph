@@ -55,10 +55,10 @@ async function exercise(mode: 'connecting-wedge' | 'fallback-wedge' | 'slow-fall
   `], {
     env: {
       ...process.env,
-      CODEGRAPH_TELEMETRY: '0', DO_NOT_TRACK: '1', CODEGRAPH_NO_PROMPT_HOOK: '1',
-      CODEGRAPH_NO_WATCHDOG: '0', CODEGRAPH_WATCHDOG_TIMEOUT_MS: '1000',
-      CODEGRAPH_MCP_DEBUG: '1', CODEGRAPH_PPID_POLL_MS: '0',
-      CODEGRAPH_STARTUP_HANDSHAKE_TIMEOUT_MS: '0',
+      SLEUTH_TELEMETRY: '0', DO_NOT_TRACK: '1', SLEUTH_NO_PROMPT_HOOK: '1',
+      SLEUTH_NO_WATCHDOG: '0', SLEUTH_WATCHDOG_TIMEOUT_MS: '1000',
+      SLEUTH_MCP_DEBUG: '1', SLEUTH_PPID_POLL_MS: '0',
+      SLEUTH_STARTUP_HANDSHAKE_TIMEOUT_MS: '0',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   });

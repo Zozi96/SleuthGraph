@@ -27,7 +27,7 @@ import { materializeKernelResult } from './kernel';
 import { detectGeneratedFile } from './generated-detection';
 import { detectLanguage, isSourceFile, isLanguageSupported, isFileLevelOnlyLanguage, initGrammars, loadGrammarsForLanguages, readGrammarWasmBytes, isMpegTransportStream, hasMpegTsExtension, MPEG_TS_SNIFF_BYTES } from './grammars';
 import { loadExtensionOverrides, loadIncludeIgnoredPatterns, loadExcludePatterns, loadIncludePatterns, PROJECT_CONFIG_FILENAME } from '../project-config';
-import { isCodeGraphDataDir } from '../directory';
+import { isSleuthGraphDataDir } from '../directory';
 import { logDebug, logWarn } from '../errors';
 import { validatePathWithinRoot, normalizePath } from '../utils';
 import ignore, { Ignore } from 'ignore';
@@ -62,9 +62,9 @@ const SYNC_RECONCILE_YIELD_INTERVAL = 1000;
  * Maximum time (ms) to wait for a single file to parse in the worker thread.
  * If tree-sitter hangs or WASM runs out of memory, this prevents the entire
  * indexing run from freezing. The worker is restarted after a (hard) timeout.
- * Env-overridable via CODEGRAPH_PARSE_TIMEOUT_MS for slow storage (#1231).
+ * Env-overridable via SLEUTH_PARSE_TIMEOUT_MS for slow storage (#1231).
  */
-const PARSE_TIMEOUT_MS = resolveParseTimeoutMs(process.env.CODEGRAPH_PARSE_TIMEOUT_MS);
+const PARSE_TIMEOUT_MS = resolveParseTimeoutMs(process.env.SLEUTH_PARSE_TIMEOUT_MS);
 
 /**
  * Number of files to parse before recycling the worker thread.
@@ -105,7 +105,7 @@ export interface IndexResult {
    * Files the scan saw but has no grammar for, tallied by extension. Only the
    * degenerate case needs it: a project of unsupported files otherwise looks
    * exactly like an empty one (0 files, state `complete`), so nothing tells the
-   * user — or an agent — that there was code here CodeGraph could not read
+   * user — or an agent — that there was code here SleuthGraph could not read
    * (#1502). Counted during the scan's existing walk.
    */
   filesSkippedUnsupported?: number;
@@ -183,7 +183,7 @@ function isMpegTsBytes(filePath: string, bytes: Buffer): boolean {
 
 /**
  * Directory names that are dependency, build, cache, or tooling output across the
- * languages/frameworks CodeGraph supports — curated from the canonical
+ * languages/frameworks SleuthGraph supports — curated from the canonical
  * github/gitignore templates. Excluded by default so the graph reflects your code,
  * not third-party noise, without requiring a `.gitignore` (issue #407). The
  * exclusion applies uniformly (git or not, tracked or not); the only opt-in is an
@@ -192,7 +192,7 @@ function isMpegTsBytes(filePath: string, bytes: Buffer): boolean {
  * `Library`) are deliberately NOT listed, to avoid ever hiding real source.
  *
  * Only dirs that actually contain *indexable source* (or are enormous) earn a slot
- * — IDE/state dirs like `.idea`/`.vs` are omitted because CodeGraph indexes only
+ * — IDE/state dirs like `.idea`/`.vs` are omitted because SleuthGraph indexes only
  * recognized source extensions, so they produce no symbols regardless.
  */
 const DEFAULT_IGNORE_DIRS: ReadonlySet<string> = new Set([
@@ -240,7 +240,7 @@ const DEFAULT_IGNORE_DIRS: ReadonlySet<string> = new Set([
  * version-qualified (`values-es`, `drawable-hdpi`, `layout-v21`, …). None of it
  * yields an extractable code symbol, yet on an Android app it DOMINATES the tree
  * (one report: 26k XML files = 97% of the project, 0 symbols), bloating the DB,
- * slowing indexing, and skewing both the file count and `codegraph_explore`
+ * slowing indexing, and skewing both the file count and `sleuth_explore`
  * results (#1047). So these are excluded by default. The structure is
  * self-identifying — a non-Android project has no `res/layout/` etc., so it's
  * untouched — and the only XML that DOES produce symbols (MyBatis mappers) lives
@@ -319,7 +319,7 @@ function readGitignorePatterns(giPath: string): string {
   // Fast path: one `.ignores()` call forces the library to compile EVERY rule,
   // so if it doesn't throw, the whole file is safe to use verbatim.
   try {
-    ignore().add(content).ignores('.codegraph-probe');
+    ignore().add(content).ignores('.sleuth-probe');
     return content;
   } catch {
     // Fall through: a line is uncompilable — keep the good ones, drop the bad.
@@ -328,7 +328,7 @@ function readGitignorePatterns(giPath: string): string {
   let dropped = 0;
   for (const line of content.split(/\r?\n/)) {
     try {
-      ignore().add(line).ignores('.codegraph-probe');
+      ignore().add(line).ignores('.sleuth-probe');
       kept.push(line);
     } catch {
       dropped++;
@@ -468,7 +468,7 @@ function defaultsOnlyIgnore(): Ignore {
 }
 
 /**
- * Matcher for the project's `codegraph.json` `includeIgnored` patterns — the
+ * Matcher for the project's `sleuth.json` `includeIgnored` patterns — the
  * explicit opt-in to index embedded git repos living inside gitignored
  * directories (#622, #699). Returns `null` when the project opted in nothing,
  * which is the zero-config DEFAULT: `.gitignore` is then fully respected and a
@@ -482,7 +482,7 @@ function loadIncludeIgnoredMatcher(rootDir: string): Ignore | null {
 }
 
 /**
- * Matcher for the project's `codegraph.json` `exclude` patterns — paths to keep
+ * Matcher for the project's `sleuth.json` `exclude` patterns — paths to keep
  * OUT of the index even when git-tracked, which `.gitignore` cannot do (#999).
  * The escape hatch for a committed vendor/theme/SDK directory. Returns `null`
  * when nothing is excluded (the zero-config default → no overhead). Matched
@@ -496,7 +496,7 @@ function loadExcludeMatcher(rootDir: string): Ignore | null {
 }
 
 /**
- * Matcher for the project's `codegraph.json` `include` patterns — first-party
+ * Matcher for the project's `sleuth.json` `include` patterns — first-party
  * source to force INTO the index even when `.gitignore` drops it (the general
  * whitelist `includeIgnored` never was — that one only revives *embedded git
  * repos*). The case it exists for: a project under a second VCS (SVN/Perforce)
@@ -562,7 +562,7 @@ function includeStaticRoots(patterns: string[]): string[] {
  * A file is collected when it MATCHES `include`, is NOT hit by `exclude` (an
  * explicit exclude always wins), is a recognized source file, and does not live
  * under a built-in default-ignored dir (`node_modules`, `dist`, …), `.git`, or
- * CodeGraph's data dir — those are never resurfaced, mirroring `ScopeIgnore`.
+ * SleuthGraph's data dir — those are never resurfaced, mirroring `ScopeIgnore`.
  * `.gitignore` is deliberately NOT consulted: overriding it is the whole point.
  */
 function collectIncludedFiles(
@@ -611,7 +611,7 @@ function collectIncludedFiles(
       return;
     }
     for (const entry of entries) {
-      if (entry.name === '.git' || isCodeGraphDataDir(entry.name)) continue;
+      if (entry.name === '.git' || isSleuthGraphDataDir(entry.name)) continue;
       const abs = path.join(absDir, entry.name);
       const rel = normalizePath(path.relative(rootDir, abs));
       if (!rel || rel.startsWith('..')) continue;
@@ -635,7 +635,7 @@ function collectIncludedFiles(
 }
 
 /**
- * The included source files (`codegraph.json` `include`) for a scan root, or an
+ * The included source files (`sleuth.json` `include`) for a scan root, or an
  * empty set when nothing is force-included. Centralizes loading the matcher,
  * roots, exclude, and overrides so both enumeration paths (git and filesystem
  * walk) add the same files.
@@ -694,7 +694,7 @@ const EMBEDDED_REPO_SEARCH_ENTRIES = 2000;
  *   super-repo merely hides from git; index it (#193, #514).
  * - A `.git` **file** is a pointer (`gitdir: …`). A git **worktree** points into
  *   the host repo's own `.git/worktrees/<name>`, so it is a second working view
- *   of a repo CodeGraph already indexes — indexing it just duplicates the whole
+ *   of a repo SleuthGraph already indexes — indexing it just duplicates the whole
  *   graph N times; skip it (#848). A **submodule worktree** points into
  *   `.git/modules/<module>/worktrees/<name>` — same duplication, so skip it too
  *   (#945). A **submodule** checkout points into `.git/modules/<module>` (no
@@ -729,7 +729,7 @@ function classifyGitDir(absDir: string): 'embedded' | 'worktree' | 'none' {
  * Find git repositories nested under `absDir` (inclusive), shallow bounded BFS.
  * Stops descending at each repo root found — contents belong to that repo's own
  * enumeration. Skips default-ignored dirs (`node_modules` can contain `.git`
- * from npm git-dependencies — that never makes it project code) and CodeGraph
+ * from npm git-dependencies — that never makes it project code) and SleuthGraph
  * data dirs. Depth- and entry-capped so a huge ignored tree can't stall the scan.
  */
 function findNestedGitRepos(absDir: string, relPrefix: string): string[] {
@@ -762,7 +762,7 @@ function findNestedGitRepos(absDir: string, relPrefix: string): string[] {
     }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      if (entry.name === '.git' || isCodeGraphDataDir(entry.name)) continue;
+      if (entry.name === '.git' || isSleuthGraphDataDir(entry.name)) continue;
       const childRel = rel + entry.name + '/';
       if (defaults.ignores(childRel)) continue;
       queue.push({ abs: path.join(abs, entry.name), rel: childRel, depth: depth + 1 });
@@ -809,7 +809,7 @@ export function preloadLanguagesForFiles(
     }
   }
   // An `.inc` path-detects as PHP but may read as Pascal (#2279) — unless
-  // codegraph.json maps `.inc` explicitly, which detectLanguage never overrides.
+  // sleuth.json maps `.inc` explicitly, which detectLanguage never overrides.
   if (
     !languages.includes('pascal') &&
     !(overrides && overrides['.inc']) &&
@@ -827,13 +827,13 @@ export class ScopeIgnore {
     private rootMatcher: Ignore,
     embedded: Array<{ root: string; matcher: Ignore }>,
     /**
-     * Project `codegraph.json` `exclude` patterns (#999), matched against the
+     * Project `sleuth.json` `exclude` patterns (#999), matched against the
      * full root-relative path. Wins over everything else — an explicit user
      * exclude applies even to tracked files and even inside embedded repos.
      */
     private exclude: Ignore | null = null,
     /**
-     * Project `codegraph.json` `include` patterns — first-party source forced
+     * Project `sleuth.json` `include` patterns — first-party source forced
      * INTO the index despite `.gitignore`. When a path matches, it is NOT
      * ignored (so the watcher watches it), overriding `.gitignore`/`rootMatcher`
      * — but never `exclude` (checked first) and never a built-in default-ignored
@@ -918,7 +918,7 @@ export function buildScopeIgnore(rootDir: string, embeddedRoots?: Iterable<strin
  *      under `node_modules` is never project code; not even an explicit opt-in
  *      revives it (matches `findIgnoredEmbeddedRepos`).
  *   2. The parent repo's own `.gitignore` covers its path and the project did
- *      NOT opt that path in via `codegraph.json` `includeIgnored`. The gitignore
+ *      NOT opt that path in via `sleuth.json` `includeIgnored`. The gitignore
  *      rule is the user's stated intent to keep that path out of scope, exactly
  *      as for an UNtracked embedded repo — respect it by default, opt back in
  *      with `includeIgnored` (#514, #970, #976).
@@ -944,7 +944,7 @@ function gitlinkEmbeddedRepoSkipped(
 /**
  * Standalone discovery of every embedded repo root under `rootDir` (relative,
  * trailing-slashed) — the untracked kind (#193) always, and the gitignored kind
- * (#514) only for directories the project opted in via `codegraph.json`
+ * (#514) only for directories the project opted in via `sleuth.json`
  * `includeIgnored` (#622, #699); otherwise `.gitignore` is respected and they
  * are not discovered (#970, #976). Recursive (an embedded repo can embed further
  * repos). Returns [] for non-git roots: the filesystem walk handles nested repos
@@ -1016,7 +1016,7 @@ const UNINDEXED_IGNORED_REPO_HINT_CAP = 100;
 /**
  * The INVERSE of the gitignored side of {@link discoverEmbeddedRepoRoots}:
  * nested git repositories under a gitignored directory that the project has NOT
- * opted into via `codegraph.json` `includeIgnored`. These are real repos the
+ * opted into via `sleuth.json` `includeIgnored`. These are real repos the
  * default `init`/`index` deliberately skips because `.gitignore` excludes them
  * (#970, #976) — most visibly the "super-repo `.gitignore`s its child repos"
  * layout (#1156), where `init` at the parent correctly indexes ~nothing while
@@ -1058,9 +1058,9 @@ export function findUnindexedIgnoredRepos(rootDir: string): string[] {
  * relative to `repoDir`, trailing-slashed.
  *
  * OPT-IN ONLY. Walking into a gitignored directory contradicts what every other
- * tool (and CodeGraph's own `git ls-files` foundation) does — `.gitignore`
+ * tool (and SleuthGraph's own `git ls-files` foundation) does — `.gitignore`
  * excludes. So this returns `[]` unless the project opted the directory in via
- * `codegraph.json` `includeIgnored`; without that, a gitignored dir — including
+ * `sleuth.json` `includeIgnored`; without that, a gitignored dir — including
  * a huge reference/data dir full of nested clones — is left untouched (#970,
  * #976). When opted in, it restores the super-repo-of-clones behavior (#622,
  * #699). `prefix` is the scan-root-relative path of `repoDir`, so a pattern like
@@ -1103,7 +1103,7 @@ function findIgnoredEmbeddedRepos(repoDir: string, includeIgnored: Ignore | null
  *
  * Letting the throw escape cost far more than submodule expansion: it unwound
  * the whole git-visible pass, so `includeIgnored`, gitlink recursion and the
- * `codegraph.json` include allowlist silently stopped applying and files went
+ * `sleuth.json` include allowlist silently stopped applying and files went
  * missing from the index with no error (#1549). Retry without the flag instead
  * — `-s` is the part that matters here, since gitlink detection reads the mode
  * bits, and embedded repos are reached through the gitlink recursion anyway.
@@ -1129,7 +1129,7 @@ function lsFilesStaged(gitOpts: Parameters<typeof execFileSync>[2]): string {
  * embedded repo is its own git boundary, so we re-run `git ls-files` inside it.
  * (See issue #193.) GITIGNORED embedded repos are invisible even to that; they
  * are discovered separately via `findIgnoredEmbeddedRepos` (#514) but ONLY for
- * directories the project opted in through `codegraph.json` `includeIgnored`
+ * directories the project opted in through `sleuth.json` `includeIgnored`
  * (`includeIgnored` here, threaded from the scan root) — by default `.gitignore`
  * is respected and they stay out (#970, #976). Every embedded repo root (however
  * found) is recorded in `embeddedRoots` so callers can exempt its files from the
@@ -1226,7 +1226,7 @@ function collectGitFiles(repoDir: string, prefix: string, files: Set<string>, em
   // Embedded repos hidden by THIS repo's ignore rules (`/packages/` in a
   // super-repo .gitignore) never appear in any listing above. By default they
   // stay hidden — `.gitignore` is respected (#970, #976). They are recursed into
-  // only when the project opted the directory in via `codegraph.json`
+  // only when the project opted the directory in via `sleuth.json`
   // `includeIgnored` (#622, #699), which `findIgnoredEmbeddedRepos` enforces.
   for (const rel of findIgnoredEmbeddedRepos(repoDir, includeIgnored, prefix)) {
     embeddedRoots?.add(normalizePath(prefix + rel));
@@ -1282,7 +1282,7 @@ function getGitVisibleFiles(rootDir: string): Set<string> | null {
     const ig = buildScopeIgnore(rootDir, embeddedRoots);
     const visible = new Set([...files].filter((f) => !ig.ignores(f)));
     // Force-include first-party source the project whitelisted in
-    // `codegraph.json` `include`. These are gitignored, so `git ls-files` never
+    // `sleuth.json` `include`. These are gitignored, so `git ls-files` never
     // listed them above — discover them directly off disk and add them. (The
     // common SVN+Git dual-VCS case: source committed to SVN, gitignored out of
     // Git, but still wanted in the graph.)
@@ -1296,7 +1296,7 @@ function getGitVisibleFiles(rootDir: string): Set<string> | null {
     // like #1567 (nested-`.gitignore`-excluded `node_modules` walked into)
     // hard to triage, since both ignore implementations look correct in
     // isolation but there was no way to tell which one ran. Log it under the
-    // existing CODEGRAPH_DEBUG gate so a future report can confirm or rule out
+    // existing SLEUTH_DEBUG gate so a future report can confirm or rule out
     // the fallback in one step.
     logDebug('git-based file listing unavailable — falling back to filesystem walk', {
       rootDir,
@@ -1324,12 +1324,12 @@ interface GitChanges {
  * Recurses into embedded repos — the untracked kind (#193: the parent's status
  * collapses them to an opaque `?? subdir/` entry) always, and the gitignored
  * kind (#514: they never appear in the parent's status at all) only for
- * directories opted in via `codegraph.json` `includeIgnored` (#622, #699) —
+ * directories opted in via `sleuth.json` `includeIgnored` (#622, #699) —
  * running `git status` inside each, so changes in a multi-repo workspace sync
  * without a full rescan. By default a gitignored dir is left alone, matching the
  * full-index scan (#970, #976). Deleting an ENTIRE embedded repo dir is the one
  * case this cannot see (the child status that would report the deletions is gone
- * with it); a full `codegraph index` reconciles that.
+ * with it); a full `sleuth index` reconciles that.
  */
 export function getGitChangedFiles(rootDir: string, sinceCommit?: string | null): GitChanges | null {
   try {
@@ -1342,7 +1342,7 @@ export function getGitChangedFiles(rootDir: string, sinceCommit?: string | null)
     // that hold no such stamp still get exactly what they always did, the
     // working-tree changes.
     const changes: GitChanges = { modified: [], added: [], deleted: [] };
-    // Custom extension → language overrides from the project's codegraph.json,
+    // Custom extension → language overrides from the project's sleuth.json,
     // so change detection sees the same custom-extension files the full index does.
     const overrides = loadExtensionOverrides(rootDir);
     collectGitStatus(rootDir, '', changes, overrides, loadIncludeIgnoredMatcher(rootDir), loadExcludeMatcher(rootDir), sinceCommit ?? undefined);
@@ -1435,7 +1435,7 @@ function collectGitStatus(repoDir: string, prefix: string, out: GitChanges, over
   // status hides neither: it ignores nothing for *tracked* paths, and the
   // built-in defaults aren't gitignore at all. Without this filter a committed
   // vendor/ dir, or a tracked file under a .gitignored dir, surfaces here as a
-  // change — so `codegraph status` (which reads getChangedFiles) reports a
+  // change — so `sleuth status` (which reads getChangedFiles) reports a
   // pending edit the full index never tracks and `sync` never clears. Matching
   // repo-relative `rel` at each recursion level mirrors getGitVisibleFiles'
   // ScopeIgnore: every embedded repo is judged by ITS OWN rules, never the
@@ -1459,7 +1459,7 @@ function collectGitStatus(repoDir: string, prefix: string, out: GitChanges, over
     // Added (`??`) / modified files inside an excluded dir must not enter the
     // index — match against the repo-relative path, same as the full scan. (#766)
     if (ig.ignores(rel)) return;
-    // User `codegraph.json` `exclude` (#999) is project-root-relative, so it's
+    // User `sleuth.json` `exclude` (#999) is project-root-relative, so it's
     // matched against the full path — sync must not re-add a tracked file the
     // full index now keeps out. Deletions above stay unfiltered so a file that
     // WAS indexed before an exclude was added still cleans itself out.
@@ -1529,7 +1529,7 @@ export function scanDirectory(
   rootDir: string,
   onProgress?: (current: number, file: string) => void
 ): string[] {
-  // Custom extension → language overrides from the project's codegraph.json.
+  // Custom extension → language overrides from the project's sleuth.json.
   const overrides = loadExtensionOverrides(rootDir);
 
   // Fast path: use git to get all visible files (respects .gitignore everywhere)
@@ -1581,7 +1581,7 @@ export async function scanDirectoryAsync(
   onProgress?: (current: number, file: string) => void,
   stats?: ScanSkipStats
 ): Promise<string[]> {
-  // Custom extension → language overrides from the project's codegraph.json.
+  // Custom extension → language overrides from the project's sleuth.json.
   const overrides = loadExtensionOverrides(rootDir);
 
   const gitFiles = getGitVisibleFiles(rootDir);
@@ -1618,7 +1618,7 @@ function scanDirectoryWalk(
   const files: string[] = [];
   let count = 0;
   const visitedDirs = new Set<string>();
-  // Custom extension → language overrides from the project's codegraph.json.
+  // Custom extension → language overrides from the project's sleuth.json.
   const overrides = loadExtensionOverrides(rootDir);
 
   // A .gitignore matcher scoped to the directory that declared it. Patterns in
@@ -1680,9 +1680,9 @@ function scanDirectoryWalk(
     }
 
     for (const entry of entries) {
-      // Never descend into git internals or any CodeGraph data directory
+      // Never descend into git internals or any SleuthGraph data directory
       // (the active one or a sibling another environment created — #636).
-      if (entry.name === '.git' || isCodeGraphDataDir(entry.name)) continue;
+      if (entry.name === '.git' || isSleuthGraphDataDir(entry.name)) continue;
 
       const fullPath = path.join(dir, entry.name);
       const relativePath = normalizePath(path.relative(rootDir, fullPath));
@@ -1733,14 +1733,14 @@ function scanDirectoryWalk(
   // Seed a base matcher with the built-in default ignores (merged with the root
   // .gitignore so a negation can override). Nested .gitignores still layer per-dir.
   const baseMatchers: ScopedIgnore[] = [{ dir: rootDir, ig: buildDefaultIgnore(rootDir) }];
-  // Project `codegraph.json` `exclude` patterns (#999), rooted at the project so
+  // Project `sleuth.json` `exclude` patterns (#999), rooted at the project so
   // `isIgnored` matches them against root-relative paths — same coverage the
   // git path gets via ScopeIgnore, for non-git projects.
   const exclude = loadExcludeMatcher(rootDir);
   if (exclude) baseMatchers.push({ dir: rootDir, ig: exclude });
   walk(rootDir, baseMatchers);
 
-  // Force-include first-party source whitelisted in `codegraph.json` `include`
+  // Force-include first-party source whitelisted in `sleuth.json` `include`
   // — the walk above honours `.gitignore`, so anything gitignored was dropped;
   // add it back here (deduped). Mirrors the git path's union.
   const included = collectIncludedFilesForRoot(rootDir);
@@ -1868,7 +1868,7 @@ export class ExtractionOrchestrator {
   private detectedFrameworkNames: string[] | null = null;
   /**
    * Scope matcher for SCOPED syncs, memoized on the mtimes of the two root
-   * files it is derived from (`codegraph.json`, `.gitignore`). See
+   * files it is derived from (`sleuth.json`, `.gitignore`). See
    * {@link scopedSyncMatcher}.
    */
   private scopedMatcher: { key: string; matcher: ScopeIgnore } | null = null;
@@ -1881,7 +1881,7 @@ export class ExtractionOrchestrator {
   /**
    * The scope matcher a scoped sync applies to the paths it was handed — the
    * same `buildScopeIgnore` the full scan uses, so an explicitly-passed path
-   * that is OUT of scope (a user `exclude` in `codegraph.json`, a `.gitignore`
+   * that is OUT of scope (a user `exclude` in `sleuth.json`, a `.gitignore`
    * rule, a built-in default) is treated exactly as the full walk would treat
    * it: absent, hence removed if tracked, never parsed (#1590).
    *
@@ -2078,7 +2078,7 @@ export class ExtractionOrchestrator {
   ): Promise<IndexResult> {
     const tGrammar = Date.now();
     await initGrammars();
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] grammar-init: ${Date.now() - tGrammar}ms`);
+    if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] grammar-init: ${Date.now() - tGrammar}ms`);
     const startTime = Date.now();
     const errors: ExtractionError[] = [];
     let filesIndexed = 0;
@@ -2087,7 +2087,7 @@ export class ExtractionOrchestrator {
     let totalNodes = 0;
     let totalEdges = 0;
 
-    // Custom extension → language overrides from the project's codegraph.json.
+    // Custom extension → language overrides from the project's sleuth.json.
     // Threaded into language detection so custom-extension files load the right
     // grammar and store under the mapped language.
     const overrides = loadExtensionOverrides(this.rootDir);
@@ -2116,7 +2116,7 @@ export class ExtractionOrchestrator {
         currentFile: file,
       });
     }, skipStats);
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] scan: ${Date.now() - tScan}ms (${files.length} files)`);
+    if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] scan: ${Date.now() - tScan}ms (${files.length} files)`);
     /** Only meaningful when nothing was indexable — see IndexResult (#1502). */
     const skipSummary = (): Pick<IndexResult, 'filesSkippedUnsupported' | 'topUnsupportedExtensions'> => {
       let total = 0;
@@ -2143,7 +2143,7 @@ export class ExtractionOrchestrator {
     this.detectedFrameworkNames = null;
     const tFw = Date.now();
     const frameworkNames = this.ensureDetectedFrameworks(files);
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] framework-detect: ${Date.now() - tFw}ms`);
+    if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] framework-detect: ${Date.now() - tFw}ms`);
 
     if (signal?.aborted) {
       return {
@@ -2183,7 +2183,7 @@ export class ExtractionOrchestrator {
 
     let pool: ParseWorkerPool | null = null;
     if (useWorker) {
-      // CODEGRAPH_PARSE_WORKERS: explicit worker count; 1 = the old single-worker
+      // SLEUTH_PARSE_WORKERS: explicit worker count; 1 = the old single-worker
       // behaviour (the conservative rollback). Unset → clamp(cores-1, 1, 8),
       // with cores from availableParallelism — cpuset/affinity-honest, where
       // os.cpus() enumerates the host's CPUs and spawned 8 wasm workers (and
@@ -2192,7 +2192,7 @@ export class ExtractionOrchestrator {
       // parse is worker-side CPU, and 1 worker measured 34% slower than the
       // old oversubscribed pool on the kernel-scale 2-cpuset envelope
       // (493s vs 369s) — main + store-worker don't fill the second core.
-      const poolSize = resolveParsePoolSize(process.env.CODEGRAPH_PARSE_WORKERS, Math.max(3, os.availableParallelism()));
+      const poolSize = resolveParsePoolSize(process.env.SLEUTH_PARSE_WORKERS, Math.max(3, os.availableParallelism()));
       // Read each needed grammar's WASM ONCE here and hand the bytes to every
       // worker, so spawns/respawns load grammars from memory instead of
       // re-reading them from disk (#1231: on an HDD, respawn re-reads amplify
@@ -2224,7 +2224,7 @@ export class ExtractionOrchestrator {
     let storeWriter: StoreWriter | null = null;
     if (
       storeWriterOpts &&
-      process.env.CODEGRAPH_NO_STORE_WORKER !== '1' &&
+      process.env.SLEUTH_NO_STORE_WORKER !== '1' &&
       fs.existsSync(storeWorkerPath)
     ) {
       // Deliberately NOT awaiting ready(): worker_threads delivers messages in
@@ -2241,7 +2241,7 @@ export class ExtractionOrchestrator {
      * Parse one file: on the pool when available (the promise REJECTS on a worker
      * crash/timeout — the caller records it and the retry pass re-attempts), or
      * in-process synchronously as the no-worker fallback. The language is resolved
-     * here on the main thread, where the codegraph.json overrides are loaded.
+     * here on the main thread, where the sleuth.json overrides are loaded.
      */
     const parseFile = (filePath: string, content: string): Promise<ExtractionResult> => {
       const language = detectLanguage(filePath, content, overrides);
@@ -2535,7 +2535,7 @@ export class ExtractionOrchestrator {
         }
       }
     }
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] parse-loop: ${Date.now() - tParseLoop}ms`);
+    if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] parse-loop: ${Date.now() - tParseLoop}ms`);
 
     if (signal?.aborted || aborted) {
       if (storeWriter) await storeWriter.close();
@@ -2856,7 +2856,7 @@ export class ExtractionOrchestrator {
       return result;
     }
 
-    // Detect language (honoring the project's codegraph.json extension overrides)
+    // Detect language (honoring the project's sleuth.json extension overrides)
     if (!isLanguageSupported(language)) {
       return {
         nodes: [],
@@ -3189,7 +3189,7 @@ export class ExtractionOrchestrator {
    * should bind to. Those other files are never revisited, and their references
    * resolved successfully once and were deleted from `unresolved_refs`, so
    * nothing existed to revisit them with — the index kept an answer that was
-   * correct against an older graph. Measured on codegraph's own long-lived
+   * correct against an older graph. Measured on sleuth's own long-lived
    * index: 4.3% of distinct edges differed from a clean rebuild, in BOTH
    * directions, overwhelmingly `calls`. See docs/benchmarks/index-drift-cg33.md.
    *
@@ -3300,7 +3300,7 @@ export class ExtractionOrchestrator {
     if (scopedPaths && scopedPaths.length > 0) {
       // Scoped reconcile: stat only the reported paths. filesChecked counts
       // the PATHS examined (not the files found) — it must stay non-zero even
-      // when every scoped path was a deletion, because CodeGraph.watch()
+      // when every scoped path was a deletion, because SleuthGraph.watch()
       // reads `filesChecked === 0 && durationMs === 0` as the
       // lock-unavailable signature (#449).
       const unique = [...new Set(scopedPaths)];
@@ -3308,7 +3308,7 @@ export class ExtractionOrchestrator {
       // same two gates the full walk applies (source extension, scope
       // matcher). Without the scope gate a caller's stale view of scope
       // leaked straight into the index: the watcher re-parsed a file the
-      // user had just excluded in `codegraph.json` while `codegraph sync`
+      // user had just excluded in `sleuth.json` while `sleuth sync`
       // removed it (#1590). Out-of-scope paths fall out of `currentFiles`,
       // so a tracked one takes the removal branch below, exactly as a full
       // sync would treat it. (`include`-forced paths pass: ScopeIgnore
@@ -3327,14 +3327,14 @@ export class ExtractionOrchestrator {
         if (rec) trackedFiles.push(rec);
       }
       filesChecked = unique.length;
-      if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] sync-scoped: ${Date.now() - tSyncScan}ms (${unique.length} paths, ${trackedFiles.length} tracked)`);
+      if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] sync-scoped: ${Date.now() - tSyncScan}ms (${unique.length} paths, ${trackedFiles.length} tracked)`);
     } else {
       // Full reconcile: drop the memoized scope matcher so a nested
       // `.gitignore` / exclude-standard change that forced this full sync is
       // visible to the next scoped sync (#1728).
       this.scopedMatcher = null;
       currentFiles = await scanDirectoryAsync(this.rootDir);
-      if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] sync-scan: ${Date.now() - tSyncScan}ms (${currentFiles.length} files)`);
+      if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] sync-scan: ${Date.now() - tSyncScan}ms (${currentFiles.length} files)`);
       filesChecked = currentFiles.length;
 
       // Full reconcile only (scoped syncs must not touch rows outside their
@@ -3343,7 +3343,7 @@ export class ExtractionOrchestrator {
 
       const tTracked = Date.now();
       trackedFiles = this.queries.getAllFiles();
-      if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] sync-tracked-load: ${Date.now() - tTracked}ms (${trackedFiles.length} tracked)`);
+      if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] sync-tracked-load: ${Date.now() - tTracked}ms (${trackedFiles.length} tracked)`);
     }
     const currentSet = new Set(currentFiles);
     const trackedMap = new Map<string, FileRecord>();

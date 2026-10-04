@@ -787,7 +787,7 @@ import extents (probed — import_or_export ends at the `;`).
 
 ### Value-reference edges (:398-931) — dart IS in VALUE_REF_LANGS (:401)
 
-Port the full machinery (crib java.rs/kotlin.rs): `CODEGRAPH_VALUE_REFS=0`
+Port the full machinery (crib java.rs/kotlin.rs): `SLEUTH_VALUE_REFS=0`
 kill; MAX_VALUE_REF_NODES = 20,000 caps both DFS passes; isGeneratedFile
 skip (`.g.dart` and friends!).
 
@@ -994,7 +994,7 @@ NO unwrap, NO ungatedModes, NO addressOfOnly. Pins:
   (all three cloned fresh at survey; re-clone public OSS — agent-eval
   policy). Expect 0-diff on every non-deferred file and ~the §Grammar-prep
   deferral counts. Then **full-init dump-diffs byte-identical** (kernel arm
-  vs `CODEGRAPH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on the same
+  vs `SLEUTH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on the same
   three.
 - **Census spot-check** (double-walk belt-and-suspenders): after a bloc
   kernel-arm index, `select kind, count(*) from nodes where language='dart'
@@ -1003,7 +1003,7 @@ NO unwrap, NO ungatedModes, NO addressOfOnly. Pins:
   runs.
 - **Suite**: torture + CRLF + a defer fixture (empty-object-pattern file —
   kernel defers, wasm output served) + the `library;` defer shape; full
-  suite ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  suite ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'dart'`** (kernel/index.ts:37) only after ALL of the
   above; changelog rides the existing kernel entry.
 - Post-route perf sanity: all three gate repos ride the raw path (§arch-2);

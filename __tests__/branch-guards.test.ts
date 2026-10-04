@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars } from '../src/extraction/grammars';
 import { callArgumentsInSource, guardsInSource, guardLabel, supportsBranchGuards, triggerInSource } from '../src/graph/branch-guards';
 import { buildNode } from '../src/ui-server/api/node';
@@ -353,7 +353,7 @@ describe('branch guards: on the wire', () => {
         '  }\n' +
         '}\n'
     );
-    const cg = CodeGraph.initSync(dir);
+    const cg = SleuthGraph.initSync(dir);
     await cg.indexAll();
     const run = cg.getNodesByName('run')[0]!;
     const helper = cg.getNodesByName('helper')[0]!;

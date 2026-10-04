@@ -1,7 +1,7 @@
 /**
  * Git worktree index-mismatch detection (issue #155).
  *
- * A CodeGraph index is resolved by walking up to the nearest `.codegraph/`.
+ * A SleuthGraph index is resolved by walking up to the nearest `.sleuth/`.
  * When a worktree is nested inside the main checkout, that walk reaches the
  * MAIN checkout's index and a query silently returns the main branch's code
  * instead of the worktree's. `detectWorktreeIndexMismatch` spots exactly this
@@ -22,7 +22,7 @@ import {
   gitWorktreeRoot,
   gitCommonDir,
 } from '../src/sync/worktree';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 
 function git(cwd: string, ...args: string[]): void {
@@ -35,7 +35,7 @@ function real(p: string): string {
 }
 
 describe('detectWorktreeIndexMismatch (issue #155)', () => {
-  let mainRepo: string;   // main checkout — owns the .codegraph index
+  let mainRepo: string;   // main checkout — owns the .sleuth index
   let worktree: string;   // a linked worktree nested inside the main checkout
   let nonGit: string;     // a directory outside any git repo
 
@@ -101,7 +101,7 @@ describe('detectWorktreeIndexMismatch (issue #155)', () => {
     const msg = worktreeMismatchWarning(detectWorktreeIndexMismatch(worktree, mainRepo)!);
     expect(msg).toContain(real(worktree));
     expect(msg).toContain(real(mainRepo));
-    expect(msg).toContain('codegraph init');
+    expect(msg).toContain('sleuth init');
   });
 });
 
@@ -115,7 +115,7 @@ describe('detectWorktreeIndexMismatch (issue #155)', () => {
 describe('worktree mismatch surfaces on hot read tools (issue #155)', () => {
   let mainRepo: string;
   let worktree: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
@@ -130,7 +130,7 @@ describe('worktree mismatch surfaces on hot read tools (issue #155)', () => {
     git(mainRepo, 'commit', '-q', '-m', 'init');
 
     // The index lives in the MAIN checkout.
-    cg = CodeGraph.initSync(mainRepo);
+    cg = SleuthGraph.initSync(mainRepo);
     await cg.indexAll();
 
     // Nested worktree, mirroring tools that place them under .claude/worktrees/<name>/.
@@ -146,25 +146,25 @@ describe('worktree mismatch surfaces on hot read tools (issue #155)', () => {
     fs.rmSync(mainRepo, { recursive: true, force: true });
   });
 
-  it('prefixes a compact notice on codegraph_search run from a nested worktree', async () => {
+  it('prefixes a compact notice on sleuth_search run from a nested worktree', async () => {
     handler.setDefaultProjectHint(worktree);
-    const res = await handler.execute('codegraph_search', { query: 'mainOnly' });
+    const res = await handler.execute('sleuth_search', { query: 'mainOnly' });
     const text = res.content[0].text;
     expect(res.isError).toBeFalsy();
     expect(text).toContain('different git worktree');
     expect(text).toContain(real(worktree));
-    expect(text).toContain('codegraph init');
+    expect(text).toContain('sleuth init');
   });
 
   it('does NOT prefix when the default project is the main checkout itself', async () => {
     handler.setDefaultProjectHint(mainRepo);
-    const res = await handler.execute('codegraph_search', { query: 'mainOnly' });
+    const res = await handler.execute('sleuth_search', { query: 'mainOnly' });
     expect(res.content[0].text).not.toContain('different git worktree');
   });
 
-  it('still shows the verbose warning on codegraph_status', async () => {
+  it('still shows the verbose warning on sleuth_status', async () => {
     handler.setDefaultProjectHint(worktree);
-    const res = await handler.execute('codegraph_status', {});
+    const res = await handler.execute('sleuth_status', {});
     const text = res.content[0].text;
     expect(text).toContain('different git working tree');
     expect(text).toContain(real(worktree));
@@ -173,7 +173,7 @@ describe('worktree mismatch surfaces on hot read tools (issue #155)', () => {
   it('caches detection — a later tool call needs no further git spawn', async () => {
     handler.setDefaultProjectHint(worktree);
     // First call computes + caches the mismatch (this is the only git spawn).
-    const first = await handler.execute('codegraph_search', { query: 'mainOnly' });
+    const first = await handler.execute('sleuth_search', { query: 'mainOnly' });
     expect(first.content[0].text).toContain('different git worktree');
 
     // Make git unreachable. A fresh detection would now return null (no notice);
@@ -181,7 +181,7 @@ describe('worktree mismatch surfaces on hot read tools (issue #155)', () => {
     const savedPath = process.env.PATH;
     process.env.PATH = '';
     try {
-      const second = await handler.execute('codegraph_explore', { query: 'mainOnly' });
+      const second = await handler.execute('sleuth_explore', { query: 'mainOnly' });
       expect(second.content[0].text).toContain('different git worktree');
     } finally {
       process.env.PATH = savedPath;
@@ -193,7 +193,7 @@ describe('worktree mismatch surfaces on hot read tools (issue #155)', () => {
  * A long-lived MCP server (the shared daemon) cached its worktree-mismatch
  * verdict keyed only by the start path, and that cache was cleared only on
  * shutdown. So once the server decided "this worktree borrows the main
- * checkout's index" — true while the worktree had no `.codegraph/` of its own —
+ * checkout's index" — true while the worktree had no `.sleuth/` of its own —
  * the verdict was pinned for the daemon's whole life. After the worktree got
  * its own index (the resolved index root flipped from the main checkout to the
  * worktree itself), the CLI saw the worktree's index but the MCP server kept
@@ -208,8 +208,8 @@ describe('worktree mismatch surfaces on hot read tools (issue #155)', () => {
 describe('worktree mismatch verdict re-resolves when the index root changes (issue #926)', () => {
   let mainRepo: string;
   let worktree: string;
-  let mainCg: CodeGraph;
-  let worktreeCg: CodeGraph;
+  let mainCg: SleuthGraph;
+  let worktreeCg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
@@ -224,13 +224,13 @@ describe('worktree mismatch verdict re-resolves when the index root changes (iss
     git(mainRepo, 'commit', '-q', '-m', 'init');
 
     // The long-lived server's default project starts as the MAIN checkout.
-    mainCg = CodeGraph.initSync(mainRepo);
+    mainCg = SleuthGraph.initSync(mainRepo);
     await mainCg.indexAll();
 
     // Nested worktree that later gains its own index.
     worktree = path.join(mainRepo, 'wt');
     git(mainRepo, 'worktree', 'add', '-q', '-b', 'feature', worktree);
-    worktreeCg = CodeGraph.initSync(worktree);
+    worktreeCg = SleuthGraph.initSync(worktree);
     await worktreeCg.indexAll();
 
     handler = new ToolHandler(mainCg);
@@ -249,17 +249,17 @@ describe('worktree mismatch verdict re-resolves when the index root changes (iss
 
     // Phase 1: the index genuinely belongs to a different working tree (the main
     // checkout) → warn, and cache that verdict.
-    const before = await handler.execute('codegraph_status', {});
+    const before = await handler.execute('sleuth_status', {});
     expect(before.content[0].text).toContain('different git working tree');
     expect(before.content[0].text).toContain(real(mainRepo));
 
     // Phase 2: the worktree's own index is now the server's default project
-    // (engine re-open → setDefaultCodeGraph). The resolved index root for the
+    // (engine re-open → setDefaultSleuthGraph). The resolved index root for the
     // SAME start path flipped to the worktree itself, so the verdict must be
     // recomputed to "no mismatch" — not served stale from before.
-    handler.setDefaultCodeGraph(worktreeCg);
+    handler.setDefaultSleuthGraph(worktreeCg);
 
-    const after = await handler.execute('codegraph_status', {});
+    const after = await handler.execute('sleuth_status', {});
     expect(after.content[0].text).not.toContain('different git working tree');
   });
 });
@@ -270,10 +270,10 @@ describe('worktree mismatch verdict re-resolves when the index root changes (iss
  * super-repo descends into its submodules and gitlinked clones, so a query run
  * from inside one resolves up to the parent index — which genuinely contains
  * that nested repo's symbols. The warning's premise is false there, and its
- * "run codegraph init -i" advice would fragment the unified index. (#1031, #1033)
+ * "run sleuth init -i" advice would fragment the unified index. (#1031, #1033)
  */
 describe('detectWorktreeIndexMismatch — nested repos covered by the parent index (#1031, #1033)', () => {
-  let parent: string;     // super-repo that owns the .codegraph index
+  let parent: string;     // super-repo that owns the .sleuth index
   let subSource: string;  // separate repo used as the submodule source
 
   beforeEach(() => {

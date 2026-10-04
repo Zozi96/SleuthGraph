@@ -8,7 +8,7 @@
  * candidate runtime targets for a statically-visible dispatch key, and collects
  * the continuations out of the stopping symbol that the search did not follow.
  *
- * It exists for the same reason `named-symbol-flow.ts` does. `codegraph_explore`
+ * It exists for the same reason `named-symbol-flow.ts` does. `sleuth_explore`
  * announces boundaries in prose ("**Dynamic boundaries** … candidates for key
  * `save`: …") and the viewer's Flow strip draws the same verdict as an end cap
  * (design spec §3.5). Two derivations of "where does this stop" would eventually
@@ -22,7 +22,7 @@
  * silence beats a wrong edge (#687).
  */
 
-import type CodeGraph from '../index';
+import type SleuthGraph from '../index';
 import type { Edge, Node } from '../types';
 import { scanDynamicDispatch, type BoundaryMatch } from '../mcp/dynamic-boundaries';
 import { validatePathWithinRoot } from '../utils';
@@ -130,7 +130,7 @@ export interface BoundaryScanOptions {
  * clean body is simply absent, because "nothing dynamic here" is not a finding.
  */
 export function findDynamicBoundaries(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   scanList: readonly Node[],
   opts: BoundaryScanOptions = {}
 ): NodeBoundary[] {
@@ -202,7 +202,7 @@ const normalizeName = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/
  * `note` saying so, rather than four arbitrary rows.
  */
 export function shortlistBoundaryCandidates(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   key: string,
   keyIsType: boolean,
   named: ReadonlyMap<string, Node>,
@@ -279,7 +279,7 @@ export function shortlistBoundaryCandidates(
   return { candidates, note: null };
 }
 
-function handlerMethodOf(cg: CodeGraph, cls: Node): Node | null {
+function handlerMethodOf(cg: SleuthGraph, cls: Node): Node | null {
   try {
     return (
       cg
@@ -318,7 +318,7 @@ const CONTINUATION_KINDS = new Set(['calls', 'instantiates', 'navigates']);
  * Deduped by target, keeping the first line each was recorded at.
  */
 export function continuationsFrom(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   node: Node,
   exclude: ReadonlySet<string> = new Set()
 ): BoundaryContinuations {

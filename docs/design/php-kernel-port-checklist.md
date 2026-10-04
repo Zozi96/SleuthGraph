@@ -737,7 +737,7 @@ enum_members, NOT to import nodes.
 
 ### Value-reference edges (:398-931) — php IS in VALUE_REF_LANGS (:401)
 
-Port the full machinery (crib go.rs/java.rs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib go.rs/java.rs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES = 20,000 caps the prune DFS and each reader scan;
 isGeneratedFile skip.
 
@@ -894,17 +894,17 @@ walker:5137, and scanFnRefSubtree (hook-consumed subtrees). Rules
   derived in-memory), exercised by the new parity suite.
 - **Parity sweeps** (`scripts/kernel-parity.mjs <dir>`, order-sensitive
   full-object, `--max-deferral 0.1`):
-  - `/private/tmp/claude-501/-Users-colby-Development-CodeGraph-codegraph/765a9532-0a92-43de-8d50-7c8ca1cb345c/scratchpad/monolog` (small, 217 files)
+  - `/private/tmp/claude-501/-Users-colby-Development-SleuthGraph-sleuth/765a9532-0a92-43de-8d50-7c8ca1cb345c/scratchpad/monolog` (small, 217 files)
   - `…/scratchpad/framework` (laravel/framework, medium, 2,999 files)
   - `…/scratchpad/symfony` (large, 10,736 files)
   (already cloned; re-clone fresh if gone). Then **full-init dump-diffs
-  byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`, `dump-graph.mjs`,
+  byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`, `dump-graph.mjs`,
   cmp) on the same three.
 - **Suite**: new `__tests__/kernel-php-parity.test.ts` — torture + CRLF
   variants + leading-HTML fixture + an intentionally-erroring defer fixture
   (genuinely broken syntax — e.g. an unclosed `function f( {` — NOT an
   8.4 feature, those parse clean on v0.24.2) asserting the kernel defers and
-  wasm output is served; full suite ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  wasm output is served; full suite ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'php'`** (kernel/index.ts:37) only after ALL of the
   above; changelog rides the existing kernel entry.
 - Post-route sanity: remember §arch-2 — gate repos ride the raw path; a

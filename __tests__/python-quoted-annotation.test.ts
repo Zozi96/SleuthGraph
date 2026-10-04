@@ -8,11 +8,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   await initGrammars();
@@ -31,7 +31,7 @@ beforeAll(async () => {
       "def single_quoted(o: 'Beta'):\n    return o.render()\n\n" +
       'def unquoted(o: Alpha):\n    return o.render()\n'
   );
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 });
 

@@ -5,7 +5,7 @@
  * children are gitignored) serves each child through `projectPath`. Before
  * this fix those projects were opened read-only: no catch-up sync on open and
  * no file watcher, so their answers went stale until someone ran
- * `codegraph sync` by hand. Now the engine gives an explicit project the same
+ * `sleuth sync` by hand. Now the engine gives an explicit project the same
  * lifecycle the default project gets — a catch-up sync the first call waits
  * for, a watcher while it stays cached — bounded (LRU) and released on stop().
  */
@@ -14,19 +14,19 @@ import * as fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { MCPEngine } from '../src/mcp/engine';
-import { MAX_CACHED_PROJECTS, __setLoadCodeGraphForTests } from '../src/mcp/tools';
+import { MAX_CACHED_PROJECTS, __setLoadSleuthGraphForTests } from '../src/mcp/tools';
 
 // Default and read-only opens use the engine's lazy CommonJS loader.
 const { MCPEngine: BuiltMCPEngine } = require('../dist/mcp/engine') as typeof import('../src/mcp/engine');
 
-const opened: CodeGraph[] = [];
-let onOpen: ((cg: CodeGraph) => void) | undefined;
-/** CodeGraph that records every instance the ToolHandler opens. */
-class RecordingCodeGraph extends CodeGraph {
-  static openSync(projectRoot: string): CodeGraph {
-    const cg = CodeGraph.openSync(projectRoot);
+const opened: SleuthGraph[] = [];
+let onOpen: ((cg: SleuthGraph) => void) | undefined;
+/** SleuthGraph that records every instance the ToolHandler opens. */
+class RecordingSleuthGraph extends SleuthGraph {
+  static openSync(projectRoot: string): SleuthGraph {
+    const cg = SleuthGraph.openSync(projectRoot);
     opened.push(cg);
     onOpen?.(cg);
     return cg;
@@ -36,7 +36,7 @@ class RecordingCodeGraph extends CodeGraph {
 async function makeProject(dir: string, symbol: string): Promise<void> {
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'src', 'sample.ts'), `export function ${symbol}() { return 1; }\n`);
-  const cg = await CodeGraph.init(dir, { config: { include: ['**/*.ts'], exclude: [] } });
+  const cg = await SleuthGraph.init(dir, { config: { include: ['**/*.ts'], exclude: [] } });
   await cg.indexAll();
   cg.close();
 }
@@ -60,26 +60,26 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
   let engine: MCPEngine;
   const engines: MCPEngine[] = [];
   const children: ChildProcess[] = [];
-  const prevDebounce = process.env.CODEGRAPH_WATCH_DEBOUNCE_MS;
-  const prevGate = process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS;
+  const prevDebounce = process.env.SLEUTH_WATCH_DEBOUNCE_MS;
+  const prevGate = process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS;
 
   // Both hooks build indexes or wait out a sync; a loaded Windows VM exceeds
   // the default 10s hook timeout, and has taken over 30s (#1773).
   beforeEach(async () => {
-    workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1835-')));
+    workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1835-')));
     serviceA = path.join(workspace, 'service-a');
     serviceB = path.join(workspace, 'service-b');
     await makeProject(serviceA, 'alphaOriginal');
     await makeProject(serviceB, 'betaOriginal');
-    process.env.CODEGRAPH_WATCH_DEBOUNCE_MS = '100';
+    process.env.SLEUTH_WATCH_DEBOUNCE_MS = '100';
     // These cases assert what a call left behind, so wait for its catch-up
     // rather than the gate's 3s serve-anyway deadline, which a loaded machine
     // misses (#1773). That deadline has its own coverage in
     // mcp-catchup-gate.test.ts; the eviction case sets its own values.
-    process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS = '0';
+    process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS = '0';
     opened.length = 0;
     onOpen = undefined;
-    __setLoadCodeGraphForTests(RecordingCodeGraph as unknown as typeof CodeGraph);
+    __setLoadSleuthGraphForTests(RecordingSleuthGraph as unknown as typeof SleuthGraph);
     engine = new MCPEngine({ watch: true });
     engines.push(engine);
     // Two indexed children, none at the root: no default project (#1607).
@@ -96,16 +96,16 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       }
     }
     vi.restoreAllMocks();
-    __setLoadCodeGraphForTests(null);
-    if (prevDebounce === undefined) delete process.env.CODEGRAPH_WATCH_DEBOUNCE_MS;
-    else process.env.CODEGRAPH_WATCH_DEBOUNCE_MS = prevDebounce;
-    if (prevGate === undefined) delete process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS;
-    else process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS = prevGate;
+    __setLoadSleuthGraphForTests(null);
+    if (prevDebounce === undefined) delete process.env.SLEUTH_WATCH_DEBOUNCE_MS;
+    else process.env.SLEUTH_WATCH_DEBOUNCE_MS = prevDebounce;
+    if (prevGate === undefined) delete process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS;
+    else process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS = prevGate;
     fs.rmSync(workspace, { recursive: true, force: true });
   }, 60_000);
 
   function names(root: string): string[] {
-    const reader = CodeGraph.openSync(root);
+    const reader = SleuthGraph.openSync(root);
     try { return reader.getNodesByKind('function').map((n) => n.name); }
     finally { reader.close(); }
   }
@@ -135,15 +135,15 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       const engine = new MCPEngine();
       process.on('SIGTERM', async () => { await engine.stop(); process.exit(0); });
       engine.ensureInitialized(process.argv[2]).then(async () => {
-        await engine.getToolHandler().execute('codegraph_status', {});
+        await engine.getToolHandler().execute('sleuth_status', {});
         if (!process.env.CG_TEST_HOLD_CATCHUP) process.send('ready');
       });
     `;
     const script = `
       if (process.env.CG_TEST_HOLD_CATCHUP) {
-        const CodeGraph = require(process.argv[1] + '/../index').default;
-        const sync = CodeGraph.prototype.sync;
-        CodeGraph.prototype.sync = async function (...args) {
+        const SleuthGraph = require(process.argv[1] + '/../index').default;
+        const sync = SleuthGraph.prototype.sync;
+        SleuthGraph.prototype.sync = async function (...args) {
           process.send('ready');
           await new Promise((resolve) => setTimeout(resolve, 300));
           return sync.apply(this, args);
@@ -152,7 +152,7 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     ` + ownerScript;
     const child = spawn(process.execPath, ['-e', script, modulePath, serviceA], {
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-      env: { ...process.env, CODEGRAPH_NO_DAEMON: mode === 'daemon' ? '0' : '1', CODEGRAPH_QUERY_POOL_SIZE: '0', CG_TEST_HOLD_CATCHUP: slowCatchUp ? '1' : '' },
+      env: { ...process.env, SLEUTH_NO_DAEMON: mode === 'daemon' ? '0' : '1', SLEUTH_QUERY_POOL_SIZE: '0', CG_TEST_HOLD_CATCHUP: slowCatchUp ? '1' : '' },
     });
     children.push(child);
     let stderr = '';
@@ -183,7 +183,7 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
   }
 
   async function search(projectPath: string, symbol: string): Promise<string> {
-    const res = await engine.getToolHandler().execute('codegraph_search', { query: symbol, projectPath });
+    const res = await engine.getToolHandler().execute('sleuth_search', { query: symbol, projectPath });
     expect(res.isError).toBeFalsy();
     return res.content.map((c) => (c.type === 'text' ? c.text : '')).join('\n');
   }
@@ -196,16 +196,16 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       const holder = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
       children.push(holder);
       if (!holder.pid) throw new Error('Failed to spawn rebuild holder');
-      const fence = path.join(serviceA, '.codegraph/rebuild.pid');
+      const fence = path.join(serviceA, '.sleuth/rebuild.pid');
       fs.writeFileSync(fence, JSON.stringify({ pid: holder.pid, mode: 'rebuild', startedAt: Date.now() }));
-      const response = await engine.getToolHandler().execute('codegraph_search', {
+      const response = await engine.getToolHandler().execute('sleuth_search', {
         projectPath: serviceA, query: 'alphaOriginal',
       });
       expect(JSON.stringify(response)).toContain('rebuild is in progress');
       // Expected and temporary: guidance, never a tool error that teaches abandonment.
       expect(JSON.stringify(response)).not.toContain('"isError":true');
       expect(opened).toHaveLength(0);
-      expect(fs.existsSync(path.join(serviceA, '.codegraph/writer.pid'))).toBe(false);
+      expect(fs.existsSync(path.join(serviceA, '.sleuth/writer.pid'))).toBe(false);
       fs.unlinkSync(fence);
       expect(await search(serviceA, 'alphaOriginal')).toContain('alphaOriginal');
     });
@@ -216,16 +216,16 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       const holder = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
       children.push(holder);
       if (!holder.pid) throw new Error('Failed to spawn rebuild holder');
-      const fence = path.join(serviceA, '.codegraph/rebuild.pid');
+      const fence = path.join(serviceA, '.sleuth/rebuild.pid');
       fs.writeFileSync(fence, JSON.stringify({ pid: holder.pid, mode: 'rebuild', startedAt: Date.now() }));
       await reader.ensureInitialized(serviceA);
-      expect(reader.hasDefaultCodeGraph()).toBe(false);
+      expect(reader.hasDefaultSleuthGraph()).toBe(false);
       reader.retryInitializeSync(serviceA);
-      expect(reader.hasDefaultCodeGraph()).toBe(false);
-      expect(fs.existsSync(path.join(serviceA, '.codegraph/writer.pid'))).toBe(false);
+      expect(reader.hasDefaultSleuthGraph()).toBe(false);
+      expect(fs.existsSync(path.join(serviceA, '.sleuth/writer.pid'))).toBe(false);
       fs.unlinkSync(fence);
       reader.retryInitializeSync(serviceA);
-      expect(reader.hasDefaultCodeGraph()).toBe(true);
+      expect(reader.hasDefaultSleuthGraph()).toBe(true);
     });
   }
 
@@ -255,26 +255,26 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     expect(await search(path.join(serviceB, 'src'), 'betaOriginal')).toContain('betaOriginal');
     expect(opened).toHaveLength(1);
     expect(opened[0].isWatching()).toBe(true);
-    expect(fs.existsSync(path.join(serviceB, '.codegraph', 'writer.pid'))).toBe(true);
+    expect(fs.existsSync(path.join(serviceB, '.sleuth', 'writer.pid'))).toBe(true);
 
     await engine.stop();
     expect(opened[0].isWatching()).toBe(false);
-    expect(fs.existsSync(path.join(serviceB, '.codegraph', 'writer.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(serviceB, '.sleuth', 'writer.pid'))).toBe(false);
     expect(() => opened[0].getStats()).toThrow();
   });
 
   it('does not take over a project another live process is already syncing', async () => {
     // Simulate a foreign writer (another daemon) holding the lock.
-    fs.mkdirSync(path.join(serviceB, '.codegraph'), { recursive: true });
+    fs.mkdirSync(path.join(serviceB, '.sleuth'), { recursive: true });
     const foreign = { pid: process.ppid, mode: 'daemon', startedAt: Date.now() };
-    fs.writeFileSync(path.join(serviceB, '.codegraph', 'writer.pid'), JSON.stringify(foreign));
+    fs.writeFileSync(path.join(serviceB, '.sleuth', 'writer.pid'), JSON.stringify(foreign));
     expect(await search(serviceB, 'betaOriginal')).toContain('betaOriginal');
     expect(opened).toHaveLength(1);
     expect(opened[0].isWatching()).toBe(false);
     await engine.stop();
     // Not ours — left in place.
-    expect(fs.readFileSync(path.join(serviceB, '.codegraph', 'writer.pid'), 'utf8')).toContain(String(process.ppid));
-    fs.unlinkSync(path.join(serviceB, '.codegraph', 'writer.pid'));
+    expect(fs.readFileSync(path.join(serviceB, '.sleuth', 'writer.pid'), 'utf8')).toContain(String(process.ppid));
+    fs.unlinkSync(path.join(serviceB, '.sleuth', 'writer.pid'));
   });
 
   it('catches up both children without selecting a default', async () => {
@@ -283,7 +283,7 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       await search(root!, symbol!);
       expect(names(root!)).toEqual([symbol]);
     }
-    expect(engine.hasDefaultCodeGraph()).toBe(false);
+    expect(engine.hasDefaultSleuthGraph()).toBe(false);
   });
 
   it('shares the catch-up gate across concurrent calls and engines', async () => {
@@ -300,7 +300,7 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     const calls = [
       search(serviceA, 'concurrentNew'),
       search(path.join(serviceA, 'src'), 'concurrentNew'),
-      second.getToolHandler().execute('codegraph_search', { projectPath: serviceA, query: 'concurrentNew' }),
+      second.getToolHandler().execute('sleuth_search', { projectPath: serviceA, query: 'concurrentNew' }),
     ].map((p) => p.then((r) => { completed++; return r; }));
     try {
       await new Promise((r) => setTimeout(r, 100));
@@ -316,19 +316,19 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     const second = new MCPEngine();
     engines.push(second);
     await search(serviceA, 'alphaOriginal');
-    await second.getToolHandler().execute('codegraph_search', { projectPath: serviceA, query: 'alphaOriginal' });
+    await second.getToolHandler().execute('sleuth_search', { projectPath: serviceA, query: 'alphaOriginal' });
     await opened[0]!.waitUntilWatcherReady(5000);
     await engine.stop();
     expect(opened[0]!.isWatching()).toBe(true);
-    expect(fs.existsSync(path.join(serviceA, '.codegraph/writer.pid'))).toBe(true);
+    expect(fs.existsSync(path.join(serviceA, '.sleuth/writer.pid'))).toBe(true);
     fs.writeFileSync(path.join(serviceA, 'src/sample.ts'), 'export function survivingSession() {}\n');
     expect(await waitFor(async () => names(serviceA).includes('survivingSession'), 10000)).toBe(true);
     await second.stop();
-    expect(fs.existsSync(path.join(serviceA, '.codegraph/writer.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(serviceA, '.sleuth/writer.pid'))).toBe(false);
   });
 
   it('retries a foreign writer and catches up after its ownership ends', async () => {
-    const lock = path.join(serviceA, '.codegraph/writer.pid');
+    const lock = path.join(serviceA, '.sleuth/writer.pid');
     fs.writeFileSync(lock, JSON.stringify({ pid: process.ppid, mode: 'direct', startedAt: Date.now() }));
     await search(serviceA, 'alphaOriginal');
     expect(opened[0]!.isWatching()).toBe(false);
@@ -340,11 +340,11 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
   });
 
   it('quietly retries catch-up after an indexing lock is released (#1361)', async () => {
-    const lock = path.join(serviceA, '.codegraph/codegraph.lock');
-    const writer = path.join(serviceA, '.codegraph/writer.pid');
-    const prev = process.env.CODEGRAPH_NO_WATCH;
+    const lock = path.join(serviceA, '.sleuth/sleuth.lock');
+    const writer = path.join(serviceA, '.sleuth/writer.pid');
+    const prev = process.env.SLEUTH_NO_WATCH;
     // Ensure the lifecycle retry, not a watcher event, repairs the index.
-    process.env.CODEGRAPH_NO_WATCH = '1';
+    process.env.SLEUTH_NO_WATCH = '1';
     const stderr = vi.spyOn(process.stderr, 'write');
     try {
       fs.writeFileSync(path.join(serviceA, 'src/sample.ts'), 'export function afterIndexLock() {}\n');
@@ -364,8 +364,8 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     } finally {
       fs.rmSync(lock, { force: true });
       stderr.mockRestore();
-      if (prev === undefined) delete process.env.CODEGRAPH_NO_WATCH;
-      else process.env.CODEGRAPH_NO_WATCH = prev;
+      if (prev === undefined) delete process.env.SLEUTH_NO_WATCH;
+      else process.env.SLEUTH_NO_WATCH = prev;
     }
   });
 
@@ -377,12 +377,12 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     await search(serviceA, 'noWatchEdit');
     expect(names(serviceA)).toEqual(['alphaOriginal']);
     expect(opened[0]!.isWatching()).toBe(false);
-    expect(fs.existsSync(path.join(serviceA, '.codegraph/writer.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(serviceA, '.sleuth/writer.pid'))).toBe(false);
   });
 
   it('honors the CLI no-watch policy while still catching up on access', async () => {
-    const prev = process.env.CODEGRAPH_NO_WATCH;
-    process.env.CODEGRAPH_NO_WATCH = '1';
+    const prev = process.env.SLEUTH_NO_WATCH;
+    process.env.SLEUTH_NO_WATCH = '1';
     try {
       fs.writeFileSync(path.join(serviceA, 'src/sample.ts'), 'export function policyCatchUp() {}\n');
       await search(serviceA, 'policyCatchUp');
@@ -392,8 +392,8 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       await search(serviceA, 'policyUnwatched');
       expect(names(serviceA)).toEqual(['policyCatchUp']);
     } finally {
-      if (prev === undefined) delete process.env.CODEGRAPH_NO_WATCH;
-      else process.env.CODEGRAPH_NO_WATCH = prev;
+      if (prev === undefined) delete process.env.SLEUTH_NO_WATCH;
+      else process.env.SLEUTH_NO_WATCH = prev;
     }
   });
 
@@ -413,14 +413,14 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       const sync = cg.sync.bind(cg);
       vi.spyOn(cg, 'sync').mockImplementation(async (...args) => { await held; return sync(...args); });
     };
-    const prev = process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS;
-    process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS = '10';
+    const prev = process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS;
+    process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS = '10';
     try {
       fs.writeFileSync(path.join(serviceA, 'src/sample.ts'), 'export function evictionCatchUp() {}\n');
       await search(serviceA, 'evictionCatchUp');
       // Only A should time out. Finish every other catch-up before expecting
       // B to be the oldest evictable entry; 10ms can expire on those too.
-      process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS = '0';
+      process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS = '0';
       for (const root of roots.slice(1)) await search(root, 'symbol');
       expect(() => opened[0]!.getStats()).not.toThrow();
       expect(() => opened[1]!.getStats()).toThrow();
@@ -433,22 +433,22 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       await stop;
       expect(names(serviceA)).toEqual(['evictionCatchUp']);
       expect(() => opened[0]!.getStats()).toThrow();
-      expect(fs.existsSync(path.join(serviceA, '.codegraph/writer.pid'))).toBe(false);
+      expect(fs.existsSync(path.join(serviceA, '.sleuth/writer.pid'))).toBe(false);
     } finally {
       release();
-      if (prev === undefined) delete process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS;
-      else process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS = prev;
+      if (prev === undefined) delete process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS;
+      else process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS = prev;
     }
   }, 60_000);
 
 
   // A daemon that answered one projectPath query for another project must not
   // keep that project's writer lock until it exits: the project's own daemon
-  // and `codegraph index` there would stay locked out (#2087).
+  // and `sleuth index` there would stay locked out (#2087).
   it('releases an idle explicit project and its writer lock, and retakes it on the next call', async () => {
-    const prev = process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS;
-    process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS = '200';
-    const lock = path.join(serviceB, '.codegraph/writer.pid');
+    const prev = process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS;
+    process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS = '200';
+    const lock = path.join(serviceB, '.sleuth/writer.pid');
     try {
       expect(await search(serviceB, 'betaOriginal')).toContain('betaOriginal');
       expect(JSON.parse(fs.readFileSync(lock, 'utf8')).pid).toBe(process.pid);
@@ -464,8 +464,8 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       expect(opened[1]!.isWatching()).toBe(true);
       expect(JSON.parse(fs.readFileSync(lock, 'utf8')).pid).toBe(process.pid);
     } finally {
-      if (prev === undefined) delete process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS;
-      else process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS = prev;
+      if (prev === undefined) delete process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS;
+      else process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS = prev;
     }
   });
 
@@ -476,10 +476,10 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       const sync = cg.sync.bind(cg);
       vi.spyOn(cg, 'sync').mockImplementation(async (...args) => { await held; return sync(...args); });
     };
-    const prevIdle = process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS;
-    process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS = '50';
-    process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS = '10';
-    const lock = path.join(serviceB, '.codegraph/writer.pid');
+    const prevIdle = process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS;
+    process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS = '50';
+    process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS = '10';
+    const lock = path.join(serviceB, '.sleuth/writer.pid');
     try {
       fs.writeFileSync(path.join(serviceB, 'src/sample.ts'), 'export function idleCatchUp() {}\n');
       await search(serviceB, 'betaOriginal');
@@ -492,8 +492,8 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
       expect(() => opened[0]!.getStats()).toThrow();
     } finally {
       release();
-      if (prevIdle === undefined) delete process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS;
-      else process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS = prevIdle;
+      if (prevIdle === undefined) delete process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS;
+      else process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS = prevIdle;
     }
   });
 
@@ -526,7 +526,7 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     await search(serviceA, 'ownerCatchUp');
     expect(names(serviceA)).toEqual(['ownerCatchUp']);
     expect(opened[0]!.isWatching()).toBe(false);
-    const lock = JSON.parse(fs.readFileSync(path.join(serviceA, '.codegraph/writer.pid'), 'utf8'));
+    const lock = JSON.parse(fs.readFileSync(path.join(serviceA, '.sleuth/writer.pid'), 'utf8'));
     expect(lock.pid).toBe(owner.pid);
     const exited = new Promise((resolve) => owner.once('exit', resolve));
     owner.kill('SIGTERM');
@@ -541,7 +541,7 @@ describe('MCP explicit projectPath lifecycle (#1835)', { timeout: 30_000 }, () =
     await search(serviceA, 'alphaOriginal');
     const second = new MCPEngine();
     engines.push(second);
-    await second.getToolHandler().execute('codegraph_search', { projectPath: serviceA, query: 'alphaOriginal' });
+    await second.getToolHandler().execute('sleuth_search', { projectPath: serviceA, query: 'alphaOriginal' });
     // Both engines now share one daemon session; from here on the daemon may
     // idle out, and only losing that session should make it do so.
     await armIdleExit(owner);

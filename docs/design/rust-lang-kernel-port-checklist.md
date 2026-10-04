@@ -392,7 +392,7 @@ DOCSTRING_WRAPPER_TYPES contains no rust wrappers → no climbing. Block
 
 ### Value-reference edges (398-931) — rust IS in VALUE_REF_LANGS (401)
 
-Port the full machinery (crib go.rs/tsjs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib go.rs/tsjs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES=20_000 caps BOTH the prune scan and each reader scan;
 `isGeneratedFile` skip.
 
@@ -517,7 +517,7 @@ inner `array_expression`, but `const CB: fn() = handler;` captures nothing
 - **Parity sweeps** (`scripts/kernel-parity.mjs`, order-sensitive full-object):
   **ripgrep (small), tokio (medium), rust-analyzer (large)** — all three also
   exercise heavy `pub use` re-export hubs and macro use. Then **full-init
-  dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+  dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   `dump-graph.mjs`, cmp) on the same three.
 - **Deferral-rate guard: default `--max-deferral 0.1` and expect FAR under it**
   — rust is not macro-mangled C; parse-error incidence should sit in the
@@ -527,7 +527,7 @@ inner `array_expression`, but `const CB: fn() = handler;` captures nothing
 - Grammar-bump isolation: the vendored v0.24.2 wasm + `=0.24.2` crate pin land
   FIRST with the full suite green (kernel-grammar-parity sha-matches parser.c;
   crate + wasm move together or it fails).
-- Suite green with `CODEGRAPH_KERNEL_EXPECT=1`; unit tests for the walker in
+- Suite green with `SLEUTH_KERNEL_EXPECT=1`; unit tests for the walker in
   `__tests__/kernel-rustlang-parity.test.ts` (or folded into the existing
   parity suites); changelog rides the existing kernel entry.
 - `DEFAULT_ROUTED += rust` (kernel/index.ts:37) only after ALL of the above.

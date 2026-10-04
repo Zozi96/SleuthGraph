@@ -5,7 +5,7 @@ import { defineWorkspace } from 'vitest/config';
  * Two projects, one command (`npm test` still runs everything).
  *
  * The split exists because of exactly one suite. `ui-package.test.ts` mounts
- * `@colbymchenry/codegraph-ui`'s components against a mock adapter (task
+ * `@zozi96/sleuthgraph-ui`'s components against a mock adapter (task
  * CG-61), and to do that it needs three things the engine's suites must never
  * see:
  *

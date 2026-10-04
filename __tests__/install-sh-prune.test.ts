@@ -8,7 +8,7 @@
  *
  * Rather than duplicate the shell (which would drift from the shipped script),
  * these tests extract the REAL prune block from `install.sh` — between its
- * `CODEGRAPH_PRUNE_OLD_VERSIONS` markers — and run it under `sh` against a temp
+ * `SLEUTH_PRUNE_OLD_VERSIONS` markers — and run it under `sh` against a temp
  * fixture, with `$INSTALL_DIR` / `$dest` injected. No network, no download.
  *
  * POSIX only: the block is `/bin/sh`. Windows installs overwrite a single dir in
@@ -22,8 +22,8 @@ import * as os from 'os';
 import * as path from 'path';
 
 const INSTALL_SH = path.join(__dirname, '..', 'install.sh');
-const START = '# >>> CODEGRAPH_PRUNE_OLD_VERSIONS';
-const END = '# <<< CODEGRAPH_PRUNE_OLD_VERSIONS';
+const START = '# >>> SLEUTH_PRUNE_OLD_VERSIONS';
+const END = '# <<< SLEUTH_PRUNE_OLD_VERSIONS';
 
 /** Pull the exact prune block out of the shipped install.sh (no duplication). */
 function extractPruneBlock(): string {
@@ -31,7 +31,7 @@ function extractPruneBlock(): string {
   const i = lines.findIndex((l) => l.trim() === START);
   const j = lines.findIndex((l) => l.trim() === END);
   if (i < 0 || j < 0 || j <= i) {
-    throw new Error('CODEGRAPH_PRUNE_OLD_VERSIONS markers not found in install.sh');
+    throw new Error('SLEUTH_PRUNE_OLD_VERSIONS markers not found in install.sh');
   }
   return lines.slice(i + 1, j).join('\n');
 }
@@ -52,7 +52,7 @@ function runPrune(installDir: string, dest: string): { code: number; stdout: str
 function seedVersion(installDir: string, version: string): string {
   const dir = path.join(installDir, 'versions', version);
   fs.mkdirSync(path.join(dir, 'bin'), { recursive: true });
-  fs.writeFileSync(path.join(dir, 'bin', 'codegraph'), '#!/bin/sh\n');
+  fs.writeFileSync(path.join(dir, 'bin', 'sleuth'), '#!/bin/sh\n');
   return dir;
 }
 

@@ -9,7 +9,7 @@
  * have no body to trace from, so the agent ends up reading source anyway.
  *
  * This is a relevance hint consulted at disambiguation time (findSymbol /
- * findAllSymbols / explore ranking / codegraph_search formatting), NOT a
+ * findAllSymbols / explore ranking / sleuth_search formatting), NOT a
  * hard filter — generated nodes are still in the graph and remain
  * reachable; they just rank LAST when there's a real implementation with
  * the same name.
@@ -32,7 +32,7 @@
  *
  * Consumers that have a bounded candidate list should use the DB-backed
  * union (`QueryBuilder.getGeneratedPathsAmong` /
- * `CodeGraph.getGeneratedFilePaths`) so both signals apply; the path-only
+ * `SleuthGraph.getGeneratedFilePaths`) so both signals apply; the path-only
  * check remains the fallback for callers with no database in hand and for
  * indexes built before the flag existed.
  *

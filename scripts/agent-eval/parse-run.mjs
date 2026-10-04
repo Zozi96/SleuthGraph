@@ -13,12 +13,12 @@
 //   for harnesses that print one of these blocks per run (ab-new-vs-baseline.sh
 //   at RUNS>=2 is otherwise mostly call listings).
 //
-//   Every run also reports EXPLORE SUFFICIENCY — each codegraph_explore call
+//   Every run also reports EXPLORE SUFFICIENCY — each sleuth_explore call
 //   bucketed by what the agent did next (see classifySufficiency) — and EXPLORE
 //   ALLOCATION EFFICIENCY, the share of the bytes explore returned that belonged
 //   to files the agent's final answer actually cited (see computeAllocation).
 //
-//   `--envelope` additionally reports how the codegraph_explore responses were
+//   `--envelope` additionally reports how the sleuth_explore responses were
 //   DIVIDED across files — the per-file share of the source envelope (#1500).
 //   `--answer <glob>` (repeatable, implies --envelope) marks the files that
 //   actually answer the question and reports their combined share: bar 2 of the
@@ -65,20 +65,20 @@ const CHARS_PER_TOKEN_FALLBACK = 3.0;
 
 /** Which tool family a tool_use belongs to. */
 function familyOf(name) {
-  if (/codegraph/.test(name)) return 'codegraph';
+  if (/sleuth/.test(name)) return 'sleuth';
   if (name === 'Read' || name === 'NotebookRead') return 'read';
   if (name === 'Grep' || name === 'Glob') return 'search';
   if (name === 'Bash' || name === 'BashOutput') return 'bash';
   return 'other';
 }
-const FAMILIES = ['codegraph', 'read', 'search', 'bash', 'other'];
+const FAMILIES = ['sleuth', 'read', 'search', 'bash', 'other'];
 // The without-arm's way of getting the same bytes: reading and searching files.
 const FILE_ACCESS = ['read', 'search', 'bash'];
 
-// A Bash command that INVOKES the codegraph CLI, in any command position and by
-// any path. Mentions are not invocations: `grep codegraph src/`, `ls .codegraph`
-// and `which codegraph` all pass. Kept in step with run-all.sh's blocking hook.
-const CG_CLI_RE = /(^|[;&|(]|&&|\|\||\$\(|`)\s*(?:[A-Za-z_]\w*=\S*\s+)*[\w./~-]*codegraph(\s|$)/;
+// A Bash command that INVOKES the sleuth CLI, in any command position and by
+// any path. Mentions are not invocations: `grep sleuth src/`, `ls .sleuth`
+// and `which sleuth` all pass. Kept in step with run-all.sh's blocking hook.
+const CG_CLI_RE = /(^|[;&|(]|&&|\|\||\$\(|`)\s*(?:[A-Za-z_]\w*=\S*\s+)*[\w./~-]*sleuth(\s|$)/;
 
 const textOf = (content) =>
   Array.isArray(content) ? content.map((c) => c.text ?? (typeof c === 'string' ? c : JSON.stringify(c))).join('')
@@ -110,15 +110,15 @@ export function parseSession(files) {
 
   const toolCalls = [];          // display sequence
   const nameById = new Map();    // tool_use_id -> tool name
-  const cliById = new Set();     // tool_use_ids that tried to run the codegraph CLI
+  const cliById = new Set();     // tool_use_ids that tried to run the sleuth CLI
   const counts = {};             // tool name -> calls
   // Attempts vs successes: run-all.sh's hook DENIES CLI invocations, and a
-  // denied attempt puts no codegraph output in the window. Only a call that
+  // denied attempt puts no sleuth output in the window. Only a call that
   // actually returned content contaminates the arm.
   let initTools = null, result = null, raced = false, cliCalls = 0, cliContaminated = 0;
   const results = [];  // one `result` event per session segment (multi-turn)
   let compactions = 0;
-  // Raw codegraph_explore response text, in call order. Feeds the envelope view
+  // Raw sleuth_explore response text, in call order. Feeds the envelope view
   // (see formatEnvelope) — kept here rather than re-parsed from the log later so
   // a multi-segment session's responses stay in one ordered list.
   const exploreTexts = [];
@@ -131,7 +131,7 @@ export function parseSession(files) {
 
   for (const ev of events) {
     if (ev.type === 'system' && ev.subtype === 'init') {
-      initTools = (ev.tools || []).filter((t) => /codegraph/.test(t));
+      initTools = (ev.tools || []).filter((t) => /sleuth/.test(t));
     }
     if (ev.type === 'system' && (ev.subtype === 'compact_boundary' || ev.subtype === 'compaction')) {
       compactions++;
@@ -154,12 +154,12 @@ export function parseSession(files) {
           counts[b.name] = (counts[b.name] || 0) + 1;
           let detail = '';
           if (b.name === 'Task') detail = ` [subagent_type=${b.input?.subagent_type ?? '?'}] ${(b.input?.description ?? '').slice(0, 40)}`;
-          else if (/codegraph/.test(b.name)) detail = ` ${JSON.stringify(b.input?.query ?? b.input?.task ?? b.input?.symbol ?? '').slice(0, 60)}`;
+          else if (/sleuth/.test(b.name)) detail = ` ${JSON.stringify(b.input?.query ?? b.input?.task ?? b.input?.symbol ?? '').slice(0, 60)}`;
           else if (b.name === 'Bash') {
             detail = ` ${(b.input?.command ?? '').slice(0, 50)}`;
-            // An arm with no codegraph MCP can still shell out to the CLI — the
-            // target repo carries the .codegraph/ index and the binary is on
-            // PATH. That silently turns a "without" arm into codegraph-over-CLI.
+            // An arm with no sleuth MCP can still shell out to the CLI — the
+            // target repo carries the .sleuth/ index and the binary is on
+            // PATH. That silently turns a "without" arm into sleuth-over-CLI.
             if (CG_CLI_RE.test(b.input?.command ?? '')) { cliCalls++; cliById.add(b.id); }
           }
           else if (b.name === 'Read') detail = ` ${(b.input?.file_path ?? '').split('/').slice(-1)[0]}`;
@@ -181,7 +181,7 @@ export function parseSession(files) {
             // by the binary being genuinely absent) and put nothing in context.
             if (cliById.has(b.tool_use_id) && !b.is_error) cliContaminated++;
             const name = nameById.get(b.tool_use_id) || '';
-            if (/codegraph_explore/.test(name) && !b.is_error) exploreTexts.push(t);
+            if (/sleuth_explore/.test(name) && !b.is_error) exploreTexts.push(t);
             timeline.push({ kind: 'add', family: familyOf(name), chars: t.length, tool: name });
           } else {
             timeline.push({ kind: 'add', family: null, chars: textOf([b]).length });
@@ -293,7 +293,7 @@ export function parseSession(files) {
 
   const ctxFinal = reqIdx.length ? timeline[reqIdx[reqIdx.length - 1]].ctx : 0;
   // The FIRST request's prompt is system + tool schemas + the question, before
-  // any tool has answered. Differencing the arms' ctxBase prices codegraph's
+  // any tool has answered. Differencing the arms' ctxBase prices sleuth's
   // FIXED occupancy — its tool schema and MCP `initialize` instructions — which
   // it pays whether or not the agent ever calls it.
   const ctxBase = reqIdx.length ? timeline[reqIdx[0]].ctx : 0;
@@ -339,7 +339,7 @@ export function parseSession(files) {
     tools: toolCalls.filter((t) => !t.startsWith('ToolSearch')).length,
     reads: counts.Read || 0,
     grep: (counts.Grep || 0) + (counts.Glob || 0),
-    cg: Object.entries(counts).filter(([n]) => /codegraph/.test(n)).reduce((s, [, v]) => s + v, 0),
+    cg: Object.entries(counts).filter(([n]) => /sleuth/.test(n)).reduce((s, [, v]) => s + v, 0),
     dur: results.reduce((s, r) => s + (r.duration_ms || 0), 0) / 1000,
     cost: results.reduce((s, r) => s + (r.total_cost_usd || 0), 0),
     processed,
@@ -370,7 +370,7 @@ export function formatOccupancy(s, indent = '  ') {
   );
   const out = [`${indent}Residual context occupancy at end of run:`];
   out.push(`${indent}  ${'final context'.padEnd(18)}${(n(o.ctxFinal) + ' tok').padStart(12)}  ${(pctWin(o.ctxFinal) + '%').padStart(6)} of ${Math.round(o.windowTokens / 1000)}k window`);
-  row('codegraph', o.residual.codegraph, o.chars.codegraph, o.results.codegraph);
+  row('sleuth', o.residual.sleuth, o.chars.sleuth, o.results.sleuth);
   row('Read', o.residual.read, o.chars.read, o.results.read);
   row('Grep/Glob', o.residual.search, o.chars.search, o.results.search);
   row('Bash', o.residual.bash, o.chars.bash, o.results.bash);
@@ -381,8 +381,8 @@ export function formatOccupancy(s, indent = '  ') {
   row('base (prompt+prose)', Math.max(0, o.ctxFinal - toolTotal));
   out.push(`${indent}  ${'  of which fixed'.padEnd(18)}${(n(o.ctxBase) + ' tok').padStart(12)}  system + tool schemas + question, before any tool answered`);
   out.push(...rows);
-  const dropped = o.contributed.codegraph + o.contributedFileAccess + o.contributed.other
-    - (o.residual.codegraph + o.residualFileAccess + o.residual.other);
+  const dropped = o.contributed.sleuth + o.contributedFileAccess + o.contributed.other
+    - (o.residual.sleuth + o.residualFileAccess + o.residual.other);
   out.push(
     `${indent}  measure: ${o.charsPerToken.toFixed(2)} chars/tok ${o.calibrated ? 'measured' : '(FALLBACK — no clean gap to calibrate on)'}` +
     (o.dispersion !== null ? ` ±${(o.dispersion * 100).toFixed(1)}%` : '') +
@@ -393,7 +393,7 @@ export function formatOccupancy(s, indent = '  ') {
 }
 
 /**
- * One codegraph_explore response, split into the per-file source sections the
+ * One sleuth_explore response, split into the per-file source sections the
  * allocator divided its budget across.
  *
  * Parsed out of the RENDERED MARKDOWN, not the CG-4 diagnostic sidecar: the
@@ -438,7 +438,7 @@ export function parseExploreCall(text) {
 }
 
 /**
- * How the codegraph_explore responses the agent received were DIVIDED across
+ * How the sleuth_explore responses the agent received were DIVIDED across
  * files — the per-file share of the source envelope (#1500 / epic CG-1).
  *
  * `answerGlobs` marks the files that actually answer the question; the summary
@@ -651,7 +651,7 @@ export function computeAllocation(exploreTexts, answerText) {
 }
 
 /**
- * Every answered codegraph_explore response in a transcript, in call order.
+ * Every answered sleuth_explore response in a transcript, in call order.
  * parseSession collects these as it walks the timeline; this is the same list
  * for callers that only have the raw events (parse-session.mjs).
  */
@@ -664,7 +664,7 @@ export function collectExploreTexts(events) {
     for (const b of content) {
       if (b.type === 'tool_use') nameById.set(b.id, b.name);
       else if (b.type === 'tool_result' && !b.is_error
-        && /codegraph_explore/.test(nameById.get(b.tool_use_id) || '')) texts.push(textOf(b.content));
+        && /sleuth_explore/.test(nameById.get(b.tool_use_id) || '')) texts.push(textOf(b.content));
     }
   }
   return texts;
@@ -691,7 +691,7 @@ export function finalAnswerText(events) {
 /** The allocation block, as printed under a run and reused by aggregators. */
 export function formatAllocation(s, indent = '  ') {
   const a = s.allocation;
-  if (!a || !a.calls.length) return `${indent}Explore allocation: no codegraph_explore responses with source sections`;
+  if (!a || !a.calls.length) return `${indent}Explore allocation: no sleuth_explore responses with source sections`;
   const pct = (f) => `${(f * 100).toFixed(1)}%`;
   const n = (x) => x.toLocaleString('en-US');
   const out = [
@@ -718,11 +718,11 @@ export function formatAllocation(s, indent = '  ') {
 // ---------------------------------------------------------------------------
 // Explore sufficiency (CG-8)
 // ---------------------------------------------------------------------------
-// The agent's NEXT action after a codegraph_explore is free ground truth about
+// The agent's NEXT action after a sleuth_explore is free ground truth about
 // whether that response was enough. The buckets are chosen so each one maps to
 // a distinct fix:
 //
-//   another codegraph call      insufficient — the response did not answer
+//   another sleuth call      insufficient — the response did not answer
 //   Read of a file we RETURNED  allocation bug — right file, wrong bytes
 //   Read of a file we did NOT   recall bug — the file never surfaced
 //   Grep/Glob                   recall bug (weaker: the agent is still hunting)
@@ -827,7 +827,7 @@ function reactionOf(action, returned, mentioned, earlier = []) {
     const named = mentioned.some((m) => samePath(path, m));
     return { bucket: 'read_missed', next: `${prefix}Read ${base}${named ? ' (named, not returned)' : ''}`, named };
   };
-  if (/codegraph/.test(name)) return { bucket: 'explore_again', next: name.replace(/^mcp__[^_]*__/, '') };
+  if (/sleuth/.test(name)) return { bucket: 'explore_again', next: name.replace(/^mcp__[^_]*__/, '') };
   if (name === 'Read' || name === 'NotebookRead') return readOf(input.file_path ?? input.notebook_path, '');
   if (name === 'Grep' || name === 'Glob') return { bucket: 'search', next: name };
   if (name === 'Bash') {
@@ -844,7 +844,7 @@ const isFileAccess = (a) =>
   || (a.name === 'Bash' && bashIntent(a.input?.command) !== null);
 
 /**
- * Bucket every answered codegraph_explore call in a transcript by what the
+ * Bucket every answered sleuth_explore call in a transcript by what the
  * agent did next. Takes the raw JSONL events so it serves both transcript
  * shapes: stream-json runs (parse-run.mjs) and interactive session logs
  * (parse-session.mjs) — both emit one assistant event per content block with
@@ -874,7 +874,7 @@ export function classifySufficiency(events) {
       for (const b of content) {
         if (b.type !== 'tool_result') continue;
         const name = nameById.get(b.tool_use_id) || '';
-        if (/codegraph_explore/.test(name) && !b.is_error) textById.set(b.tool_use_id, textOf(b.content));
+        if (/sleuth_explore/.test(name) && !b.is_error) textById.set(b.tool_use_id, textOf(b.content));
       }
     }
   }
@@ -894,7 +894,7 @@ export function classifySufficiency(events) {
     const earlier = [];  // files previous explores in THIS thread already shipped
     for (let i = 0; i < actions.length; i++) {
       const a = actions[i];
-      if (!/codegraph_explore/.test(a.name)) continue;
+      if (!/sleuth_explore/.test(a.name)) continue;
       const text = textById.get(a.id);
       // No response text = the call errored, or the run ended before it
       // returned. Nothing to judge the sufficiency of; count it and move on.
@@ -925,7 +925,7 @@ export function classifySufficiency(events) {
 export function formatSufficiency(s, indent = '  ') {
   const f = s.sufficiency;
   if (!f.answered) {
-    return `${indent}Explore sufficiency: no answered codegraph_explore calls`
+    return `${indent}Explore sufficiency: no answered sleuth_explore calls`
       + (f.errors ? ` (${f.errors} errored or never returned)` : '');
   }
   const pct = (n) => ((n / f.answered) * 100).toFixed(0) + '%';
@@ -976,7 +976,7 @@ function selftest() {
   // 1. Attribution: ratio 2.5 chars/tok, two families, no shedding.
   //    10,000 explore chars over a 4,000-tok gap; 5,000 Read chars over 2,000.
   let f = write('basic.jsonl', [
-    ...req(10000, 'm1', [use('t1', 'mcp__codegraph__codegraph_explore')]),
+    ...req(10000, 'm1', [use('t1', 'mcp__sleuth__sleuth_explore')]),
     res('t1', 10000),
     ...req(14000, 'm2', [use('t2', 'Read')]),
     res('t2', 5000),
@@ -985,7 +985,7 @@ function selftest() {
   ]);
   let o = parseSession([f]).occupancy;
   check('chars/token', o.charsPerToken * 1000, 2500, 30);
-  check('codegraph residual', o.residual.codegraph, 4000, 60);
+  check('sleuth residual', o.residual.sleuth, 4000, 60);
   check('Read residual', o.residual.read, 2000, 40);
   check('file-access residual', o.residualFileAccess, 2000, 40);
   check('final context', o.ctxFinal, 16000, 0);
@@ -995,7 +995,7 @@ function selftest() {
   // 2. Dedupe: thinking + tool_use are two events sharing one id and one usage.
   //    Counting usage per event would report 5 requests instead of 3.
   f = write('dupe.jsonl', [
-    ...req(10000, 'm1', [{ type: 'thinking', thinking: '' }, use('t1', 'mcp__codegraph__codegraph_explore')]),
+    ...req(10000, 'm1', [{ type: 'thinking', thinking: '' }, use('t1', 'mcp__sleuth__sleuth_explore')]),
     res('t1', 10000),
     ...req(14000, 'm2', [{ type: 'thinking', thinking: '' }, use('t2', 'Read')]),
     res('t2', 5000),
@@ -1004,26 +1004,26 @@ function selftest() {
   ]);
   let s = parseSession([f]);
   check('turns deduped by message.id', s.turns, 3, 0);
-  check('codegraph residual (deduped)', s.occupancy.residual.codegraph, 4000, 60);
+  check('sleuth residual (deduped)', s.occupancy.residual.sleuth, 4000, 60);
 
   // 3. Compaction: the boundary clears everything resident before it.
   f = write('compact.jsonl', [
-    ...req(10000, 'm1', [use('t1', 'mcp__codegraph__codegraph_explore')]),
+    ...req(10000, 'm1', [use('t1', 'mcp__sleuth__sleuth_explore')]),
     res('t1', 10000),
-    ...req(14000, 'm2', [use('t2', 'mcp__codegraph__codegraph_explore')]),
+    ...req(14000, 'm2', [use('t2', 'mcp__sleuth__sleuth_explore')]),
     JSON.stringify({ type: 'system', subtype: 'compact_boundary' }),
     res('t2', 5000),
     ...req(8000, 'm3', [{ type: 'text', text: 'done' }]),
     done(),
   ]);
   o = parseSession([f]).occupancy;
-  check('post-compaction residual = last result only', o.residual.codegraph, 2000, 40);
-  check('contributed still counts both', o.contributed.codegraph, 6000, 80);
+  check('post-compaction residual = last result only', o.residual.sleuth, 2000, 40);
+  check('contributed still counts both', o.contributed.sleuth, 6000, 80);
 
   // 4. Micro-compaction: context grows less than the results added, so the
   //    oldest result is shed first (FIFO) — here explore, leaving Read.
   f = write('micro.jsonl', [
-    ...req(10000, 'm1', [use('t1', 'mcp__codegraph__codegraph_explore')]),
+    ...req(10000, 'm1', [use('t1', 'mcp__sleuth__sleuth_explore')]),
     res('t1', 10000),
     ...req(14000, 'm2', [use('t2', 'Read')]),
     res('t2', 10000),
@@ -1031,14 +1031,14 @@ function selftest() {
     done(),
   ]);
   o = parseSession([f]).occupancy;
-  check('FIFO evicted the older codegraph result', o.residual.codegraph, 500, 60);
+  check('FIFO evicted the older sleuth result', o.residual.sleuth, 500, 60);
   check('newer Read result survives', o.residual.read, 4000, 60);
   check('eviction recorded', o.evicted, 3500, 60);
 
   // 5. Multi-turn stitching: a resumed segment continues the same context, and
   //    a turn that calls no tool leaves the earlier residual in place.
   const a = write('seg1.jsonl', [
-    ...req(10000, 'm1', [use('t1', 'mcp__codegraph__codegraph_explore')]),
+    ...req(10000, 'm1', [use('t1', 'mcp__sleuth__sleuth_explore')]),
     res('t1', 10000),
     ...req(14000, 'm2', [{ type: 'text', text: 'answer one' }]),
     done(),
@@ -1049,7 +1049,7 @@ function selftest() {
   ]);
   s = parseSession([a, b]);
   check('stitched turns', s.turns, 3, 0);
-  check('residual carries into turn 2', s.occupancy.residual.codegraph, 4000, 60);
+  check('residual carries into turn 2', s.occupancy.residual.sleuth, 4000, 60);
   check('stitched final context', s.occupancy.ctxFinal, 14600, 0);
   check('stitched cost sums segments', s.cost * 100, 20, 0.1);
 
@@ -1060,7 +1060,7 @@ function selftest() {
     if (!ok) failures++;
     console.log(`${ok ? '  ok  ' : '  FAIL'} ${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
   };
-  const EXPLORE = 'mcp__codegraph__codegraph_explore';
+  const EXPLORE = 'mcp__sleuth__sleuth_explore';
   // An explore response's shape that matters here: one `**`path`**` section per
   // file whose source it returned, plus whatever else it named.
   const exploreRes = (id, paths, extra = '', isError = false) => JSON.stringify({
@@ -1347,7 +1347,7 @@ function selftest() {
   check('parseSession reports allocation', round(s.allocation.efficiency), 50, 0.6);
   checkIs('  …and the block renders', /efficiency\s+50\.\d%/.test(formatAllocation(s)), true);
   checkIs('a run with no explore says so',
-    formatAllocation({ allocation: computeAllocation([], 'answer') }).includes('no codegraph_explore responses'), true);
+    formatAllocation({ allocation: computeAllocation([], 'answer') }).includes('no sleuth_explore responses'), true);
 
   console.log(`\n${n - failures}/${n} checks passed`);
   return failures;
@@ -1376,9 +1376,9 @@ if (isMain) {
   const s = parseSession(files);
 
   console.log(`\n=== ${files.map((f) => f.split('/').pop()).join(' + ')} ===`);
-  console.log(`codegraph tools exposed: ${s.initTools ? s.initTools.length : '?'}${s.raced ? '  [MCP COLD-START RACE — tool call hit "No such tool available"]' : ''}`);
-  if (s.cliContaminated) console.log(`!! ${s.cliContaminated} codegraph CLI call${s.cliContaminated === 1 ? '' : 's'} RETURNED OUTPUT via Bash — if this is a without-arm, the run is CONTAMINATED`);
-  else if (s.cliCalls) console.log(`   (${s.cliCalls} codegraph CLI attempt${s.cliCalls === 1 ? '' : 's'} blocked — no output entered the window)`);
+  console.log(`sleuth tools exposed: ${s.initTools ? s.initTools.length : '?'}${s.raced ? '  [MCP COLD-START RACE — tool call hit "No such tool available"]' : ''}`);
+  if (s.cliContaminated) console.log(`!! ${s.cliContaminated} sleuth CLI call${s.cliContaminated === 1 ? '' : 's'} RETURNED OUTPUT via Bash — if this is a without-arm, the run is CONTAMINATED`);
+  else if (s.cliCalls) console.log(`   (${s.cliCalls} sleuth CLI attempt${s.cliCalls === 1 ? '' : 's'} blocked — no output entered the window)`);
   console.log(`\nTool calls (${s.toolCalls.length}):`);
   console.log('  by type:', JSON.stringify(s.counts));
   if (!brief) s.toolCalls.forEach((tc, i) => console.log(`  ${i + 1}. ${tc}`));

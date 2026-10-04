@@ -15,7 +15,7 @@
  * biggest finding is still at the top of the screen.
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import type { NodeKind } from '../../types';
 import {
   buildDeadCodeReport,
@@ -136,7 +136,7 @@ export function parseDeadCodeQuery(query: URLSearchParams): {
 }
 
 export function buildDeadCode(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   query: URLSearchParams
 ): WireDeadCode {

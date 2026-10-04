@@ -15,7 +15,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
 beforeAll(async () => {
@@ -25,7 +25,7 @@ beforeAll(async () => {
 
 describe('ArkTS attribute-chain resolution precision', () => {
   let tmpDir: string | undefined;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
   afterEach(() => {
     cg?.close();
     cg = undefined;
@@ -68,7 +68,7 @@ describe('ArkTS attribute-chain resolution precision', () => {
         '}\n'
     );
 
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const fns = cg.getNodesByKind('function');
@@ -102,7 +102,7 @@ describe('ArkTS attribute-chain resolution precision', () => {
 
 describe('ArkTS ohpm workspace import resolution', () => {
   let tmpDir: string | undefined;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
   afterEach(() => {
     cg?.close();
     cg = undefined;
@@ -152,7 +152,7 @@ describe('ArkTS ohpm workspace import resolution', () => {
         '}\n'
     );
 
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const classes = cg.getNodesByKind('class');
@@ -174,7 +174,7 @@ describe('ArkTS ohpm workspace import resolution', () => {
 
 describe('ArkUI state → build() re-render bridge (assignment-gated)', () => {
   let tmpDir: string | undefined;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
   afterEach(() => {
     cg?.close();
     cg = undefined;
@@ -210,7 +210,7 @@ describe('ArkUI state → build() re-render bridge (assignment-gated)', () => {
         '}\n'
     );
 
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const methods = cg.getNodesByKind('method');
@@ -238,7 +238,7 @@ describe('ArkUI state → build() re-render bridge (assignment-gated)', () => {
 
 describe('ArkUI @ohos.events.emitter bridge', () => {
   let tmpDir: string | undefined;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
   afterEach(() => {
     cg?.close();
     cg = undefined;
@@ -278,7 +278,7 @@ describe('ArkUI @ohos.events.emitter bridge', () => {
         '}\n'
     );
 
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const methods = cg.getNodesByKind('method');
@@ -311,7 +311,7 @@ describe('ArkUI @ohos.events.emitter bridge', () => {
         '}\n'
     );
 
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const fns = cg.getNodesByKind('function');
@@ -326,7 +326,7 @@ describe('ArkUI @ohos.events.emitter bridge', () => {
 
 describe('ArkUI router bridge (pushUrl literal → @Entry struct)', () => {
   let tmpDir: string | undefined;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
   afterEach(() => {
     cg?.close();
     cg = undefined;
@@ -358,7 +358,7 @@ describe('ArkUI router bridge (pushUrl literal → @Entry struct)', () => {
         '}\n'
     );
 
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const methods = cg.getNodesByKind('method');
@@ -377,7 +377,7 @@ describe('ArkUI router bridge (pushUrl literal → @Entry struct)', () => {
 
 describe('ohpm main entry (custom barrel + .ts consumer)', () => {
   let tmpDir: string | undefined;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
   afterEach(() => {
     cg?.close();
     cg = undefined;
@@ -426,7 +426,7 @@ describe('ohpm main entry (custom barrel + .ts consumer)', () => {
         '}\n'
     );
 
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const classes = cg.getNodesByKind('class');

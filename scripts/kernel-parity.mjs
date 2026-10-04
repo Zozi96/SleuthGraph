@@ -80,7 +80,7 @@ function collect(p, out) {
   }
   if (st.isDirectory()) {
     const base = path.basename(p);
-    if (base === 'node_modules' || base === '.git' || base === 'dist' || base === '.codegraph') return;
+    if (base === 'node_modules' || base === '.git' || base === 'dist' || base === '.sleuth') return;
     for (const e of fs.readdirSync(p)) collect(path.join(p, e), out);
   } else if (EXTS.has(path.extname(p).toLowerCase())) {
     // Lowercased to match the real indexer's routing (detectLanguage
@@ -193,7 +193,7 @@ let deferred = 0;
 let processed = 0; // collected files minus content-detect skips
 let totals = { nodes: 0, edges: 0, refs: 0 };
 
-process.env.CODEGRAPH_KERNEL_LANGS = 'all';
+process.env.SLEUTH_KERNEL_LANGS = 'all';
 
 for (const { file, lang: extLang } of files) {
   const source = fs.readFileSync(file, 'utf8');
@@ -208,7 +208,7 @@ for (const { file, lang: extLang } of files) {
   if (langFilter && !langFilter.has(lang)) continue;
   processed++;
 
-  delete process.env.CODEGRAPH_KERNEL; // kernel path on
+  delete process.env.SLEUTH_KERNEL; // kernel path on
   const kres = kernel.tryKernelExtract(rel, source, lang);
   if (!kres) {
     // Expected: files with parse errors defer to wasm (parity by
@@ -218,9 +218,9 @@ for (const { file, lang: extLang } of files) {
     report('kernel-deferred', rel);
     continue;
   }
-  process.env.CODEGRAPH_KERNEL = '0'; // wasm path
+  process.env.SLEUTH_KERNEL = '0'; // wasm path
   const wres = extractFromSource(rel, source, lang);
-  delete process.env.CODEGRAPH_KERNEL;
+  delete process.env.SLEUTH_KERNEL;
 
   totals.nodes += wres.nodes.length;
   totals.edges += wres.edges.length;

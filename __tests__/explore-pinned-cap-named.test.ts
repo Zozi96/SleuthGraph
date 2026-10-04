@@ -31,7 +31,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import type { ExploreDiagnosticReport } from '../src/mcp/explore-diagnostics';
 
@@ -138,20 +138,20 @@ function protocolSource(): string {
 }
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 /** One explore call plus the CG-4 diagnostic for it. */
 async function explore(query: string): Promise<{ text: string; report: ExploreDiagnosticReport }> {
-  const sidecar = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-pin-cap-diag-')), 'r.jsonl');
-  const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-  process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+  const sidecar = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-pin-cap-diag-')), 'r.jsonl');
+  const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+  process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
   let text = '';
   try {
-    const res = await new ToolHandler(cg).execute('codegraph_explore', { query });
+    const res = await new ToolHandler(cg).execute('sleuth_explore', { query });
     text = res.content?.[0]?.text ?? '';
   } finally {
-    if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-    else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+    if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+    else process.env.SLEUTH_EXPLORE_DEBUG = previous;
   }
   const lines = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
   fs.rmSync(path.dirname(sidecar), { recursive: true, force: true });
@@ -192,10 +192,10 @@ function incompleteBodies(response: string, names: string[]): string[] {
 }
 
 beforeAll(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-pin-cap-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-pin-cap-'));
   fs.mkdirSync(path.join(dir, path.dirname(FILE)), { recursive: true });
   fs.writeFileSync(path.join(dir, FILE), protocolSource());
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 }, 180_000);
 

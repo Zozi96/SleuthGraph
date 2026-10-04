@@ -16,7 +16,7 @@ name: Release
 # `## [Unreleased]` — step 2 takes care of moving them.
 #
 # npm auth is OIDC trusted publishing (no NPM_TOKEN): every published package
-# (@colbymchenry/codegraph + the per-platform bundles) has this repo +
+# (@zozi96/sleuthgraph + the per-platform bundles) has this repo +
 # release.yml configured as its trusted publisher on npmjs.com. Adding a new
 # platform package means configuring its trusted publisher there before the
 # first release that includes it.
@@ -181,14 +181,14 @@ jobs:
         # contract, the grammar-source parity table checks, and all 20
         # languages' walker byte-parity suites incl. torture/CRLF/defer pins)
         # against the freshly built linux-x64 .node. The glob keeps this gate
-        # current as languages are added. CODEGRAPH_KERNEL_EXPECT=1 turns a
+        # current as languages are added. SLEUTH_KERNEL_EXPECT=1 turns a
         # missing binary into a FAILURE, and a missing prebuild fails outright
         # — the matrix is required, so absence here means a wiring bug.
         run: |
           if [ -f release/kernel/linux-x64/sleuth-kernel.node ]; then
             mkdir -p sleuth-kernel/prebuilds/linux-x64
             cp release/kernel/linux-x64/sleuth-kernel.node sleuth-kernel/prebuilds/linux-x64/
-            CODEGRAPH_KERNEL_EXPECT=1 npx vitest run __tests__/kernel-*.test.ts
+            SLEUTH_KERNEL_EXPECT=1 npx vitest run __tests__/kernel-*.test.ts
           else
             echo "::error::linux-x64 kernel prebuild missing despite required matrix"
             exit 1
@@ -205,7 +205,7 @@ jobs:
         # Published as a release asset; the npm launcher verifies downloaded
         # bundles against it (basenames only, so its path.basename match works).
         run: |
-          ( cd release && sha256sum codegraph-* > SHA256SUMS )
+          ( cd release && sha256sum sleuth-* > SHA256SUMS )
           cat release/SHA256SUMS
 
       - name: Attest build provenance for release bundles
@@ -213,11 +213,11 @@ jobs:
         # was built by this workflow from this repo — SHA256SUMS alone only
         # proves integrity, not origin, since it ships next to the bundles.
         # Verify any downloaded artifact with:
-        #   gh attestation verify <file> -R colbymchenry/codegraph
+        #   gh attestation verify <file> -R Zozi96/SleuthGraph
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
-            release/codegraph-*
+            release/sleuth-*
             release/SHA256SUMS
 
       - name: Release notes from CHANGELOG.md
@@ -241,9 +241,9 @@ jobs:
           TAG="v${{ steps.ver.outputs.version }}"
           # Idempotent: create the release once, otherwise (re-run) refresh assets.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" release/codegraph-* release/SHA256SUMS --clobber
+            gh release upload "$TAG" release/sleuth-* release/SHA256SUMS --clobber
           else
-            gh release create "$TAG" release/codegraph-* release/SHA256SUMS --title "$TAG" --notes-file notes.md
+            gh release create "$TAG" release/sleuth-* release/SHA256SUMS --title "$TAG" --notes-file notes.md
           fi
 
       - name: Publish to npm
@@ -257,7 +257,7 @@ jobs:
           bash scripts/pack-npm.sh "$V"
           # Platform packages first, then the main shim (which depends on them).
           # Skip any already on the registry so a re-run only fills in gaps.
-          for dir in release/npm/codegraph-* release/npm/main; do
+          for dir in release/npm/sleuth-* release/npm/main; do
             name=$(node -p "require('./$dir/package.json').name")
             if npm view "$name@$V" version >/dev/null 2>&1; then
               echo "skip $name@$V (already published)"
@@ -277,7 +277,7 @@ jobs:
           # registry (with retries for propagation) so green means really shipped.
           # Up to 5 minutes per package: 1.6.1's packages all published fine but
           # took longer than the old 60 s to appear, which failed the run.
-          for dir in release/npm/codegraph-* release/npm/main; do
+          for dir in release/npm/sleuth-* release/npm/main; do
             name=$(node -p "require('./$dir/package.json').name")
             ok=
             for i in $(seq 1 30); do
@@ -296,7 +296,7 @@ jobs:
         # from GitHub Releases — so a mirror hiccup never fails the release.
         continue-on-error: true
         run: |
-          for dir in release/npm/codegraph-* release/npm/main; do
+          for dir in release/npm/sleuth-* release/npm/main; do
             name=$(node -p "require('./$dir/package.json').name")
             enc=$(node -p "encodeURIComponent(require('./$dir/package.json').name)")
             echo "sync $name"

@@ -4,7 +4,7 @@
  * Used ONLY on the fresh-DB bulk path: bundles are posted in file order and the
  * worker applies them in arrival order, so rowid assignment (and therefore
  * resolution's insertion-order disambiguation) is byte-identical to the
- * main-thread store. Kill switch: CODEGRAPH_NO_STORE_WORKER=1.
+ * main-thread store. Kill switch: SLEUTH_NO_STORE_WORKER=1.
  */
 
 import { Worker } from 'worker_threads';

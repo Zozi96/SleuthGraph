@@ -49,7 +49,7 @@
   setNavigationDriver(untrack(() => nav));
 </script>
 
-<div class="codegraph-ui" class:fill data-theme={theme === 'auto' ? undefined : theme}>
+<div class="sleuthgraph-ui" class:fill data-theme={theme === 'auto' ? undefined : theme}>
   {@render children?.()}
 </div>
 
@@ -57,7 +57,7 @@
   /* The tokens are on :root (theme.css); this wrapper only re-establishes the
      type and the paper, so a component dropped into a host with its own body
      font does not inherit it. Geometry stays with the components. */
-  .codegraph-ui {
+  .sleuthgraph-ui {
     background: var(--paper);
     color: var(--ink);
     font-family: var(--sans);

@@ -1,7 +1,7 @@
 /**
  * Dynamic-boundary surfacing (#687).
  *
- * When the flow an agent asked codegraph_explore about does NOT fully connect,
+ * When the flow an agent asked sleuth_explore about does NOT fully connect,
  * the Flow section announces WHERE the static path ends — the dynamic-dispatch
  * site (computed member call, getattr, typed bus, runtime-keyed emit), with
  * candidate targets when a key is statically visible — instead of silently
@@ -12,7 +12,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import { scanDynamicDispatch } from '../src/mcp/dynamic-boundaries';
 
@@ -124,22 +124,22 @@ describe('scanDynamicDispatch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Integration: codegraph_explore output
+// Integration: sleuth_explore output
 // ---------------------------------------------------------------------------
 
-describe('codegraph_explore — dynamic boundaries', () => {
+describe('sleuth_explore — dynamic boundaries', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   const setup = async (files: Record<string, string>, include: string[]) => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-boundary-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-boundary-'));
     const src = path.join(testDir, 'src');
     fs.mkdirSync(src, { recursive: true });
     for (const [name, content] of Object.entries(files)) {
       fs.writeFileSync(path.join(src, name), content);
     }
-    cg = CodeGraph.initSync(testDir, { config: { include, exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include, exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   };
@@ -159,7 +159,7 @@ describe('codegraph_explore — dynamic boundaries', () => {
       'locale.ts': 'export function translate() { return "hello"; }',
     }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'loadLocale translate' });
+    const res = await handler.execute('sleuth_explore', { query: 'loadLocale translate' });
     const text = res.content[0].text as string;
     expect(res.isError).not.toBe(true);
     expect(text).toContain('**Dynamic boundaries');
@@ -187,7 +187,7 @@ describe('codegraph_explore — dynamic boundaries', () => {
       ].join('\n'),
     }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'routeSave onSave' });
+    const res = await handler.execute('sleuth_explore', { query: 'routeSave onSave' });
     const text = res.content[0].text as string;
 
     expect(text).toContain('**Dynamic boundaries');
@@ -215,7 +215,7 @@ describe('codegraph_explore — dynamic boundaries', () => {
       'handlers.ts': 'export function onSave(payload: unknown) { return payload; }',
     }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'route onSave' });
+    const res = await handler.execute('sleuth_explore', { query: 'route onSave' });
     const text = res.content[0].text as string;
 
     expect(text).toContain('**Dynamic boundaries');
@@ -238,7 +238,7 @@ describe('codegraph_explore — dynamic boundaries', () => {
     }, ['**/*.ts']);
 
     // `processPayment` does not exist anywhere — only `route` resolves.
-    const res = await handler.execute('codegraph_explore', { query: 'route processPayment' });
+    const res = await handler.execute('sleuth_explore', { query: 'route processPayment' });
     const text = res.content[0].text as string;
     expect(text).toContain('**Dynamic boundaries');
   });
@@ -270,7 +270,7 @@ describe('codegraph_explore — dynamic boundaries', () => {
       ].join('\n'),
     }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'completeCheckout settleInvoice' });
+    const res = await handler.execute('sleuth_explore', { query: 'completeCheckout settleInvoice' });
     const text = res.content[0].text as string;
 
     expect(text).toContain('**Dynamic-dispatch links among your symbols');
@@ -289,7 +289,7 @@ describe('codegraph_explore — dynamic boundaries', () => {
       ].join('\n'),
     }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'stepOne stepThree' });
+    const res = await handler.execute('sleuth_explore', { query: 'stepOne stepThree' });
     const text = res.content[0].text as string;
     expect(text).toContain('**Flow');
     expect(text).not.toContain('**Dynamic boundaries');
@@ -308,7 +308,7 @@ describe('codegraph_explore — dynamic boundaries', () => {
       ].join('\n'),
     }, ['**/*.py']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'process handle_save' });
+    const res = await handler.execute('sleuth_explore', { query: 'process handle_save' });
     const text = res.content[0].text as string;
 
     expect(text).toContain('**Dynamic boundaries');
@@ -321,19 +321,19 @@ describe('codegraph_explore — dynamic boundaries', () => {
 // Integration: interface/registry dispatch (a named method has many impls)
 // ---------------------------------------------------------------------------
 
-describe('codegraph_explore — interface dispatch', () => {
+describe('sleuth_explore — interface dispatch', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   const setup = async (files: Record<string, string>, include: string[]) => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-iface-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-iface-'));
     const src = path.join(testDir, 'src');
     fs.mkdirSync(src, { recursive: true });
     for (const [name, content] of Object.entries(files)) {
       fs.writeFileSync(path.join(src, name), content);
     }
-    cg = CodeGraph.initSync(testDir, { config: { include, exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include, exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   };
@@ -376,7 +376,7 @@ describe('codegraph_explore — interface dispatch', () => {
   it('announces the interface, the TRUE implementer count, and sample targets', async () => {
     await setup({ 'nodes.ts': nodeFamily(9), 'registry.ts': registry, 'engine.ts': engine }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'processRunExecutionData executeNode execute' });
+    const res = await handler.execute('sleuth_explore', { query: 'processRunExecutionData executeNode execute' });
     const text = res.content[0].text as string;
 
     expect(text).toContain('**Interface dispatch (a named method has many implementations)');
@@ -396,7 +396,7 @@ describe('codegraph_explore — interface dispatch', () => {
       ].join('\n'),
     }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'stepOne stepThree' });
+    const res = await handler.execute('sleuth_explore', { query: 'stepOne stepThree' });
     const text = res.content[0].text as string;
     expect(text).toContain('**Flow');
     expect(text).not.toContain('**Interface dispatch');
@@ -422,14 +422,14 @@ describe('codegraph_explore — interface dispatch', () => {
 
   it('stays SILENT for a shared name the common base never declares', async () => {
     await setup({ 'services.ts': lifecycleFamily() }, ['**/*.ts']);
-    const res = await handler.execute('codegraph_explore', { query: 'extension describeEditor describeChat' });
+    const res = await handler.execute('sleuth_explore', { query: 'extension describeEditor describeChat' });
     const text = res.content[0].text as string;
     expect(text).not.toMatch(/`extension` → runtime dispatch/);
   });
 
   it('still announces a member the common base declares', async () => {
     await setup({ 'services.ts': lifecycleFamily() }, ['**/*.ts']);
-    const res = await handler.execute('codegraph_explore', { query: 'dispose describeEditor describeChat' });
+    const res = await handler.execute('sleuth_explore', { query: 'dispose describeEditor describeChat' });
     const text = res.content[0].text as string;
     expect(text).toMatch(/`dispose` → runtime dispatch to \*\*10\*\* types implementing `Disposable`/);
   });
@@ -437,7 +437,7 @@ describe('codegraph_explore — interface dispatch', () => {
   it('stays SILENT when the interface family is below the polymorphism threshold (3 impls)', async () => {
     await setup({ 'nodes.ts': nodeFamily(3), 'registry.ts': registry, 'engine.ts': engine }, ['**/*.ts']);
 
-    const res = await handler.execute('codegraph_explore', { query: 'processRunExecutionData executeNode execute' });
+    const res = await handler.execute('sleuth_explore', { query: 'processRunExecutionData executeNode execute' });
     const text = res.content[0].text as string;
     expect(text).not.toContain('**Interface dispatch');
   });

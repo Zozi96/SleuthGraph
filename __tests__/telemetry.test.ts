@@ -40,7 +40,7 @@ describe('Telemetry (disabled in SleuthGraph)', () => {
     });
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-telemetry-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-telemetry-'));
     calls = [];
     stderrLines = [];
     nowValue = new Date('2026-06-12T08:00:00.000Z');
@@ -59,8 +59,8 @@ describe('Telemetry (disabled in SleuthGraph)', () => {
 
     it('no env var can turn it on', () => {
       for (const env of [
-        { CODEGRAPH_TELEMETRY: '1' },
-        { CODEGRAPH_TELEMETRY: 'true' },
+        { SLEUTH_TELEMETRY: '1' },
+        { SLEUTH_TELEMETRY: 'true' },
         { DO_NOT_TRACK: '0' },
         {},
       ]) {
@@ -82,7 +82,7 @@ describe('Telemetry (disabled in SleuthGraph)', () => {
     it('records nothing, sends nothing, creates no files', async () => {
       const fetchSpy = mockFetch(calls);
       const t = make({ fetchImpl: fetchSpy });
-      t.recordUsage('mcp_tool', 'codegraph_explore', true);
+      t.recordUsage('mcp_tool', 'sleuth_explore', true);
       t.recordUsage('cli_command', 'init', true, { name: 'Claude Code', version: '2.1' });
       t.recordLifecycle('install', { scope: 'local', kind: 'fresh' });
       t.persistSync();
@@ -126,8 +126,8 @@ describe('Telemetry (disabled in SleuthGraph)', () => {
   describe('protocol safety', () => {
     it('never writes to stdout', async () => {
       const stdoutSpy = vi.spyOn(process.stdout, 'write');
-      const t = make({ env: { CODEGRAPH_TELEMETRY_DEBUG: '1' } });
-      t.recordUsage('mcp_tool', 'codegraph_explore', true);
+      const t = make({ env: { SLEUTH_TELEMETRY_DEBUG: '1' } });
+      t.recordUsage('mcp_tool', 'sleuth_explore', true);
       t.recordLifecycle('install', { scope: 'local', kind: 'fresh' });
       await t.flushNow();
       expect(stdoutSpy).not.toHaveBeenCalled();

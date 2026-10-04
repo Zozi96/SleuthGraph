@@ -1,5 +1,5 @@
 /**
- * `codegraph ui` server — the loopback boundary (CG-41).
+ * `sleuth ui` server — the loopback boundary (CG-41).
  *
  * This process serves the user's source code from a port on their machine, so
  * the tests that matter are the refusals: a foreign `Host` (DNS rebinding is
@@ -69,14 +69,14 @@ function request(
   });
 }
 
-describe('codegraph ui server', () => {
+describe('sleuth ui server', () => {
   let tempDir: string;
   let viewerDir: string;
   let projectRoot: string;
   let server: UiServerHandle;
 
   beforeAll(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-server-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-server-'));
 
     // A stand-in for dist/viewer: same shape (index.html + hashed assets/), so
     // the tests don't need the Svelte build to have run.
@@ -285,7 +285,7 @@ describe('codegraph ui server', () => {
       for (const method of ['POST', 'DELETE']) {
         const res = await request(server.port, '/', {
           method,
-          headers: { 'X-CodeGraph-UI': '1' },
+          headers: { 'X-SleuthGraph-UI': '1' },
         });
         expect(res.status, method).toBe(405);
         expect(res.headers['allow']).toBe('GET, HEAD');
@@ -405,7 +405,7 @@ describe('resolveProjectFile — the source read chokepoint', () => {
   let projectRoot: string;
 
   beforeAll(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-paths-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-paths-'));
     projectRoot = path.join(tempDir, 'project');
     fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
     fs.writeFileSync(path.join(projectRoot, 'src', 'auth.ts'), 'export const token = 1;\n');
@@ -510,7 +510,7 @@ describe('security helpers', () => {
   });
 
   it('resolveStaticAsset returns null for anything that is not a file in the root', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-static-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-static-'));
     try {
       fs.mkdirSync(path.join(dir, 'assets'));
       fs.writeFileSync(path.join(dir, 'index.html'), 'x');
@@ -548,7 +548,7 @@ describe('browserOpenCommand', () => {
     });
   });
 
-  it('honours the CODEGRAPH_BROWSER override', () => {
+  it('honours the SLEUTH_BROWSER override', () => {
     expect(browserOpenCommand('http://x', 'darwin', 'firefox')).toEqual({
       command: 'firefox',
       args: ['http://x'],

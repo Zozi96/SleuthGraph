@@ -3,7 +3,7 @@ import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 // Wrap only I/O entry points for deterministic failure injection; all other
 // calls, files, parser work and SQLite remain real.
@@ -18,7 +18,7 @@ vi.mock('fs', async importOriginal => {
 
 describe('git index currency across commits and restores (#1829)', () => {
   let root: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   const git = (...args: string[]) => cp.execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
   const write = (name: string, symbol: string) => fs.writeFileSync(path.join(root, name), `export function ${symbol}() { return 1; }\n`);
   const commit = () => { git('add', '-A'); git('commit', '-m', 'change'); return git('rev-parse', 'HEAD').trim(); };
@@ -29,9 +29,9 @@ describe('git index currency across commits and restores (#1829)', () => {
   beforeEach(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-git-currency-'));
     git('init'); git('config', 'user.email', 'test@example.invalid'); git('config', 'user.name', 'Test');
-    fs.writeFileSync(path.join(root, '.gitignore'), '.codegraph/\n');
+    fs.writeFileSync(path.join(root, '.gitignore'), '.sleuth/\n');
     write('source.ts', 'original'); commit();
-    cg = CodeGraph.initSync(root);
+    cg = SleuthGraph.initSync(root);
     expect((await cg.indexAll()).success).toBe(true);
   });
   afterEach(() => { vi.restoreAllMocks(); cg?.close(); fs.rmSync(root, { recursive: true, force: true }); });
@@ -44,7 +44,7 @@ describe('git index currency across commits and restores (#1829)', () => {
     git('restore', 'source.ts');
     expect(git('status', '--porcelain')).toBe('');
     // Reopen proves that dirty candidates survive beyond one engine instance.
-    cg.close(); cg = CodeGraph.openSync(root);
+    cg.close(); cg = SleuthGraph.openSync(root);
     expect(cg.getChangedFiles().modified).toEqual(['source.ts']);
     await cg.sync();
     expect(symbols('original')).toContain('original');

@@ -14,14 +14,14 @@
  *     down — other attached clients keep working (the must-fix-2 detach: the
  *     in-process daemon used to die with its launcher's process group and
  *     orphan on host SIGKILL, regressing #277).
- *   - A stale lockfile (dead pid) is cleared; `CODEGRAPH_NO_DAEMON=1` opts out;
+ *   - A stale lockfile (dead pid) is cleared; `SLEUTH_NO_DAEMON=1` opts out;
  *     the proxy refuses to attach across a version mismatch; the daemon
  *     idle-times-out after the last client leaves (so a single session can't
  *     leak a daemon forever).
  *
- * These tests intentionally spawn real `node dist/bin/codegraph.js` processes
+ * These tests intentionally spawn real `node dist/bin/sleuth.js` processes
  * over real sockets/pipes — the same surface a Claude Code / Cursor / Codex
- * install exercises. The daemon logs to `.codegraph/daemon.log` (it has no
+ * install exercises. The daemon logs to `.sleuth/daemon.log` (it has no
  * client stderr of its own), so daemon-side assertions read that file.
  *
  * `realRoot` vs `tempDir`: processes are spawned with the (possibly symlinked)
@@ -38,14 +38,14 @@ import * as fs from 'fs';
 import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { getDaemonSocketPath } from '../src/mcp/daemon-paths';
-import { CodeGraphPackageVersion } from '../src/mcp/version';
+import { SleuthGraphPackageVersion } from '../src/mcp/version';
 import { once } from 'events';
 import { WASM_RUNTIME_FLAGS } from '../src/extraction/wasm-runtime-flags';
 import { recordSpawns, removeSpawnLog, settleLosingCandidates } from './daemon-candidates';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 interface SpawnedServer {
   child: ChildProcessWithoutNullStreams;
@@ -60,9 +60,9 @@ function spawnServer(cwd: string, env: NodeJS.ProcessEnv = {}, args: string[] = 
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
     // #618: the daemon-attach log line is now off by default; opt the test
-    // harness into it (CODEGRAPH_MCP_LOG_ATTACH=1) so the attach assertions
+    // harness into it (SLEUTH_MCP_LOG_ATTACH=1) so the attach assertions
     // below can still observe a successful attach. A per-test env still wins.
-    env: { CODEGRAPH_MCP_LOG_ATTACH: '1', ...process.env, ...recorder.env, ...env },
+    env: { SLEUTH_MCP_LOG_ATTACH: '1', ...process.env, ...recorder.env, ...env },
   }) as ChildProcessWithoutNullStreams;
   // Swallow spawn/EPIPE errors so killing a child mid-write can't surface as an
   // unhandled error that crashes the vitest worker.
@@ -153,19 +153,19 @@ function isAlive(pid: number): boolean {
 
 function readLockPid(root: string): number | null {
   try {
-    const raw = fs.readFileSync(path.join(root, '.codegraph', 'daemon.pid'), 'utf8');
+    const raw = fs.readFileSync(path.join(root, '.sleuth', 'daemon.pid'), 'utf8');
     const info = JSON.parse(raw);
     return typeof info.pid === 'number' ? info.pid : null;
   } catch { return null; }
 }
 
 function readDaemonLog(root: string): string {
-  try { return fs.readFileSync(path.join(root, '.codegraph', 'daemon.log'), 'utf8'); }
+  try { return fs.readFileSync(path.join(root, '.sleuth', 'daemon.log'), 'utf8'); }
   catch { return ''; }
 }
 
 function countListeningLines(root: string): number {
-  return readDaemonLog(root).split('\n').filter((l) => l.includes('[CodeGraph daemon] Listening on')).length;
+  return readDaemonLog(root).split('\n').filter((l) => l.includes('[SleuthGraph daemon] Listening on')).length;
 }
 
 function killTree(...procs: ChildProcessWithoutNullStreams[]): void {
@@ -180,9 +180,9 @@ async function waitProcessExit(pid: number, timeoutMs: number): Promise<boolean>
 
 async function staleIndex(root: string): Promise<Buffer> {
   fs.writeFileSync(path.join(root, 'app.ts'), 'export function originalSymbol() {}\n');
-  const cg = CodeGraph.openSync(root);
+  const cg = SleuthGraph.openSync(root);
   try { await cg.indexAll(); } finally { cg.close(); }
-  const before = fs.readFileSync(path.join(root, '.codegraph', 'codegraph.db'));
+  const before = fs.readFileSync(path.join(root, '.sleuth', 'sleuth.db'));
   fs.writeFileSync(path.join(root, 'app.ts'), 'export function changedSymbol() {}\n');
   return before;
 }
@@ -193,8 +193,8 @@ describe('Shared MCP daemon (issue #411)', () => {
   const servers: SpawnedServer[] = [];
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-mcp-daemon-'));
-    const cg = await CodeGraph.init(tempDir);
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-mcp-daemon-'));
+    const cg = await SleuthGraph.init(tempDir);
     cg.close();
     realRoot = fs.realpathSync(tempDir);
   });
@@ -244,7 +244,7 @@ describe('Shared MCP daemon (issue #411)', () => {
       });
       process.kill(pid, 'SIGTERM');
       expect(await waitProcessExit(pid, 1500)).toBe(true);
-      expect(fs.existsSync(path.join(realRoot, '.codegraph', 'writer.pid'))).toBe(false);
+      expect(fs.existsSync(path.join(realRoot, '.sleuth', 'writer.pid'))).toBe(false);
     } finally {
       raw.destroy();
     }
@@ -252,9 +252,9 @@ describe('Shared MCP daemon (issue #411)', () => {
 
   it('a disconnect before client hello leaves no phantom session and the idle reaper exits (#1356)', async () => {
     const server = spawnServer(tempDir, {
-      CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '800',
-      CODEGRAPH_DAEMON_MAX_IDLE_MS: '0',
-      CODEGRAPH_DAEMON_CLIENT_SWEEP_MS: '0',
+      SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '800',
+      SLEUTH_DAEMON_MAX_IDLE_MS: '0',
+      SLEUTH_DAEMON_CLIENT_SWEEP_MS: '0',
     });
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
@@ -271,24 +271,24 @@ describe('Shared MCP daemon (issue #411)', () => {
       server.child.stdin.end();
       expect(await waitProcessExit(pid, 8000)).toBe(true);
       expect(readDaemonLog(realRoot)).toContain('Shutting down (idle timeout; clients=0)');
-      expect(fs.existsSync(path.join(realRoot, '.codegraph', 'writer.pid'))).toBe(false);
+      expect(fs.existsSync(path.join(realRoot, '.sleuth', 'writer.pid'))).toBe(false);
     } finally { raw.destroy(); }
   }, 20000);
 
   it('two invocations share ONE detached daemon; both attach as proxies', async () => {
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '15000' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '15000' };
 
     const first = spawnServer(tempDir, env);
     servers.push(first);
     sendInitialize(first.child, `file://${tempDir}`, 1);
     const firstResp = await waitFor(() => findResponse(first.stdout, 1), 10000);
-    expect(firstResp.result.serverInfo.name).toBe('codegraph');
+    expect(firstResp.result.serverInfo.name).toBe('sleuth');
 
     // The launcher is a PROXY (not the daemon itself) — that's the detach fix.
     await waitFor(() => first.stderr.some((l) => l.includes('Attached to shared daemon')), 8000);
 
     // A detached daemon came up and recorded itself.
-    await waitFor(() => fs.existsSync(path.join(realRoot, '.codegraph', 'daemon.pid')), 8000);
+    await waitFor(() => fs.existsSync(path.join(realRoot, '.sleuth', 'daemon.pid')), 8000);
     await waitFor(() => countListeningLines(realRoot) >= 1, 8000);
     const daemonPid = readLockPid(realRoot);
     expect(daemonPid).toBeTruthy();
@@ -306,7 +306,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     servers.push(second);
     sendInitialize(second.child, `file://${tempDir}`, 2);
     const secondResp = await waitFor(() => findResponse(second.stdout, 2), 10000);
-    expect(secondResp.result.serverInfo.name).toBe('codegraph');
+    expect(secondResp.result.serverInfo.name).toBe('sleuth');
     await waitFor(() => second.stderr.some((l) => l.includes('Attached to shared daemon')), 8000);
 
     // Exactly one daemon ever bound, and it's the same pid both attached to.
@@ -315,7 +315,7 @@ describe('Shared MCP daemon (issue #411)', () => {
   }, 40000);
 
   it('concurrent launchers converge on a single daemon (lockfile race — must-fix 1)', async () => {
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '15000' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '15000' };
 
     // Fire three launchers as close to simultaneously as possible — this is the
     // race window where the old code could end up with two daemons.
@@ -325,7 +325,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     // All three get a valid initialize response...
     for (let i = 0; i < procs.length; i++) {
       const resp = await waitFor(() => findResponse(procs[i].stdout, i + 1), 12000);
-      expect(resp.result.serverInfo.name).toBe('codegraph');
+      expect(resp.result.serverInfo.name).toBe('sleuth');
     }
     // ...and all three attached as proxies (none fell back / wedged).
     for (const p of procs) {
@@ -343,7 +343,7 @@ describe('Shared MCP daemon (issue #411)', () => {
   it('daemon survives the first client dying; a second client keeps working (must-fix 2 / #277)', async () => {
     // Idle high so the daemon doesn't reap mid-test; poll fast so proxy 1
     // notices its dead parent quickly.
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '30000', CODEGRAPH_PPID_POLL_MS: '200' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '30000', SLEUTH_PPID_POLL_MS: '200' };
 
     const first = spawnServer(tempDir, env);
     servers.push(first);
@@ -374,24 +374,24 @@ describe('Shared MCP daemon (issue #411)', () => {
     expect(toolsResp.result.tools.length).toBeGreaterThan(0);
   }, 45000);
 
-  it('CODEGRAPH_NO_DAEMON=1 keeps each process independent (no socket/pidfile)', async () => {
-    const env = { CODEGRAPH_NO_DAEMON: '1' };
+  it('SLEUTH_NO_DAEMON=1 keeps each process independent (no socket/pidfile)', async () => {
+    const env = { SLEUTH_NO_DAEMON: '1' };
     const first = spawnServer(tempDir, env);
     servers.push(first);
     sendInitialize(first.child, `file://${tempDir}`, 1);
     await waitFor(() => findResponse(first.stdout, 1), 10000);
     // Direct mode — no daemon machinery touched.
     expect(first.stderr.some((l) => l.includes('Attached to shared daemon'))).toBe(false);
-    expect(fs.existsSync(path.join(realRoot, '.codegraph', 'daemon.pid'))).toBe(false);
-    expect(fs.existsSync(path.join(realRoot, '.codegraph', 'daemon.log'))).toBe(false);
+    expect(fs.existsSync(path.join(realRoot, '.sleuth', 'daemon.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(realRoot, '.sleuth', 'daemon.log'))).toBe(false);
   }, 20000);
 
   it.each(['2', '0'])('direct stdio honors query pool size=%s and exits after concurrent reads', async (size) => {
     fs.writeFileSync(path.join(tempDir, 'app.ts'), 'export function directSymbol() { return 42; }\n');
-    const cg = await CodeGraph.open(tempDir);
+    const cg = await SleuthGraph.open(tempDir);
     try { await cg.indexAll(); } finally { cg.close(); }
     const server = spawnServer(tempDir, {
-      CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_QUERY_POOL_SIZE: size,
+      SLEUTH_NO_DAEMON: '1', SLEUTH_QUERY_POOL_SIZE: size,
     }, ['--no-watch', '--path', tempDir]);
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
@@ -402,7 +402,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     for (const id of ids) {
       sendMessage(server.child, {
         jsonrpc: '2.0', id, method: 'tools/call',
-        params: { name: 'codegraph_explore', arguments: { query: 'directSymbol' } },
+        params: { name: 'sleuth_explore', arguments: { query: 'directSymbol' } },
       });
     }
     const replies = await Promise.all(ids.map((id) => waitFor(() => findResponse(server.stdout, id), 15000)));
@@ -418,16 +418,16 @@ describe('Shared MCP daemon (issue #411)', () => {
   }, 30000);
 
   it('direct stdio queries multiple projects without a default index', async () => {
-    fs.rmSync(path.join(tempDir, '.codegraph'), { recursive: true, force: true });
+    fs.rmSync(path.join(tempDir, '.sleuth'), { recursive: true, force: true });
     for (const name of ['alpha', 'beta']) {
       const root = path.join(tempDir, name);
       fs.mkdirSync(root);
       fs.writeFileSync(path.join(root, 'app.ts'), `export function ${name}Symbol() { return 42; }\n`);
-      const cg = await CodeGraph.init(root);
+      const cg = await SleuthGraph.init(root);
       try { await cg.indexAll(); } finally { cg.close(); }
     }
     const server = spawnServer(tempDir, {
-      CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_QUERY_POOL_SIZE: '2',
+      SLEUTH_NO_DAEMON: '1', SLEUTH_QUERY_POOL_SIZE: '2',
     }, ['--no-watch', '--path', tempDir]);
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
@@ -436,7 +436,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     for (const [i, name] of ['alpha', 'beta'].entries()) {
       sendMessage(server.child, {
         jsonrpc: '2.0', id: i + 2, method: 'tools/call',
-        params: { name: 'codegraph_explore', arguments: { query: `${name}Symbol`, projectPath: path.join(tempDir, name) } },
+        params: { name: 'sleuth_explore', arguments: { query: `${name}Symbol`, projectPath: path.join(tempDir, name) } },
       });
     }
     for (const [i, name] of ['alpha', 'beta'].entries()) {
@@ -446,12 +446,12 @@ describe('Shared MCP daemon (issue #411)', () => {
     }
     sendMessage(server.child, {
       jsonrpc: '2.0', id: 4, method: 'tools/call',
-      params: { name: 'codegraph_explore', arguments: { query: 'alphaSymbol' } },
+      params: { name: 'sleuth_explore', arguments: { query: 'alphaSymbol' } },
     });
     const missing = await waitFor(() => findResponse(server.stdout, 4), 10000);
     expect(missing.result.isError).toBeFalsy();
     expect(missing.result.content[0].text).toContain('projectPath');
-    expect(fs.existsSync(path.join(tempDir, '.codegraph'))).toBe(false);
+    expect(fs.existsSync(path.join(tempDir, '.sleuth'))).toBe(false);
   }, 30000);
 
   it('proxy fallback enables the query pool when no live writer holds the project', async () => {
@@ -459,18 +459,18 @@ describe('Shared MCP daemon (issue #411)', () => {
     const sockPath = getDaemonSocketPath(realRoot);
     const miniServer = net.createServer((sock) => {
       sock.end(JSON.stringify({
-        codegraph: '0.0.0-mismatch', pid: process.pid, socketPath: sockPath, protocol: 1,
+        sleuth: '0.0.0-mismatch', pid: process.pid, socketPath: sockPath, protocol: 1,
       }) + '\n');
     });
     await new Promise<void>((resolve) => miniServer.listen(sockPath, resolve));
     try {
-      const server = spawnServer(tempDir, { CODEGRAPH_QUERY_POOL_SIZE: '2' }, ['--no-watch']);
+      const server = spawnServer(tempDir, { SLEUTH_QUERY_POOL_SIZE: '2' }, ['--no-watch']);
       servers.push(server);
       sendInitialize(server.child, `file://${tempDir}`, 1);
       await waitFor(() => findResponse(server.stdout, 1), 10000);
       sendMessage(server.child, {
         jsonrpc: '2.0', id: 2, method: 'tools/call',
-        params: { name: 'codegraph_files', arguments: {} },
+        params: { name: 'sleuth_files', arguments: {} },
       });
       const reply = await waitFor(() => findResponse(server.stdout, 2), 10000);
       expect(reply.error).toBeUndefined();
@@ -485,7 +485,7 @@ describe('Shared MCP daemon (issue #411)', () => {
   it('clears a stale (dead-pid) lockfile and a fresh daemon takes over', async () => {
     // Plant a lockfile pointing at a definitely-dead pid + the real socket path.
     fs.writeFileSync(
-      path.join(realRoot, '.codegraph', 'daemon.pid'),
+      path.join(realRoot, '.sleuth', 'daemon.pid'),
       JSON.stringify({
         pid: 999_999,
         version: '0.0.0-fake',
@@ -494,14 +494,14 @@ describe('Shared MCP daemon (issue #411)', () => {
       }),
     );
 
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '15000' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '15000' };
     const server = spawnServer(tempDir, env);
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
     const resp = await waitFor(() => findResponse(server.stdout, 1), 10000).catch((e) => {
       throw new Error(`${(e as Error).message}\nstderr:\n${server.stderr.join('\n')}\ndaemon.log:\n${readDaemonLog(realRoot)}`);
     });
-    expect(resp.result.serverInfo.name).toBe('codegraph');
+    expect(resp.result.serverInfo.name).toBe('sleuth');
     await waitFor(() => countListeningLines(realRoot) >= 1, 10000);
     // The pidfile now names a live daemon, not the planted-dead 999999.
     const livePid = readLockPid(realRoot);
@@ -510,7 +510,7 @@ describe('Shared MCP daemon (issue #411)', () => {
   }, 40000);
 
   it('preserves paired daemon/writer locks when their live PID may have been reused', async () => {
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '30000' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '30000' };
     const first = spawnServer(tempDir, env);
     servers.push(first);
     sendInitialize(first.child, `file://${tempDir}`, 1);
@@ -520,11 +520,11 @@ describe('Shared MCP daemon (issue #411)', () => {
     // initial connection is still being configured for this fixture.
     sendMessage(first.child, {
       jsonrpc: '2.0', id: 10, method: 'tools/call',
-      params: { name: 'codegraph_status', arguments: {} },
+      params: { name: 'sleuth_status', arguments: {} },
     });
     const ready = await waitFor(() => findResponse(first.stdout, 10), 10000);
     expect(ready.result?.isError).not.toBe(true);
-    expect(JSON.stringify(ready.result)).toContain('CodeGraph Status');
+    expect(JSON.stringify(ready.result)).toContain('SleuthGraph Status');
     const killedPid = readLockPid(realRoot)!;
 
     // End the first proxy before simulating PID reuse. Otherwise it can switch
@@ -536,11 +536,11 @@ describe('Shared MCP daemon (issue #411)', () => {
 
     // Model OS PID reuse without risking another process: the stale lock now
     // names this live vitest worker, but no daemon answers the leftover socket.
-    const daemonPath = path.join(realRoot, '.codegraph', 'daemon.pid');
-    const writerPath = path.join(realRoot, '.codegraph', 'writer.pid');
+    const daemonPath = path.join(realRoot, '.sleuth', 'daemon.pid');
+    const writerPath = path.join(realRoot, '.sleuth', 'writer.pid');
     const staleDaemonLock = JSON.stringify({
       pid: process.pid,
-      version: CodeGraphPackageVersion,
+      version: SleuthGraphPackageVersion,
       socketPath: getDaemonSocketPath(realRoot),
       startedAt: Date.now() - 60_000,
     });
@@ -554,13 +554,13 @@ describe('Shared MCP daemon (issue #411)', () => {
 
     // Make the index stale by changing the source, without opening a new
     // SQLite writer against the database of the daemon we just killed.
-    const before = fs.readFileSync(path.join(realRoot, '.codegraph', 'codegraph.db'));
+    const before = fs.readFileSync(path.join(realRoot, '.sleuth', 'sleuth.db'));
     fs.writeFileSync(path.join(realRoot, 'app.ts'), 'export function changedSymbol() {}\n');
     const second = spawnServer(tempDir, env);
     servers.push(second);
     sendInitialize(second.child, `file://${tempDir}`, 2);
     const response = await waitFor(() => findResponse(second.stdout, 2), 12000);
-    expect(response.result.serverInfo.name).toBe('codegraph');
+    expect(response.result.serverInfo.name).toBe('sleuth');
     await waitFor(
       () => second.stderr.some((line) =>
         line.includes('Attached to shared daemon') || line.includes('Shared daemon unavailable')
@@ -580,28 +580,28 @@ describe('Shared MCP daemon (issue #411)', () => {
       jsonrpc: '2.0',
       id: 3,
       method: 'tools/call',
-      params: { name: 'codegraph_status', arguments: {} },
+      params: { name: 'sleuth_status', arguments: {} },
     });
     const toolResponse = await waitFor(() => findResponse(second.stdout, 3), 5000);
     expect(toolResponse.error).toBeUndefined();
     expect(toolResponse.result?.isError).not.toBe(true);
-    expect(JSON.stringify(toolResponse.result)).toContain('CodeGraph Status');
+    expect(JSON.stringify(toolResponse.result)).toContain('SleuthGraph Status');
     expect(second.stderr.some((line) => line.includes('Serving reads in-process without auto-sync'))).toBe(true);
     second.child.stdin.end();
     await waitFor(() => second.child.exitCode !== null, 5000);
-    expect(fs.readFileSync(path.join(realRoot, '.codegraph', 'codegraph.db'))).toEqual(before);
+    expect(fs.readFileSync(path.join(realRoot, '.sleuth', 'sleuth.db'))).toEqual(before);
     expect(fs.readFileSync(writerPath, 'utf8')).toBe(staleWriterLock);
   }, 50000);
 
   it('does not replace a live legacy lock with a second daemon', async () => {
-    const pidPath = path.join(realRoot, '.codegraph', 'daemon.pid');
+    const pidPath = path.join(realRoot, '.sleuth', 'daemon.pid');
     fs.writeFileSync(pidPath, `${process.pid}\n`);
 
-    const server = spawnServer(tempDir, { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '15000' });
+    const server = spawnServer(tempDir, { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '15000' });
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
     const response = await waitFor(() => findResponse(server.stdout, 1), 12000);
-    expect(response.result.serverInfo.name).toBe('codegraph');
+    expect(response.result.serverInfo.name).toBe('sleuth');
 
     await waitFor(
       () => server.stderr.some((line) =>
@@ -621,7 +621,7 @@ describe('Shared MCP daemon (issue #411)', () => {
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/call',
-      params: { name: 'codegraph_status', arguments: {} },
+      params: { name: 'sleuth_status', arguments: {} },
     });
     const toolResponse = await waitFor(() => findResponse(server.stdout, 2), 5000);
     expect(toolResponse).toMatchObject({
@@ -630,7 +630,7 @@ describe('Shared MCP daemon (issue #411)', () => {
   }, 40000);
 
   it('does not start a fallback writer when the daemon lock is unreadable', async () => {
-    const pidPath = path.join(realRoot, '.codegraph', 'daemon.pid');
+    const pidPath = path.join(realRoot, '.sleuth', 'daemon.pid');
     fs.mkdirSync(pidPath);
 
     const server = spawnServer(tempDir);
@@ -647,7 +647,7 @@ describe('Shared MCP daemon (issue #411)', () => {
       jsonrpc: '2.0',
       id: 2,
       method: 'tools/call',
-      params: { name: 'codegraph_status', arguments: {} },
+      params: { name: 'sleuth_status', arguments: {} },
     });
     const toolResponse = await waitFor(() => findResponse(server.stdout, 2), 5000);
     expect(toolResponse).toMatchObject({
@@ -657,7 +657,7 @@ describe('Shared MCP daemon (issue #411)', () => {
 
   it.each([null, 'daemon', 'fallback'])('proxy falls back to read-only mode on a daemon version mismatch (writer: %s)', async (mode) => {
     const before = await staleIndex(realRoot);
-    const writerPath = path.join(realRoot, '.codegraph', 'writer.pid');
+    const writerPath = path.join(realRoot, '.sleuth', 'writer.pid');
     const writer = JSON.stringify({ pid: process.pid, mode, startedAt: Date.now() });
     if (mode) fs.writeFileSync(writerPath, writer);
     const net = await import('net');
@@ -665,12 +665,12 @@ describe('Shared MCP daemon (issue #411)', () => {
     // Plant a live-pid lockfile so the launcher treats the lock as held, and a
     // mini-server that answers with a mismatched-version hello.
     fs.writeFileSync(
-      path.join(realRoot, '.codegraph', 'daemon.pid'),
+      path.join(realRoot, '.sleuth', 'daemon.pid'),
       JSON.stringify({ pid: process.pid, version: '0.0.0-mismatch', socketPath: sockPath, startedAt: Date.now() }),
     );
     const miniServer = net.createServer((sock) => {
       sock.write(JSON.stringify({
-        codegraph: '0.0.0-mismatch',
+        sleuth: '0.0.0-mismatch',
         pid: process.pid,
         socketPath: sockPath,
         protocol: 1,
@@ -686,7 +686,7 @@ describe('Shared MCP daemon (issue #411)', () => {
       // response — the proxy answers the handshake locally and, refusing to
       // attach across the version mismatch, serves the session in-process.
       const resp = await waitFor(() => findResponse(server.stdout, 1), 10000);
-      expect(resp.result.serverInfo.name).toBe('codegraph');
+      expect(resp.result.serverInfo.name).toBe('sleuth');
       await waitFor(
         () => server.stderr.some((l) => l.includes('serving this session in-process')),
         6000,
@@ -696,17 +696,17 @@ describe('Shared MCP daemon (issue #411)', () => {
         jsonrpc: '2.0',
         id: 2,
         method: 'tools/call',
-        params: { name: 'codegraph_status', arguments: {} },
+        params: { name: 'sleuth_status', arguments: {} },
       });
       const toolResponse = await waitFor(() => findResponse(server.stdout, 2), 5000);
       expect(toolResponse.error).toBeUndefined();
       expect(toolResponse.result?.isError).not.toBe(true);
-      expect(JSON.stringify(toolResponse.result)).toContain('CodeGraph Status');
+      expect(JSON.stringify(toolResponse.result)).toContain('SleuthGraph Status');
       expect(fs.existsSync(writerPath)).toBe(mode !== null);
       expect(server.stderr.some((l) => l.includes('Serving reads in-process without auto-sync:'))).toBe(true);
       server.child.stdin.end();
       await waitFor(() => server.child.exitCode !== null, 5000);
-      expect(fs.readFileSync(path.join(realRoot, '.codegraph', 'codegraph.db'))).toEqual(before);
+      expect(fs.readFileSync(path.join(realRoot, '.sleuth', 'sleuth.db'))).toEqual(before);
       expect(readLockPid(realRoot)).toBe(process.pid);
       if (mode) expect(fs.readFileSync(writerPath, 'utf8')).toBe(writer);
     } finally {
@@ -728,7 +728,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     // Backstop short, idle timeout long: with a client connected the idle timer
     // never arms, so the inactivity backstop is the only thing that could take
     // the daemon down — and it must not, because the client's peer is alive.
-    const env = { CODEGRAPH_DAEMON_MAX_IDLE_MS: '1200', CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '60000' };
+    const env = { SLEUTH_DAEMON_MAX_IDLE_MS: '1200', SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '60000' };
     const server = spawnServer(tempDir, env);
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
@@ -741,12 +741,12 @@ describe('Shared MCP daemon (issue #411)', () => {
     );
     sendMessage(server.child, {
       jsonrpc: '2.0', id: 2, method: 'tools/call',
-      params: { name: 'codegraph_status', arguments: {} },
+      params: { name: 'sleuth_status', arguments: {} },
     });
     const status = await waitFor(() => findResponse(server.stdout, 2), 10000);
     expect(status.error).toBeUndefined();
     expect(status.result?.isError).not.toBe(true);
-    expect(JSON.stringify(status.result)).toContain('CodeGraph Status');
+    expect(JSON.stringify(status.result)).toContain('SleuthGraph Status');
     const daemonPid = readLockPid(realRoot)!;
     expect(attached).toContain(`(pid ${daemonPid},`);
     expect(isAlive(daemonPid)).toBe(true);
@@ -761,7 +761,7 @@ describe('Shared MCP daemon (issue #411)', () => {
   }, 30000);
 
   it('daemon idle-times-out after the last client disconnects', async () => {
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '800', CODEGRAPH_PPID_POLL_MS: '200' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '800', SLEUTH_PPID_POLL_MS: '200' };
     const server = spawnServer(tempDir, env);
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
@@ -774,14 +774,14 @@ describe('Shared MCP daemon (issue #411)', () => {
     server.child.stdin.end();
 
     expect(await waitProcessExit(daemonPid, 10000)).toBe(true);
-    expect(fs.existsSync(path.join(realRoot, '.codegraph', 'daemon.pid'))).toBe(false);
+    expect(fs.existsSync(path.join(realRoot, '.sleuth', 'daemon.pid'))).toBe(false);
   }, 30000);
 
   it('proxy survives the daemon dying mid-session and keeps serving (#662)', async () => {
     // The #662 scenario: an MCP host SIGTERM's the shared daemon while a session
-    // is live. The proxy must NOT exit (losing CodeGraph for that session) — it
+    // is live. The proxy must NOT exit (losing SleuthGraph for that session) — it
     // falls back to an in-process engine and keeps answering.
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '30000', CODEGRAPH_PPID_POLL_MS: '5000' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '30000', SLEUTH_PPID_POLL_MS: '5000' };
     const server = spawnServer(tempDir, env);
     servers.push(server);
     sendInitialize(server.child, `file://${tempDir}`, 1);
@@ -791,14 +791,14 @@ describe('Shared MCP daemon (issue #411)', () => {
     const daemonPid = readLockPid(realRoot)!;
 
     // A warm call goes through the daemon.
-    sendMessage(server.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+    sendMessage(server.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
     try {
       await waitFor(() => findResponse(server.stdout, 2), 30000, 25, 'warm tools/call via daemon');
     } catch (e) {
       // This is the wait that historically flaked — surface WHERE the request
       // died: proxy side (stderr) or daemon side (daemon.log).
       let daemonLog = '<no daemon.log>';
-      try { daemonLog = fs.readFileSync(path.join(realRoot, '.codegraph', 'daemon.log'), 'utf8').split('\n').slice(-25).join('\n'); } catch { /* absent */ }
+      try { daemonLog = fs.readFileSync(path.join(realRoot, '.sleuth', 'daemon.log'), 'utf8').split('\n').slice(-25).join('\n'); } catch { /* absent */ }
       throw new Error(
         `${(e as Error).message}\ndaemonAlive=${isAlive(daemonPid)} proxyAlive=${isAlive(server.child.pid!)}\n` +
         `--- proxy stderr tail ---\n${server.stderr.slice(-15).join('')}\n--- daemon.log tail ---\n${daemonLog}`
@@ -812,7 +812,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     // The proxy must still be alive and still answer — served in-process now.
     expect(isAlive(server.child.pid!)).toBe(true);
     await waitFor(() => server.stderr.some((l) => l.includes('serving this session in-process')), 8000, 25, 'in-process failover log');
-    sendMessage(server.child, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+    sendMessage(server.child, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
     const resp = await waitFor(() => findResponse(server.stdout, 3), 15000);
     expect(resp.result !== undefined || resp.error !== undefined).toBe(true);
     expect(isAlive(server.child.pid!)).toBe(true);
@@ -825,10 +825,10 @@ describe('Shared MCP daemon (issue #411)', () => {
     // without auto-sync. The degraded proxy now retries the daemon: it stops
     // its engine (releasing the lock), lets a daemon start, and proxies again.
     const env = {
-      CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '30000',
-      CODEGRAPH_PPID_POLL_MS: '5000',
+      SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '30000',
+      SLEUTH_PPID_POLL_MS: '5000',
       // The default, spelled out: long enough to observe the lockout first.
-      CODEGRAPH_DAEMON_RETRY_MS: '5000',
+      SLEUTH_DAEMON_RETRY_MS: '5000',
     };
     const a = spawnServer(tempDir, env);
     servers.push(a);
@@ -836,14 +836,14 @@ describe('Shared MCP daemon (issue #411)', () => {
     sendInitialize(a.child, `file://${tempDir}`, 1);
     await waitFor(() => findResponse(a.stdout, 1), 20000, 25, 'initialize response');
     await waitFor(() => a.stderr.some((l) => l.includes('Attached to shared daemon')), 8000, 25, 'first daemon attach');
-    sendMessage(a.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+    sendMessage(a.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
     await waitFor(() => findResponse(a.stdout, 2), 30000, 25, 'warm tools/call via daemon');
     const firstDaemon = readLockPid(realRoot)!;
 
     process.kill(firstDaemon, 'SIGTERM');
     expect(await waitProcessExit(firstDaemon, 8000)).toBe(true);
     await waitFor(() => a.stderr.some((l) => l.includes('serving this session in-process')), 8000, 25, 'in-process failover');
-    sendMessage(a.child, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+    sendMessage(a.child, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
     await waitFor(() => findResponse(a.stdout, 3), 15000, 25, 'in-process tools/call');
 
     // The lockout: the in-process engine owns the project's writer slot.
@@ -858,7 +858,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     // Keep calling through the handover: every request gets exactly one reply.
     let nextId = 4;
     const send = (): void => {
-      sendMessage(a.child, { jsonrpc: '2.0', id: nextId++, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+      sendMessage(a.child, { jsonrpc: '2.0', id: nextId++, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
     };
     const ticker = setInterval(send, 250);
     let daemonWriter: { pid: number; mode: string } | null = null;
@@ -891,7 +891,7 @@ describe('Shared MCP daemon (issue #411)', () => {
       () => b.stderr.some((l) => l.includes('Attached to shared daemon') && l.includes(`(pid ${daemonWriter!.pid},`)),
       30000, 25, 'the second session to attach',
     );
-    sendMessage(b.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+    sendMessage(b.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
     const bReply = await waitFor(() => findResponse(b.stdout, 2), 15000, 25, 'second session tools/call');
     expect(bReply.error).toBeUndefined();
   }, 90000);
@@ -901,23 +901,23 @@ describe('Shared MCP daemon (issue #411)', () => {
     // used to stay that way for life. Once the blocker is gone it now starts
     // and attaches to a daemon of its own version.
     const sockPath = getDaemonSocketPath(realRoot);
-    const pidPath = path.join(realRoot, '.codegraph', 'daemon.pid');
+    const pidPath = path.join(realRoot, '.sleuth', 'daemon.pid');
     fs.writeFileSync(pidPath, JSON.stringify({ pid: process.pid, version: '0.0.0-mismatch', socketPath: sockPath, startedAt: Date.now() }));
     const miniServer = net.createServer((sock) => {
-      sock.write(JSON.stringify({ codegraph: '0.0.0-mismatch', pid: process.pid, socketPath: sockPath, protocol: 1 }) + '\n');
+      sock.write(JSON.stringify({ sleuth: '0.0.0-mismatch', pid: process.pid, socketPath: sockPath, protocol: 1 }) + '\n');
     });
     await new Promise<void>((resolve) => miniServer.listen(sockPath, () => resolve()));
     let miniServerOpen = true;
     try {
       const server = spawnServer(tempDir, {
-        CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '30000',
-        CODEGRAPH_DAEMON_RETRY_MS: '300',
-        CODEGRAPH_DAEMON_RETRY_MAX_MS: '1000',
+        SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '30000',
+        SLEUTH_DAEMON_RETRY_MS: '300',
+        SLEUTH_DAEMON_RETRY_MAX_MS: '1000',
       });
       servers.push(server);
       sendInitialize(server.child, `file://${tempDir}`, 1);
       await waitFor(() => server.stderr.some((l) => l.includes('serving this session in-process')), 10000, 25, 'in-process fallback');
-      sendMessage(server.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+      sendMessage(server.child, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
       const local = await waitFor(() => findResponse(server.stdout, 2), 10000, 25, 'read-only tools/call');
       expect(local.error).toBeUndefined();
       expect(server.stderr.some((l) => l.includes('Serving reads in-process without auto-sync'))).toBe(true);
@@ -940,10 +940,10 @@ describe('Shared MCP daemon (issue #411)', () => {
       const daemonPid = readLockPid(realRoot)!;
       expect(attached).toContain(`(pid ${daemonPid},`);
       expect(readWriterInfo(realRoot)).toMatchObject({ pid: daemonPid, mode: 'daemon' });
-      sendMessage(server.child, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+      sendMessage(server.child, { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
       const viaDaemon = await waitFor(() => findResponse(server.stdout, 3), 15000, 25, 'tools/call through the daemon');
       expect(viaDaemon.error).toBeUndefined();
-      expect(JSON.stringify(viaDaemon.result)).toContain('CodeGraph Status');
+      expect(JSON.stringify(viaDaemon.result)).toContain('SleuthGraph Status');
     } finally {
       if (miniServerOpen) await new Promise<void>((resolve) => miniServer.close(() => resolve()));
     }
@@ -952,7 +952,7 @@ describe('Shared MCP daemon (issue #411)', () => {
 
 function readWriterInfo(root: string): { pid: number; mode: string } | null {
   try {
-    const info = JSON.parse(fs.readFileSync(path.join(root, '.codegraph', 'writer.pid'), 'utf8'));
+    const info = JSON.parse(fs.readFileSync(path.join(root, '.sleuth', 'writer.pid'), 'utf8'));
     return typeof info.pid === 'number' && typeof info.mode === 'string' ? info : null;
   } catch { return null; }
 }

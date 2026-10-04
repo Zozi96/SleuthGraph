@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deterministic 6-repo envelope sweep for `codegraph_explore` (CG-26).
+ * Deterministic 6-repo envelope sweep for `sleuth_explore` (CG-26).
  *
  * The allocation issues (CG-30 / CG-31 / CG-26) are all decided by how the
  * render loop divides a fixed byte ceiling, and the agent A/B is far too noisy
@@ -10,21 +10,21 @@
  * the final output, whether the hard ceiling cut anything, and whether the
  * epilogue survived.
  *
- * Numbers come from the CG-4 diagnostic (`CODEGRAPH_EXPLORE_DEBUG`), so this
+ * Numbers come from the CG-4 diagnostic (`SLEUTH_EXPLORE_DEBUG`), so this
  * measures the shipping allocator rather than re-deriving shares from markdown.
  *
  * Usage (needs a current `npm run build`, and full-REBUILT indexes — CG-33):
  *   node scripts/agent-eval/probe-suite-envelope.mjs
  *   node scripts/agent-eval/probe-suite-envelope.mjs --json > /tmp/new.json
  *   node scripts/agent-eval/probe-suite-envelope.mjs --baseline /tmp/base.json
- *   CORPUS=/tmp/codegraph-corpus node scripts/agent-eval/probe-suite-envelope.mjs
+ *   CORPUS=/tmp/sleuth-corpus node scripts/agent-eval/probe-suite-envelope.mjs
  */
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const CORPUS = process.env.CORPUS ?? '/tmp/codegraph-corpus';
+const CORPUS = process.env.CORPUS ?? '/tmp/sleuth-corpus';
 
 /** The six suite repos + the exact queries the CG-30/CG-31 tables were measured on. */
 const SUITE = [
@@ -47,10 +47,10 @@ const num = (n) => Math.round(n).toLocaleString('en-US');
 const load = (rel) => import(pathToFileURL(resolve(rel)).href);
 const idx = await load('dist/index.js');
 const toolsMod = await load('dist/mcp/tools.js');
-const CodeGraph = idx.default?.default ?? idx.default ?? idx.CodeGraph;
+const SleuthGraph = idx.default?.default ?? idx.default ?? idx.SleuthGraph;
 const ToolHandler = toolsMod.ToolHandler ?? toolsMod.default?.ToolHandler;
-if (typeof CodeGraph?.openSync !== 'function' || typeof ToolHandler !== 'function') {
-  console.error('could not resolve CodeGraph/ToolHandler from dist/ — run `npm run build`');
+if (typeof SleuthGraph?.openSync !== 'function' || typeof ToolHandler !== 'function') {
+  console.error('could not resolve SleuthGraph/ToolHandler from dist/ — run `npm run build`');
   process.exit(2);
 }
 
@@ -60,15 +60,15 @@ try {
   for (const { id, q } of SUITE) {
     if (only.length > 0 && !only.includes(id)) continue;
     const repo = join(CORPUS, id);
-    if (!existsSync(join(repo, '.codegraph', 'codegraph.db'))) {
+    if (!existsSync(join(repo, '.sleuth', 'sleuth.db'))) {
       say(`${id}: no index at ${repo} — skipped`);
       continue;
     }
     const sidecar = join(tmp, `${id}.jsonl`);
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
-    const cg = CodeGraph.openSync(repo);
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
+    const cg = SleuthGraph.openSync(repo);
     const h = new ToolHandler(cg);
-    const res = await h.execute('codegraph_explore', { query: q });
+    const res = await h.execute('sleuth_explore', { query: q });
     const text = res.content?.[0]?.text ?? '';
     try { cg.close?.(); } catch { /* best effort */ }
     const report = JSON.parse(readFileSync(sidecar, 'utf8').trim().split('\n').pop());

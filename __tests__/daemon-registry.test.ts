@@ -28,7 +28,7 @@ async function deadPid(): Promise<number> {
 }
 
 function rec(root: string, pid: number, startedAt = Date.now()): DaemonRecord {
-  return { root, pid, version: '1.0.0', socketPath: `${root}/.codegraph/daemon.sock`, startedAt };
+  return { root, pid, version: '1.0.0', socketPath: `${root}/.sleuth/daemon.sock`, startedAt };
 }
 
 function waitForExit(child: ReturnType<typeof spawn>): Promise<void> {
@@ -61,7 +61,7 @@ describe('daemon-registry', () => {
     process.env.HOME = tmpHome; // os.homedir() honors HOME (POSIX) ...
     process.env.USERPROFILE = tmpHome; // ... and USERPROFILE (Windows)
     // Sanity: the registry must resolve under our temp home, or the test would
-    // pollute the real ~/.codegraph.
+    // pollute the real ~/.sleuth.
     expect(getRegistryDir().startsWith(tmpHome)).toBe(true);
   });
 
@@ -81,13 +81,13 @@ describe('daemon-registry', () => {
     });
   });
 
-  it('does not signal a live PID unless its socket identifies a CodeGraph daemon', async () => {
+  it('does not signal a live PID unless its socket identifies a SleuthGraph daemon', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-foreign-daemon-'));
-    fs.mkdirSync(path.join(root, '.codegraph'));
+    fs.mkdirSync(path.join(root, '.sleuth'));
     const pid = startDetachedProcess();
     fs.writeFileSync(
       getDaemonPidPath(root),
-      encodeLockInfo({ pid, version: 'test', socketPath: path.join(root, '.codegraph', 'missing.sock'), startedAt: Date.now() }),
+      encodeLockInfo({ pid, version: 'test', socketPath: path.join(root, '.sleuth', 'missing.sock'), startedAt: Date.now() }),
     );
 
     try {
@@ -103,11 +103,11 @@ describe('daemon-registry', () => {
 
   it.each([false, true])('confirms daemon termination (refused: %s)', async (refused) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-daemon-identity-'));
-    fs.mkdirSync(path.join(root, '.codegraph'));
+    fs.mkdirSync(path.join(root, '.sleuth'));
     const socketPath = getDaemonSocketPath(root);
     const pid = startDetachedProcess();
     const server = net.createServer((socket) => {
-      socket.end(`${JSON.stringify({ protocol: 1, codegraph: 'test', pid, socketPath })}\n`);
+      socket.end(`${JSON.stringify({ protocol: 1, sleuth: 'test', pid, socketPath })}\n`);
     });
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
@@ -152,12 +152,12 @@ describe('daemon-registry', () => {
     root: string,
     onTerm: (daemon: { server: net.Server; pidPath: string; exitAfter: (ms: number) => void }) => void,
   ): Promise<{ root: string; pid: number; pidPath: string; signalled: (signal: string) => boolean; dispose: () => Promise<void> }> {
-    fs.mkdirSync(path.join(root, '.codegraph'));
+    fs.mkdirSync(path.join(root, '.sleuth'));
     const socketPath = getDaemonSocketPath(root);
     const pidPath = getDaemonPidPath(root);
     const pid = startDetachedProcess();
     const server = net.createServer((socket) => {
-      socket.end(`${JSON.stringify({ protocol: 1, codegraph: 'test', pid, socketPath })}\n`);
+      socket.end(`${JSON.stringify({ protocol: 1, sleuth: 'test', pid, socketPath })}\n`);
     });
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
@@ -248,7 +248,7 @@ describe('daemon-registry', () => {
 
   it('preserves a newer lock installed during a successful stop identity probe', async () => {
     const root = fs.mkdtempSync(path.join(tmpHome, 'stop-race-'));
-    fs.mkdirSync(path.join(root, '.codegraph'));
+    fs.mkdirSync(path.join(root, '.sleuth'));
     const pid = startDetachedProcess();
     const socketPath = getDaemonSocketPath(root);
     const pidPath = getDaemonPidPath(root);
@@ -257,7 +257,7 @@ describe('daemon-registry', () => {
     fs.writeFileSync(pidPath, encodeLockInfo(original));
     const server = net.createServer(socket => {
       fs.writeFileSync(pidPath, replacement);
-      socket.end(JSON.stringify({ protocol: 1, codegraph: 'test', pid }) + '\n');
+      socket.end(JSON.stringify({ protocol: 1, sleuth: 'test', pid }) + '\n');
     });
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
@@ -326,7 +326,7 @@ describe('daemon-registry', () => {
       socket.end(JSON.stringify({
         protocol: 1,
         pid: process.pid,
-        codegraph: '1.5.0',
+        sleuth: '1.5.0',
         socketPath,
       }) + '\n');
     });
@@ -349,7 +349,7 @@ describe('daemon-registry', () => {
     fs.writeFileSync(pidPath, encodeLockInfo({
       pid: process.pid,
       version: '1.5.0',
-      socketPath: path.join(root, '.codegraph', 'missing.sock'),
+      socketPath: path.join(root, '.sleuth', 'missing.sock'),
       startedAt: Date.now() - 60_000,
     }));
 
@@ -357,7 +357,7 @@ describe('daemon-registry', () => {
       root,
       pid: process.pid,
       version: '1.5.0',
-      socketPath: path.join(root, '.codegraph', 'missing.sock'),
+      socketPath: path.join(root, '.sleuth', 'missing.sock'),
       startedAt: Date.now() - 60_000,
     });
 
@@ -436,7 +436,7 @@ describe('daemon-registry', () => {
     const lock = encodeLockInfo({
       pid: process.pid,
       version: '1.5.0',
-      socketPath: path.join(root, '.codegraph', 'not-listening.sock'),
+      socketPath: path.join(root, '.sleuth', 'not-listening.sock'),
       startedAt: 1,
     });
     fs.mkdirSync(path.dirname(pidPath), { recursive: true });

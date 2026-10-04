@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { expoModulesResolver } from '../src/resolution/frameworks/expo-modules';
 
 describe('Expo Modules framework extractor', () => {
@@ -123,7 +123,7 @@ export async function impactAsync() {
 `
     );
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
 
@@ -182,7 +182,7 @@ class BatteryModule : Module() {
 `
     );
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
 
@@ -260,7 +260,7 @@ export default class CameraView {
   }
 }
 `);
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       const view = cg.getNodesInFile('src/CameraView.tsx');
       const from = (name: string) => view.find((n) => n.name === name && n.kind === 'method')!;

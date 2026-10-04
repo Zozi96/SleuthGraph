@@ -34,7 +34,7 @@
  * excluded rides on the payload so the side panel can say so.
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import type { EdgeKind, Language } from '../../types';
 import { isTestFile } from '../../search/query-utils';
 import { badRequest } from './respond';
@@ -579,7 +579,7 @@ function collapseLoneRootFiles(ids: ReadonlySet<string>): Map<string, string> {
   return renamed;
 }
 
-export function buildMap(cg: CodeGraph, projectRoot: string, query: URLSearchParams): WireMapPayload {
+export function buildMap(cg: SleuthGraph, projectRoot: string, query: URLSearchParams): WireMapPayload {
   const started = Date.now();
   const { root: requestedRoot, depth: requestedDepth } = parseMapQuery(query);
 

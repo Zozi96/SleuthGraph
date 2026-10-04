@@ -17,7 +17,7 @@ const DIST = path.resolve(__dirname, '../dist');
 
 const script = `
 const fs = require('fs'); const os = require('os'); const path = require('path');
-const { default: CodeGraph } = require(path.join(process.argv[1], 'index.js'));
+const { default: SleuthGraph } = require(path.join(process.argv[1], 'index.js'));
 const { ExtractionOrchestrator } = require(path.join(process.argv[1], 'extraction/index.js'));
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-store-failure-'));
 // More files than the commit window holds, so the failed cursor is waited on.
@@ -28,7 +28,7 @@ ExtractionOrchestrator.prototype.storeExtractionResult = function (...args) {
   if (calls++ === 0) throw new Error('injected store failure');
   return store.apply(this, args);
 };
-const cg = CodeGraph.initSync(dir, { config: { include: ['**/*.ts'], exclude: [] } });
+const cg = SleuthGraph.initSync(dir, { config: { include: ['**/*.ts'], exclude: [] } });
 cg.indexAll().then(
   () => process.stdout.write('resolved\\n'),
   (err) => process.stdout.write('rejected: ' + err.message + '\\n'),
@@ -46,9 +46,9 @@ describe('indexAll after a failed store (#1773)', () => {
       env: {
         ...process.env,
         // The main-thread store path, with the smallest pooled commit window.
-        CODEGRAPH_NO_STORE_WORKER: '1',
-        CODEGRAPH_PARSE_WORKERS: '1',
-        CODEGRAPH_TELEMETRY: '0',
+        SLEUTH_NO_STORE_WORKER: '1',
+        SLEUTH_PARSE_WORKERS: '1',
+        SLEUTH_TELEMETRY: '0',
       },
     });
     expect(child.signal, `indexAll did not settle: ${child.stderr}`).toBeNull();

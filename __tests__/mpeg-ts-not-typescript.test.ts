@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { scanDirectoryAsync, type ScanSkipStats } from '../src/extraction';
 import { detectLanguage, isMpegTransportStream, MPEG_TS_SNIFF_BYTES } from '../src/extraction/grammars';
 
@@ -70,7 +70,7 @@ function makePsiLedMpegTs(packets: number): Buffer {
 
 const tempDirs: string[] = [];
 function createProject(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-mpegts-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-mpegts-'));
   tempDirs.push(dir);
   return dir;
 }
@@ -135,7 +135,7 @@ describe('MPEG-TS video named .ts is skipped, real TypeScript is indexed (#1910)
     expect(scanned.sort()).toEqual(['app.ts', 'gamma-nul.ts', 'gamma.ts', 'testdata/clip.ts']);
     expect(stats.unsupportedByExtension.size).toBe(0);
 
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       const files = cg.getFiles().map((f) => f.path).sort();
       expect(files).toEqual(['app.ts', 'gamma-nul.ts', 'gamma.ts']);
@@ -184,7 +184,7 @@ describe('MPEG-TS video named .ts is skipped, real TypeScript is indexed (#1910)
     const dir = createProject();
     fs.writeFileSync(path.join(dir, 'clip.ts'), makeMpegTs(40));
     fs.writeFileSync(path.join(dir, 'app.ts'), 'export const a = 1;\n');
-    const cg = await CodeGraph.init(dir);
+    const cg = await SleuthGraph.init(dir);
     try {
       const result = await cg.indexAll();
       expect(result.filesSkippedUnsupported).toBeUndefined();
@@ -201,7 +201,7 @@ describe('MPEG-TS video named .ts is skipped, real TypeScript is indexed (#1910)
     fs.mkdirSync(path.join(dir, 'testdata'));
     fs.writeFileSync(path.join(dir, 'testdata', 'golden.ts'), makeMpegTs(Math.ceil((900 * 1024) / PACKET)));
     fs.writeFileSync(path.join(dir, 'app.ts'), 'export function greet(n: string) { return `hi ${n}`; }\n');
-    const cg = await CodeGraph.init(dir);
+    const cg = await SleuthGraph.init(dir);
     try {
       const t0 = Date.now();
       const result = await cg.indexAll();
@@ -222,7 +222,7 @@ describe('a video .ts never stays pending (#1910)', { timeout: 30_000 }, () => {
   const dirs: string[] = [];
   afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); });
   const gitProject = (): string => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-mpegts-git-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-mpegts-git-'));
     dirs.push(dir);
     const git = (...a: string[]) => execFileSync('git', a, { cwd: dir, stdio: 'pipe' });
     git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
@@ -233,7 +233,7 @@ describe('a video .ts never stays pending (#1910)', { timeout: 30_000 }, () => {
 
   it('an untracked clip is not reported as added, before or after sync', async () => {
     const dir = gitProject();
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       fs.writeFileSync(path.join(dir, 'clip.ts'), makeMpegTs(40));
       expect(cg.getChangedFiles()).toEqual({ added: [], modified: [], removed: [] });
@@ -249,7 +249,7 @@ describe('a video .ts never stays pending (#1910)', { timeout: 30_000 }, () => {
     for (const scoped of [false, true]) {
       const dir = gitProject();
       fs.writeFileSync(path.join(dir, 'clip.ts'), 'export const clip = 1;\n');
-      const cg = await CodeGraph.init(dir, { index: true });
+      const cg = await SleuthGraph.init(dir, { index: true });
       try {
         expect(cg.getNodesInFile('clip.ts').some((n) => n.name === 'clip')).toBe(true);
         fs.writeFileSync(path.join(dir, 'clip.ts'), makeMpegTs(40));

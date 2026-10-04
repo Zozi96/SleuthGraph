@@ -60,7 +60,7 @@
   // The key stays open until the reader closes it; the choice survives a reload
   // but is per browser — a preference, not a fact about the project. Same
   // storage shape as the Screens and Steps keys.
-  const LEGEND_KEY = 'codegraph-ui:map-legend';
+  const LEGEND_KEY = 'sleuthgraph-ui:map-legend';
   let legendOpen = $state(readLegendOpen());
   function readLegendOpen(): boolean {
     try {

@@ -2,15 +2,15 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 let root: string;
-let cg: CodeGraph | undefined;
+let cg: SleuthGraph | undefined;
 beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-awaited-')); });
 afterEach(() => { cg?.close(); cg = undefined; fs.rmSync(root, { recursive: true, force: true }); });
 async function index(files: Record<string, string>) {
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(root, name), text);
-  cg = await CodeGraph.init(root, { index: true });
+  cg = await SleuthGraph.init(root, { index: true });
 }
 function calls(name: string, file = 'caller.ts') {
   const node = cg!.getNodesByKind('function').find(n => n.name === name && n.filePath === file);

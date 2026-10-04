@@ -780,7 +780,7 @@ lines directly above it.
 
 ### Value-reference edges (398-931) — kotlin IS in VALUE_REF_LANGS (401)
 
-Port the full machinery (crib java.rs/go.rs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib java.rs/go.rs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES = 20,000 caps the prune DFS and each reader scan;
 isGeneratedFile skip.
 
@@ -1010,13 +1010,13 @@ unwrap/ungatedModes/addressOfOnly.
   `__tests__/kernel-kotlin-parity.test.ts`.
 - **Parity sweeps** (`scripts/kernel-parity.mjs <dir>`, order-sensitive
   full-object, default `--max-deferral 0.1`):
-  - `/private/tmp/claude-501/-Users-colby-Development-CodeGraph-codegraph/0c11bda1-0b19-4fec-bcd9-d0cb4b2d6e8a/scratchpad/gate-repos/okio` (small, 322 kt/kts files)
+  - `/private/tmp/claude-501/-Users-colby-Development-SleuthGraph-sleuth/0c11bda1-0b19-4fec-bcd9-d0cb4b2d6e8a/scratchpad/gate-repos/okio` (small, 322 kt/kts files)
   - `…/gate-repos/okhttp` (medium, 580)
   - `…/gate-repos/kotlinx.coroutines` (large, 1,082 — **the KMP/expect-actual gate**)
   (cloned fresh at survey; re-clone public OSS if gone — agent-eval policy).
   Expect 0-diff on every NON-deferred file and exactly the §arch-6 deferral
   counts. Then **full-init dump-diffs byte-identical** (kernel arm vs
-  `CODEGRAPH_KERNEL=0`, `dump-graph.mjs`, cmp) on the same three.
+  `SLEUTH_KERNEL=0`, `dump-graph.mjs`, cmp) on the same three.
 - **KMP synthesis spot-check** (tracker row requirement): after the
   kotlinx.coroutines dumps, `select count(*) from edges where
   json_extract(metadata,'$.synthesizedBy')='kotlin-expect-actual'` equal
@@ -1025,7 +1025,7 @@ unwrap/ungatedModes/addressOfOnly.
   fixture (a `fun interface` file — asserts kernel `defer:` + wasm-served
   output matches `extract-funiface.txt` shape) + a phantom-error fixture
   (single-line class body — kernel defers despite the complete CST); full
-  suite ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  suite ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'kotlin'`** (kernel/index.ts:37) only after ALL of
   the above; changelog rides the existing kernel entry.
 - Post-route perf sanity: gate repos ride the raw path (§arch-2); a

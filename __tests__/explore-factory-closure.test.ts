@@ -33,7 +33,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import type { ExploreDiagnosticReport } from '../src/mcp/explore-diagnostics';
 
@@ -47,7 +47,7 @@ const QUERY = 'how does the dashboard store refresh its metrics and apply a filt
 
 describe('CG-27 — a factory-closure file delivers the closures inside it', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let response: string;
   let report: ExploreDiagnosticReport;
   /** Source lines of TARGET the response actually carried. */
@@ -55,22 +55,22 @@ describe('CG-27 — a factory-closure file delivers the closures inside it', () 
   let sourceLines: string[];
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cg27-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cg27-'));
     fs.cpSync(FIXTURE_SRC, testDir, { recursive: true });
-    fs.rmSync(path.join(testDir, '.codegraph'), { recursive: true, force: true });
+    fs.rmSync(path.join(testDir, '.sleuth'), { recursive: true, force: true });
 
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
 
     const sidecar = path.join(testDir, 'explore-diag.jsonl');
-    const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+    const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
     try {
-      response = (await new ToolHandler(cg).execute('codegraph_explore', { query: QUERY }))
+      response = (await new ToolHandler(cg).execute('sleuth_explore', { query: QUERY }))
         .content?.[0]?.text ?? '';
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-      else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+      else process.env.SLEUTH_EXPLORE_DEBUG = previous;
     }
     const written = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
     report = JSON.parse(written[written.length - 1]!) as ExploreDiagnosticReport;

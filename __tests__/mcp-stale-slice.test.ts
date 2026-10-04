@@ -1,7 +1,7 @@
 /**
  * Disk-drift guard on code-slice renders (issue #1474).
  *
- * codegraph_node / codegraph_explore read CURRENT bytes from disk but slice
+ * sleuth_node / sleuth_explore read CURRENT bytes from disk but slice
  * them at INDEXED line ranges. When a file changed after its last index sync,
  * that slice is a DIFFERENT symbol's code served under the requested name —
  * `isError: false`, introduced by the "verbatim … do not Read" guarantee. The
@@ -22,12 +22,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
-import { ToolHandler, __setLoadCodeGraphForTests } from '../src/mcp/tools';
+import SleuthGraph from '../src/index';
+import { ToolHandler, __setLoadSleuthGraphForTests } from '../src/mcp/tools';
 
 /** ~1,100-line file: handler0…handler79 plus `orchestrate` at the bottom —
  * mirrors the issue's fixture. Big enough that explore takes the clustered
- * render and codegraph_node's whole-file stale fallback does NOT fit. */
+ * render and sleuth_node's whole-file stale fallback does NOT fit. */
 function bigFileContent(): string {
   const parts: string[] = [];
   for (let h = 0; h < 80; h++) {
@@ -74,13 +74,13 @@ function getText(result: { content: Array<{ type: string; text?: string }>; isEr
 describe('MCP stale-slice guard (#1474)', () => {
   let fixtureDir: string; // the project that goes stale
   let otherDir: string;   // a different indexed project — the server's default
-  let cgFixture: CodeGraph;
-  let cgOther: CodeGraph;
+  let cgFixture: SleuthGraph;
+  let cgOther: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
-    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-stale-slice-fx-'));
-    otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-stale-slice-other-'));
+    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-stale-slice-fx-'));
+    otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-stale-slice-other-'));
     fs.mkdirSync(path.join(fixtureDir, 'src'));
     fs.mkdirSync(path.join(otherDir, 'src'));
     fs.writeFileSync(path.join(fixtureDir, 'src', 'big.ts'), bigFileContent());
@@ -93,21 +93,21 @@ describe('MCP stale-slice guard (#1474)', () => {
       'export function unrelated() { return 0; }\n',
     );
 
-    cgFixture = CodeGraph.initSync(fixtureDir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cgFixture = SleuthGraph.initSync(fixtureDir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cgFixture.indexAll();
-    cgOther = CodeGraph.initSync(otherDir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cgOther = SleuthGraph.initSync(otherDir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cgOther.indexAll();
     // The issue's exact topology: the server's default project is a DIFFERENT
     // project; the stale one is reached via `projectPath` and therefore has no
     // watcher — the #403/#876 banners cannot fire for it by construction.
     // (The seam services ToolHandler's lazy cross-project require, which
     // vitest's module transform can't resolve.)
-    __setLoadCodeGraphForTests(CodeGraph);
+    __setLoadSleuthGraphForTests(SleuthGraph);
     handler = new ToolHandler(cgOther);
   });
 
   afterEach(() => {
-    __setLoadCodeGraphForTests(null);
+    __setLoadSleuthGraphForTests(null);
     try { handler.closeAll(); } catch { /* ignore */ }
     try { cgFixture.close(); } catch { /* ignore */ }
     try { cgOther.close(); } catch { /* ignore */ }
@@ -121,9 +121,9 @@ describe('MCP stale-slice guard (#1474)', () => {
     fs.writeFileSync(p, insertedPrelude() + fs.readFileSync(p, 'utf-8'));
   }
 
-  it('codegraph_node never serves another symbol\'s body from a drifted file (cross-project)', async () => {
+  it('sleuth_node never serves another symbol\'s body from a drifted file (cross-project)', async () => {
     shiftBigFile();
-    const result = await handler.execute('codegraph_node', {
+    const result = await handler.execute('sleuth_node', {
       symbol: 'orchestrate',
       includeCode: true,
       projectPath: fixtureDir,
@@ -138,10 +138,10 @@ describe('MCP stale-slice guard (#1474)', () => {
     expect(text).toContain('orchestrate');
   });
 
-  it('codegraph_node serves the full CURRENT source of a small drifted file (Read-parity fallback)', async () => {
+  it('sleuth_node serves the full CURRENT source of a small drifted file (Read-parity fallback)', async () => {
     const p = path.join(fixtureDir, 'src', 'small.ts');
     fs.writeFileSync(p, '/** new first line */\nexport const shift = 1;\n' + fs.readFileSync(p, 'utf-8'));
-    const result = await handler.execute('codegraph_node', {
+    const result = await handler.execute('sleuth_node', {
       symbol: 'smallTarget',
       includeCode: true,
       projectPath: fixtureDir,
@@ -157,7 +157,7 @@ describe('MCP stale-slice guard (#1474)', () => {
   it('an identical rewrite (mtime churn, same bytes) does not trip the guard', async () => {
     const p = path.join(fixtureDir, 'src', 'big.ts');
     fs.writeFileSync(p, fs.readFileSync(p, 'utf-8'));
-    const result = await handler.execute('codegraph_node', {
+    const result = await handler.execute('sleuth_node', {
       symbol: 'orchestrate',
       includeCode: true,
       projectPath: fixtureDir,
@@ -167,9 +167,9 @@ describe('MCP stale-slice guard (#1474)', () => {
     expect(text).toContain('export function orchestrate');
   });
 
-  it('codegraph_explore omits (never mis-slices) a big drifted file and flags line refs', async () => {
+  it('sleuth_explore omits (never mis-slices) a big drifted file and flags line refs', async () => {
     shiftBigFile();
-    const result = await handler.execute('codegraph_explore', {
+    const result = await handler.execute('sleuth_explore', {
       query: 'orchestrate handler3',
       projectPath: fixtureDir,
     });
@@ -188,7 +188,7 @@ describe('MCP stale-slice guard (#1474)', () => {
     // Fresh handler: the drift verdict is briefly memoized per handler.
     const freshHandler = new ToolHandler(cgOther);
     try {
-      const result = await freshHandler.execute('codegraph_node', {
+      const result = await freshHandler.execute('sleuth_node', {
         symbol: 'orchestrate',
         includeCode: true,
         projectPath: fixtureDir,
@@ -207,7 +207,7 @@ describe('MCP stale-slice guard (#1474)', () => {
     shiftBigFile();
     const direct = new ToolHandler(cgFixture);
     try {
-      const result = await direct.execute('codegraph_node', {
+      const result = await direct.execute('sleuth_node', {
         symbol: 'orchestrate',
         includeCode: true,
       });

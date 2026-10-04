@@ -23,7 +23,7 @@
  *
  * The full-repo sweep lives in scripts/kernel-parity.mjs (okio/okhttp/
  * kotlinx.coroutines — expected deferrals 23/49/51, grammar-inherent).
- * Skips when no kernel binary is staged; CODEGRAPH_KERNEL_EXPECT=1 turns
+ * Skips when no kernel binary is staged; SLEUTH_KERNEL_EXPECT=1 turns
  * that into a failure (kernel-scaffold.test.ts).
  */
 
@@ -59,7 +59,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel Kotlin extraction parity', () => {
@@ -82,14 +82,14 @@ describe.skipIf(!kernelBuilt)('kernel Kotlin extraction parity', () => {
   });
 
   function assertParity(filePath: string, source: string, minNodes = 3): void {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, 'kotlin');
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, 'kotlin');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -119,24 +119,24 @@ describe.skipIf(!kernelBuilt)('kernel Kotlin extraction parity', () => {
 
   it('fun-interface files defer to the wasm extractor (grammar-inherent error)', () => {
     const src = 'package p\n\nfun interface Transformer {\n    fun transform(x: Int): Int\n}\n\nfun after() { work() }\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/FunIface.kt', src, 'kotlin')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/FunIface.kt', src, 'kotlin');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     // The wasm arm's misparse-recovery hook still mints the interface node.
     expect(viaWasm.nodes.some((n) => n.kind === 'interface' && n.name === 'Transformer')).toBe(true);
   });
 
   it('PHANTOM errors defer too — hasError with a complete, ERROR-node-free CST', () => {
     const src = 'abstract class A { abstract fun i(): Int }\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/Phantom.kt', src, 'kotlin')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/Phantom.kt', src, 'kotlin');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'class' && n.name === 'A')).toBe(true);
   });
 });

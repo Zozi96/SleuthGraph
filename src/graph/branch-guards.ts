@@ -16,7 +16,7 @@
  * statement block on the way — the early exits that precede the site
  * (`if (x) return`, Swift `guard x else { return }`).
  *
- * Nothing is stored in the index. The viewer and `codegraph_explore` already
+ * Nothing is stored in the index. The viewer and `sleuth_explore` already
  * re-read source per request (drift checks, source windows, highlighting), the
  * grammars are loaded in both processes, and a file parses in about a
  * millisecond — so labels are computed where they are shown, from the source

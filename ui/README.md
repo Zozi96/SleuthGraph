@@ -1,4 +1,4 @@
-# ui/ — the `codegraph ui` viewer, and `@colbymchenry/codegraph-ui`
+# ui/ — the `sleuth ui` viewer, and `@zozi96/sleuthgraph-ui`
 
 One source tree, two builds.
 
@@ -6,7 +6,7 @@ One source tree, two builds.
   built as static files into `../dist/viewer` and served by the CLI over
   loopback.
 - **The library** — the same components, packaged with `svelte-package` into
-  `dist/` as `@colbymchenry/codegraph-ui`, so a host (CodeGraph Pro) renders
+  `dist/` as `@zozi96/sleuthgraph-ui`, so a host (SleuthGraph Pro) renders
   the Symbol view, the Flow strip and the Map over its **own** graph reads.
 
 They are one tree on purpose. A forked component is a second answer to the same
@@ -17,7 +17,7 @@ An npm workspace of the engine, so `npm ci` at the repo root installs the
 toolchain for both.
 
 Design spec (every token, size and measurement):
-`../docs/design/codegraph-ui-design-spec.md`.
+`../docs/design/sleuthgraph-ui-design-spec.md`.
 
 ## Build
 
@@ -48,24 +48,24 @@ and would also leave the static server handing out compiled engine internals.
 `check-ui-build.mjs` re-asserts the compiled engine is intact after every UI
 build so that mistake cannot land twice.
 
-## `@colbymchenry/codegraph-ui`
+## `@zozi96/sleuthgraph-ui`
 
 ```svelte
 <script lang="ts">
-  import { CodegraphUi, SymbolView, FlowStrip, ArchitectureMap }
-    from '@colbymchenry/codegraph-ui';
-  import '@colbymchenry/codegraph-ui/theme.css';
+  import { SleuthgraphUi, SymbolView, FlowStrip, ArchitectureMap }
+    from '@zozi96/sleuthgraph-ui';
+  import '@zozi96/sleuthgraph-ui/theme.css';
 </script>
 
-<CodegraphUi adapter={myAdapter} nav={myNavigation}>
+<SleuthgraphUi adapter={myAdapter} nav={myNavigation}>
   <SymbolView id={symbolId} line={null} />
-</CodegraphUi>
+</SleuthgraphUi>
 ```
 
 Exports: `SymbolView`, `FlowStrip`, `ArchitectureMap`, `FileView`,
 `FileSourceView`, `EntryPointsView`, `DeadCodeView`, `TypeHierarchy`, `TrailBar`,
 `SavedTrails`, `SearchPalette`, `PalettePanel`, `PaletteRows`, `DriftBanner`,
-`KindGlyph`, `ExportButtons`, `CodegraphUi` — plus every pure model function the screens are
+`KindGlyph`, `ExportButtons`, `SleuthgraphUi` — plus every pure model function the screens are
 built from (`buildCalleeRail`, `buildFlowLayout`, `buildMapLayout`,
 `buildHierarchyModel`, `tokensByLine`, …) and the `Wire*` types an adapter
 answers in.
@@ -126,11 +126,11 @@ the screen is explained rather than silently missing.
 
 1. **Import `theme.css` once.** Every component paints from the design tokens.
    Override any variable on a narrower selector — including on a container,
-   since custom properties inherit; `<CodegraphUi theme="light">` uses exactly
+   since custom properties inherit; `<SleuthgraphUi theme="light">` uses exactly
    that to put a light reader inside a dark application.
 2. **The adapter and the navigation driver are module-level, not context.** The
    pure model modules are plain TypeScript and cannot read a component's
-   context, so one page reads one project. `<CodegraphUi>` installs them during
+   context, so one page reads one project. `<SleuthgraphUi>` installs them during
    initialisation, once — swapping projects means re-mounting the subtree
    (`{#key project}`), not swapping the prop.
 3. **Geometry is not themable.** 34px rail rows, the 300/320px rails, the 20px
@@ -154,14 +154,14 @@ host imports may drag a hash router into its application.
 ### Versioning and publishing
 
 The package is versioned with the engine (`scripts/sync-ui-version.mjs` runs on
-every `build:lib`): `@colbymchenry/codegraph-ui@X.Y.Z` is the reader for
-`codegraph@X.Y.Z`, because the payload shapes are versioned with the binary that
+every `build:lib`): `@zozi96/sleuthgraph-ui@X.Y.Z` is the reader for
+`sleuth@X.Y.Z`, because the payload shapes are versioned with the binary that
 serves them.
 
 It is **prepared, not published.** `"private": true` in `package.json` is the
 guard — npm refuses to publish it — and `scripts/pack-npm.sh` only builds the
-tarball when `CODEGRAPH_PACK_UI=1`, into `release/npm-ui/` (never
-`release/npm/`, whose `codegraph-*` glob the release workflow publishes).
+tarball when `SLEUTH_PACK_UI=1`, into `release/npm-ui/` (never
+`release/npm/`, whose `sleuth-*` glob the release workflow publishes).
 Publishing is the maintainer's call and takes two deliberate edits.
 
 ## Layout
@@ -205,7 +205,7 @@ The Flow strip's header and the Map's side panel carry **Copy image** (a PNG on
 the clipboard) and **Download SVG** (a file for a README). Both render the
 **light** theme whatever the viewer is set to — an image is read on somebody
 else's screen — with 24px of paper around the drawing, a caption naming the path
-or the root, and a "CodeGraph" mark in the corner.
+or the root, and a "SleuthGraph" mark in the corner.
 
 `export-svg.ts` **serialises the layout object**; it does not scrape the DOM.
 `buildFlowLayout` and `buildMapLayout` already compute every rectangle, port and
@@ -230,7 +230,7 @@ Mono, so the code grid survives and only the letterforms change.
 | `#/file/<path>?src=1` | file view — the whole file's source, with ports and call arcs |
 | `#/map?root=&depth=&tests=1` | module map |
 | `#/flow?from=&to=` | flow strip — the call path between two symbols |
-| `#/flow?symbols=a,b,c` | flow strip — `codegraph_explore`'s own question |
+| `#/flow?symbols=a,b,c` | flow strip — `sleuth_explore`'s own question |
 | `#/flow?t=<trail>` | flow strip — the trail you walked, read as a flow |
 | `#/entry` | entry points — routes, files that run something, tests, hubs |
 | `#/screens` | screens — the app's screens and the transitions between them |
@@ -335,7 +335,7 @@ Two rules hold it together:
 
 The verdict itself is not computed here or in the server: it is
 `findDynamicBoundaries` in `src/graph/dynamic-boundary-report.ts`, the same
-detector `codegraph_explore` announces boundaries with.
+detector `sleuth_explore` announces boundaries with.
 
 ## The type hierarchy
 
@@ -362,7 +362,7 @@ The details worth knowing before changing it:
 
 The walk is not computed here or in the server: it is `buildTypeHierarchy` in
 `src/graph/type-hierarchy.ts`, whose `countImplementers` is also the number
-`codegraph_explore` prints when it announces an interface dispatch — so "N types
+`sleuth_explore` prints when it announces an interface dispatch — so "N types
 implement X" is the same N wherever you read it.
 
 ## Live updates

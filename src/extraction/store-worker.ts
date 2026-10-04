@@ -42,10 +42,10 @@ const port = parentPort;
 let db: SqliteDatabase | null = null;
 let queries: QueryBuilder | null = null;
 
-// CODEGRAPH_SYNTH_TIMINGS: split the writer lane's busy time into its two
+// SLEUTH_SYNTH_TIMINGS: split the writer lane's busy time into its two
 // halves — kernel-buffer decode+finalize (JS-object materialization, the §4d
 // buffer→bind candidate) vs the SQL bundle store — printed once at close.
-const STORE_TIMINGS = !!process.env.CODEGRAPH_SYNTH_TIMINGS;
+const STORE_TIMINGS = !!process.env.SLEUTH_SYNTH_TIMINGS;
 let decodeNs = 0n;
 let storeNs = 0n;
 let bundleCount = 0;

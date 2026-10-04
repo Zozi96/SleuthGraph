@@ -5,7 +5,7 @@
   import { live } from '../lib/live.svelte';
 
   interface Props {
-    /** Indexed project name, e.g. "codegraph/". Null until stats load. */
+    /** Indexed project name, e.g. "sleuth/". Null until stats load. */
     project?: string | null;
     /** "13,060 symbols · 46,004 edges · 593 files indexed". Null until loaded. */
     stats?: string | null;
@@ -55,7 +55,7 @@
       return {
         text: 'Not live',
         title:
-          'Lost the connection to codegraph ui and stopped retrying. Focus this tab to try again, or reload the page.',
+          'Lost the connection to sleuth ui and stopped retrying. Focus this tab to try again, or reload the page.',
       };
     }
     return null;
@@ -63,9 +63,9 @@
 </script>
 
 <header class="topbar">
-  <a class="brand" href="#/" aria-label="CodeGraph home">
+  <a class="brand" href="#/" aria-label="SleuthGraph home">
     <span class="brand-mark" aria-hidden="true"></span>
-    <span class="brand-name">CodeGraph</span>
+    <span class="brand-name">SleuthGraph</span>
     <span class="brand-sub">ui</span>
   </a>
 

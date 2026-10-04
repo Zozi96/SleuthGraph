@@ -15,17 +15,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import type { UnresolvedReference } from '../src/types';
 
 describe('unresolved-ref loads with dense result sets (#1558)', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'refs-spread-'));
     fs.writeFileSync(path.join(dir, 'anchor.py'), 'def anchor():\n    return 1\n');
-    cg = await CodeGraph.init(dir);
+    cg = await SleuthGraph.init(dir);
     await cg.indexAll();
   });
 

@@ -31,7 +31,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import { attributeSourceBytes } from '../src/mcp/explore-diagnostics';
 import type { ExploreDiagnosticReport, ExploreDiagnosticFile } from '../src/mcp/explore-diagnostics';
@@ -51,7 +51,7 @@ const OVERSHOOT_FACTOR = 1.5;
 
 describe('CG-30 — an oversize cluster member is bounded, not unbounded', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let response: string;
   let report: ExploreDiagnosticReport;
   let bytes: Map<string, number>;
@@ -65,25 +65,25 @@ describe('CG-30 — an oversize cluster member is bounded, not unbounded', () =>
   const budgetOf = (rec: ExploreDiagnosticFile): number => rec.spendable ?? rec.allowance ?? 0;
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cg30-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cg30-'));
     fs.cpSync(FIXTURE_SRC, testDir, { recursive: true });
-    fs.rmSync(path.join(testDir, '.codegraph'), { recursive: true, force: true });
+    fs.rmSync(path.join(testDir, '.sleuth'), { recursive: true, force: true });
 
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
 
     // The per-file budget is only observable through the diagnostic sidecar, and
     // the whole gate is "emitted vs what the file was allowed to spend".
     const sidecar = path.join(testDir, 'explore-diag.jsonl');
-    const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+    const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
     try {
       const handler = new ToolHandler(cg);
-      const result = await handler.execute('codegraph_explore', { query: QUERY });
+      const result = await handler.execute('sleuth_explore', { query: QUERY });
       response = result.content?.[0]?.text ?? '';
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-      else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+      else process.env.SLEUTH_EXPLORE_DEBUG = previous;
     }
     const written = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
     report = JSON.parse(written[written.length - 1]!) as ExploreDiagnosticReport;

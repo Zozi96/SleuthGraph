@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { fabricViewResolver } from '../src/resolution/frameworks/fabric';
 
 describe('Fabric view component extractor (codegenNativeComponent specs)', () => {
@@ -99,7 +99,7 @@ export function App() {
 }`
     );
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
 
@@ -176,7 +176,7 @@ RCT_EXPORT_MODULE()
 RCT_EXPORT_VIEW_PROPERTY(values, NSArray)
 @end
 `);
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       const control = cg.getNodesByName('SegmentedControl').find((n) => n.filePath === 'js/SegmentedControl.js')!;
       const rendered = cg.getOutgoingEdges(control.id).filter((e) => e.kind === 'calls').map((e) => cg.getNode(e.target)!);

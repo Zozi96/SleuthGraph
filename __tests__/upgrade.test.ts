@@ -23,7 +23,7 @@ import {
   type UpgradeDeps,
 } from '../src/upgrade';
 import { EXTRACTION_VERSION } from '../src/extraction/extraction-version';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 // ---------------------------------------------------------------------------
 // detectInstallMethod — structural detection from the running file's path
@@ -36,9 +36,9 @@ describe('detectInstallMethod', () => {
   }
 
   it('detects a unix bundle and derives the install dir from the versions/ layout', () => {
-    const root = '/home/u/.codegraph/versions/v0.9.9';
-    const filename = `${root}/lib/dist/bin/codegraph.js`;
-    const present = new Set([`${root}/node`, `${root}/bin/codegraph`, '/home/u/.codegraph']);
+    const root = '/home/u/.sleuth/versions/v0.9.9';
+    const filename = `${root}/lib/dist/bin/sleuth.js`;
+    const present = new Set([`${root}/node`, `${root}/bin/sleuth`, '/home/u/.sleuth']);
     const m = detectInstallMethod({
       filename,
       platform: 'linux',
@@ -49,14 +49,14 @@ describe('detectInstallMethod', () => {
       kind: 'bundle',
       os: 'unix',
       bundleRoot: root,
-      installDir: '/home/u/.codegraph',
+      installDir: '/home/u/.sleuth',
     });
   });
 
   it('detects a windows bundle and derives the install dir from current\\', () => {
-    const root = 'C:/Users/u/AppData/Local/codegraph/current';
-    const filename = `${root}/lib/dist/bin/codegraph.js`;
-    const present = new Set([`${root}/node.exe`, `${root}/bin/codegraph.cmd`]);
+    const root = 'C:/Users/u/AppData/Local/sleuth/current';
+    const filename = `${root}/lib/dist/bin/sleuth.js`;
+    const present = new Set([`${root}/node.exe`, `${root}/bin/sleuth.cmd`]);
     const m = detectInstallMethod({
       filename,
       platform: 'win32',
@@ -66,11 +66,11 @@ describe('detectInstallMethod', () => {
     expect(m.kind).toBe('bundle');
     expect(m.os).toBe('windows');
     // win32 path math emits backslashes; compare separator-independently.
-    expect(m.installDir?.replace(/\\/g, '/')).toBe('C:/Users/u/AppData/Local/codegraph');
+    expect(m.installDir?.replace(/\\/g, '/')).toBe('C:/Users/u/AppData/Local/sleuth');
   });
 
   it('detects a global npm install', () => {
-    const filename = '/usr/local/lib/node_modules/@colbymchenry/codegraph/dist/bin/codegraph.js';
+    const filename = '/usr/local/lib/node_modules/@zozi96/sleuthgraph/dist/bin/sleuth.js';
     const m = detectInstallMethod({
       filename,
       platform: 'linux',
@@ -82,13 +82,13 @@ describe('detectInstallMethod', () => {
 
   it('detects a local (project) npm install as local', () => {
     const cwd = '/home/u/project';
-    const filename = `${cwd}/node_modules/@colbymchenry/codegraph/dist/bin/codegraph.js`;
+    const filename = `${cwd}/node_modules/@zozi96/sleuthgraph/dist/bin/sleuth.js`;
     const m = detectInstallMethod({ filename, platform: 'linux', cwd, exists: () => false });
     expect(m).toEqual({ kind: 'npm', scope: 'local' });
   });
 
   it('detects an npx run from the _npx cache', () => {
-    const filename = '/home/u/.npm/_npx/abc123/node_modules/@colbymchenry/codegraph/dist/bin/codegraph.js';
+    const filename = '/home/u/.npm/_npx/abc123/node_modules/@zozi96/sleuthgraph/dist/bin/sleuth.js';
     const m = detectInstallMethod({ filename, platform: 'linux', cwd: '/home/u', exists: () => false });
     expect(m).toEqual({ kind: 'npx' });
   });
@@ -96,12 +96,12 @@ describe('detectInstallMethod', () => {
   // The npm thin-installer's per-platform package IS a complete bundle
   // (vendored node + bin/ launcher) sitting inside node_modules. The layout
   // sniff must not win over the node_modules path check, or `upgrade` curls
-  // install.sh into ~/.codegraph — a second install that loses the PATH race
-  // to npm's shim, so `codegraph -v` stays on the old version forever.
+  // install.sh into ~/.sleuth — a second install that loses the PATH race
+  // to npm's shim, so `sleuth -v` stays on the old version forever.
   it('detects the npm thin-installer platform package as npm, not bundle', () => {
-    const root = '/usr/local/lib/node_modules/@colbymchenry/codegraph/node_modules/@colbymchenry/codegraph-linux-x64';
-    const filename = `${root}/lib/dist/bin/codegraph.js`;
-    const present = new Set([`${root}/node`, `${root}/bin/codegraph`]);
+    const root = '/usr/local/lib/node_modules/@zozi96/sleuthgraph/node_modules/@zozi96/sleuthgraph-linux-x64';
+    const filename = `${root}/lib/dist/bin/sleuth.js`;
+    const present = new Set([`${root}/node`, `${root}/bin/sleuth`]);
     const m = detectInstallMethod({
       filename,
       platform: 'linux',
@@ -113,24 +113,24 @@ describe('detectInstallMethod', () => {
 
   it('detects a project-local thin-installer platform package as npm local', () => {
     const cwd = '/home/u/project';
-    const root = `${cwd}/node_modules/@colbymchenry/codegraph/node_modules/@colbymchenry/codegraph-darwin-arm64`;
-    const filename = `${root}/lib/dist/bin/codegraph.js`;
-    const present = new Set([`${root}/node`, `${root}/bin/codegraph`]);
+    const root = `${cwd}/node_modules/@zozi96/sleuthgraph/node_modules/@zozi96/sleuthgraph-darwin-arm64`;
+    const filename = `${root}/lib/dist/bin/sleuth.js`;
+    const present = new Set([`${root}/node`, `${root}/bin/sleuth`]);
     const m = detectInstallMethod({ filename, platform: 'darwin', cwd, exists: bundleExists(present) });
     expect(m).toEqual({ kind: 'npm', scope: 'local' });
   });
 
   it('still detects an npx run when the cached platform package has the bundle layout', () => {
-    const root = '/home/u/.npm/_npx/abc123/node_modules/@colbymchenry/codegraph/node_modules/@colbymchenry/codegraph-linux-x64';
-    const filename = `${root}/lib/dist/bin/codegraph.js`;
-    const present = new Set([`${root}/node`, `${root}/bin/codegraph`]);
+    const root = '/home/u/.npm/_npx/abc123/node_modules/@zozi96/sleuthgraph/node_modules/@zozi96/sleuthgraph-linux-x64';
+    const filename = `${root}/lib/dist/bin/sleuth.js`;
+    const present = new Set([`${root}/node`, `${root}/bin/sleuth`]);
     const m = detectInstallMethod({ filename, platform: 'linux', cwd: '/home/u', exists: bundleExists(present) });
     expect(m).toEqual({ kind: 'npx' });
   });
 
   it('detects a source checkout via sibling package.json + .git', () => {
-    const repo = '/home/u/dev/codegraph';
-    const filename = `${repo}/dist/bin/codegraph.js`;
+    const repo = '/home/u/dev/sleuth';
+    const filename = `${repo}/dist/bin/sleuth.js`;
     const present = new Set([`${repo}/package.json`, `${repo}/.git`]);
     const m = detectInstallMethod({
       filename,
@@ -143,7 +143,7 @@ describe('detectInstallMethod', () => {
 
   it('returns unknown for an unrecognized layout', () => {
     const m = detectInstallMethod({
-      filename: '/opt/weird/place/codegraph.js',
+      filename: '/opt/weird/place/sleuth.js',
       platform: 'linux',
       cwd: '/tmp',
       exists: () => false,
@@ -154,16 +154,16 @@ describe('detectInstallMethod', () => {
 
 describe('deriveInstallDir', () => {
   it('unix: returns the dir above versions/', () => {
-    expect(deriveInstallDir('/a/b/.codegraph/versions/v1.2.3', 'unix', () => true)).toBe('/a/b/.codegraph');
+    expect(deriveInstallDir('/a/b/.sleuth/versions/v1.2.3', 'unix', () => true)).toBe('/a/b/.sleuth');
   });
   it('unix: null when not under versions/', () => {
     expect(deriveInstallDir('/a/b/somewhere', 'unix', () => true)).toBeNull();
   });
   it('windows: returns the parent of current\\', () => {
-    expect(deriveInstallDir('C:/x/codegraph/current', 'windows', () => true)?.replace(/\\/g, '/')).toBe('C:/x/codegraph');
+    expect(deriveInstallDir('C:/x/sleuth/current', 'windows', () => true)?.replace(/\\/g, '/')).toBe('C:/x/sleuth');
   });
   it('windows: null when basename is not current', () => {
-    expect(deriveInstallDir('C:/x/codegraph/v1', 'windows', () => true)).toBeNull();
+    expect(deriveInstallDir('C:/x/sleuth/v1', 'windows', () => true)).toBeNull();
   });
 });
 
@@ -201,7 +201,7 @@ describe('version helpers', () => {
   });
 
   it('parseLatestTagFromLocation extracts the tag from a releases redirect', () => {
-    expect(parseLatestTagFromLocation('https://github.com/colbymchenry/codegraph/releases/tag/v0.9.9')).toBe('v0.9.9');
+    expect(parseLatestTagFromLocation('https://github.com/Zozi96/SleuthGraph/releases/tag/v0.9.9')).toBe('v0.9.9');
     expect(parseLatestTagFromLocation('https://github.com/o/r/releases/tag/v1.2.3?foo=bar')).toBe('v1.2.3');
     expect(parseLatestTagFromLocation(undefined)).toBeNull();
     expect(parseLatestTagFromLocation('https://github.com/o/r/releases')).toBeNull();
@@ -209,22 +209,22 @@ describe('version helpers', () => {
 
   it('reindexAdvisory mentions the refresh commands', () => {
     const a = reindexAdvisory();
-    expect(a).toContain('codegraph sync');
-    expect(a).toContain('codegraph index -f');
+    expect(a).toContain('sleuth sync');
+    expect(a).toContain('sleuth index -f');
   });
 
   it('buildWindowsUpgradeScript targets the right asset per arch', () => {
     const arm = buildWindowsUpgradeScript('C:\\cg\\current', 'v1.2.3', 'arm64');
-    expect(arm).toContain('releases/download/v1.2.3/codegraph-win32-arm64.zip');
+    expect(arm).toContain('releases/download/v1.2.3/sleuth-win32-arm64.zip');
     expect(arm).toContain("$dest='C:\\cg\\current'");
-    expect(arm).toContain("Join-Path $stage 'codegraph-win32-arm64'");
+    expect(arm).toContain("Join-Path $stage 'sleuth-win32-arm64'");
     const x64 = buildWindowsUpgradeScript('C:\\cg\\current', 'v1.2.3', 'x64');
-    expect(x64).toContain('codegraph-win32-x64.zip');
+    expect(x64).toContain('sleuth-win32-x64.zip');
   });
 });
 
 // ---------------------------------------------------------------------------
-// Windows file swap (#2185) — a running CodeGraph process (an agent session's
+// Windows file swap (#2185) — a running SleuthGraph process (an agent session's
 // MCP server) keeps node.exe and the native kernel locked: they can be renamed
 // but not overwritten or deleted. The upgrade used to rename only node.exe and
 // then Copy-Item over the rest, so the locked kernel failed the copy halfway
@@ -236,13 +236,13 @@ describe('version helpers', () => {
 describe('windows bundle swap script (#2185)', () => {
   const INSTALL_PS1 = path.join(__dirname, '..', 'install.ps1');
   const installPs1 = () => fs.readFileSync(INSTALL_PS1, 'utf-8').replace(/\r\n/g, '\n');
-  const script = () => buildWindowsUpgradeScript('C:\\Users\\me\\AppData\\Local\\codegraph\\current', 'v1.6.2', 'x64');
+  const script = () => buildWindowsUpgradeScript('C:\\Users\\me\\AppData\\Local\\sleuth\\current', 'v1.6.2', 'x64');
   /** The swap function's own statements, comments dropped. */
   const swapCode = () => WINDOWS_SWAP_FUNCTION.split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
 
   it('install.ps1 carries the same swap function, verbatim', () => {
-    const m = /# >>> Install-CodeGraphFiles[^\n]*\n([\s\S]*?)# <<< Install-CodeGraphFiles/.exec(installPs1());
-    expect(m, 'install.ps1 lost its Install-CodeGraphFiles markers').not.toBeNull();
+    const m = /# >>> Install-SleuthGraphFiles[^\n]*\n([\s\S]*?)# <<< Install-SleuthGraphFiles/.exec(installPs1());
+    expect(m, 'install.ps1 lost its Install-SleuthGraphFiles markers').not.toBeNull();
     expect(m![1]).toBe(WINDOWS_SWAP_FUNCTION);
   });
 
@@ -258,10 +258,10 @@ describe('windows bundle swap script (#2185)', () => {
     const s = script();
     expect(s).toContain(`$stage=Join-Path (Split-Path -Parent $dest) ('.staging-'`);
     expect(s).toMatch(/Expand-Archive -Path \$zip -DestinationPath \$stage/);
-    expect(s.indexOf('Expand-Archive')).toBeLessThan(s.indexOf('Install-CodeGraphFiles $('));
+    expect(s.indexOf('Expand-Archive')).toBeLessThan(s.indexOf('Install-SleuthGraphFiles $('));
     // install.ps1 stages next to current\ too.
     expect(installPs1()).toContain(`$stage = Join-Path $installDir ('.staging-'`);
-    expect(installPs1()).toMatch(/Install-CodeGraphFiles \$\(.*\) \$dest$/m);
+    expect(installPs1()).toMatch(/Install-SleuthGraphFiles \$\(.*\) \$dest$/m);
   });
 
   it('renames every replaced file aside before moving the staged file in', () => {
@@ -285,15 +285,15 @@ describe('windows bundle swap script (#2185)', () => {
     expect(code).toContain('for ($n = $undo.Count - 1; $n -ge 0; $n--)');
     expect(code).toContain('[IO.File]::Move($u[1], $u[0])');
     expect(code).toContain('Nothing was changed: the existing install still works.');
-    expect(code).toContain("$e.Data['codegraphDamaged'] = [bool]$lost");
+    expect(code).toContain("$e.Data['sleuthDamaged'] = [bool]$lost");
     // The upgrade script maps that flag to the exit code runUpgrade reads.
-    expect(script()).toContain(`$code=if($_.Exception.Data['codegraphDamaged']){${WINDOWS_UPGRADE_DAMAGED}}else{1}`);
+    expect(script()).toContain(`$code=if($_.Exception.Data['sleuthDamaged']){${WINDOWS_UPGRADE_DAMAGED}}else{1}`);
     expect(script().trimEnd().endsWith('exit $code')).toBe(true);
   });
 
   it('refuses a download that is not a bundle before touching current\\', () => {
     const code = swapCode();
-    expect(code).toContain("foreach ($need in 'node.exe', 'bin\\codegraph.cmd')");
+    expect(code).toContain("foreach ($need in 'node.exe', 'bin\\sleuth.cmd')");
     expect(code.indexOf("foreach ($need in")).toBeLessThan(code.indexOf('try {'));
   });
 
@@ -319,12 +319,12 @@ describe('windows bundle swap script (#2185)', () => {
   });
 
   it('quotes the install path for PowerShell', () => {
-    const s = buildWindowsUpgradeScript("C:\\Users\\o'brien\\codegraph\\current", 'v1.6.2', 'x64');
-    expect(s).toContain("$dest='C:\\Users\\o''brien\\codegraph\\current'");
+    const s = buildWindowsUpgradeScript("C:\\Users\\o'brien\\sleuth\\current", 'v1.6.2', 'x64');
+    expect(s).toContain("$dest='C:\\Users\\o''brien\\sleuth\\current'");
   });
 
   it('fits a Windows command line even for a long install path', () => {
-    const root = `C:\\${'very-long-directory-name\\'.repeat(8)}codegraph\\current`;
+    const root = `C:\\${'very-long-directory-name\\'.repeat(8)}sleuth\\current`;
     const encoded = Buffer.from(buildWindowsUpgradeScript(root, 'v10.20.30', 'arm64'), 'utf16le').toString('base64');
     // CreateProcess caps the whole command line at 32,767 characters.
     expect(encoded.length).toBeLessThan(24_000);
@@ -407,7 +407,7 @@ describe('runUpgrade', () => {
 
   it('unix bundle: runs the installer via sh with the derived install dir', async () => {
     const { deps, calls } = makeDeps({
-      method: { kind: 'bundle', os: 'unix', bundleRoot: '/h/.codegraph/versions/v0.9.8', installDir: '/h/.codegraph' },
+      method: { kind: 'bundle', os: 'unix', bundleRoot: '/h/.sleuth/versions/v0.9.8', installDir: '/h/.sleuth' },
       currentVersion: '0.9.8',
     });
     const code = await runUpgrade({}, deps);
@@ -417,13 +417,13 @@ describe('runUpgrade', () => {
     expect(calls.runs[0].args[0]).toBe('-c');
     expect(calls.runs[0].args[1]).toContain('curl -fsSL');
     expect(calls.runs[0].args[1]).toContain('| sh');
-    expect(calls.runs[0].env?.CODEGRAPH_INSTALL_DIR).toBe('/h/.codegraph');
-    expect(calls.logs.join('\n')).toMatch(/codegraph sync/); // re-index advisory printed
+    expect(calls.runs[0].env?.SLEUTH_INSTALL_DIR).toBe('/h/.sleuth');
+    expect(calls.logs.join('\n')).toMatch(/sleuth sync/); // re-index advisory printed
   });
 
   it('unix bundle: falls back to wget, and errors when neither downloader exists', async () => {
     const { deps, calls } = makeDeps({
-      method: { kind: 'bundle', os: 'unix', bundleRoot: '/h/.codegraph/versions/v0.9.8', installDir: null },
+      method: { kind: 'bundle', os: 'unix', bundleRoot: '/h/.sleuth/versions/v0.9.8', installDir: null },
       currentVersion: '0.9.8',
       hasCommand: () => false,
     });
@@ -435,7 +435,7 @@ describe('runUpgrade', () => {
 
   it('windows bundle: runs a synchronous in-place (rename + extract) powershell upgrade', async () => {
     const { deps, calls } = makeDeps({
-      method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/codegraph/current', installDir: 'C:/x/codegraph' },
+      method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/sleuth/current', installDir: 'C:/x/sleuth' },
       currentVersion: '0.9.8',
       platform: 'win32',
     });
@@ -445,15 +445,15 @@ describe('runUpgrade', () => {
     expect(calls.runs[0].cmd).toBe('powershell.exe');
     const decoded = decodeEncodedCommand(calls.runs[0].args);
     // Downloads the right asset and swaps it in with the shared rename-aside function.
-    expect(decoded).toContain('releases/download/v0.9.9/codegraph-win32-');
+    expect(decoded).toContain('releases/download/v0.9.9/sleuth-win32-');
     expect(decoded).toContain(WINDOWS_SWAP_FUNCTION);
-    expect(decoded).toMatch(/^\s*Install-CodeGraphFiles .* \$dest$/m);
+    expect(decoded).toMatch(/^\s*Install-SleuthGraphFiles .* \$dest$/m);
   });
 
   it('windows bundle: a non-zero installer exit is a failure', async () => {
     const { deps, calls } = makeDeps(
       {
-        method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/codegraph/current', installDir: 'C:/x/codegraph' },
+        method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/sleuth/current', installDir: 'C:/x/sleuth' },
         currentVersion: '0.9.8',
         platform: 'win32',
       },
@@ -468,7 +468,7 @@ describe('runUpgrade', () => {
   it('windows bundle: an incomplete rollback points at the reinstall command', async () => {
     const { deps, calls } = makeDeps(
       {
-        method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/codegraph/current', installDir: 'C:/x/codegraph' },
+        method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/sleuth/current', installDir: 'C:/x/sleuth' },
         currentVersion: '0.9.8',
         platform: 'win32',
       },
@@ -484,7 +484,7 @@ describe('runUpgrade', () => {
   it('windows bundle: any other exit code is reported as-is', async () => {
     const { deps, calls } = makeDeps(
       {
-        method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/codegraph/current', installDir: 'C:/x/codegraph' },
+        method: { kind: 'bundle', os: 'windows', bundleRoot: 'C:/x/sleuth/current', installDir: 'C:/x/sleuth' },
         currentVersion: '0.9.8',
         platform: 'win32',
       },
@@ -547,7 +547,7 @@ describe('runUpgrade', () => {
 
   it('source: tells the user to git pull, runs nothing', async () => {
     const { deps, calls } = makeDeps({
-      method: { kind: 'source', root: '/dev/codegraph' },
+      method: { kind: 'source', root: '/dev/sleuth' },
       currentVersion: '0.9.8',
     });
     const code = await runUpgrade({}, deps);
@@ -567,21 +567,21 @@ describe('runUpgrade', () => {
 describe('post-upgrade prompt-hook self-heal', () => {
   // A configured global Claude profile the REAL writer would act on, so an
   // upgrade that bypasses deps shows up as a settings.json written here.
-  const KEYS = ['CLAUDE_CONFIG_DIR', 'CODEGRAPH_NO_PROMPT_HOOK', 'CODEGRAPH_PROMPT_HOOK'] as const;
+  const KEYS = ['CLAUDE_CONFIG_DIR', 'SLEUTH_NO_PROMPT_HOOK', 'SLEUTH_PROMPT_HOOK'] as const;
   const saved: Partial<Record<(typeof KEYS)[number], string | undefined>> = {};
   let profile: string;
 
   function configureProfile(): void {
     fs.writeFileSync(
       path.join(profile, '.claude.json'),
-      JSON.stringify({ mcpServers: { codegraph: { command: 'codegraph', args: ['serve', '--mcp'] } } }),
+      JSON.stringify({ mcpServers: { sleuth: { command: 'sleuth', args: ['serve', '--mcp'] } } }),
     );
   }
 
   beforeEach(() => {
     for (const k of KEYS) saved[k] = process.env[k];
-    delete process.env.CODEGRAPH_NO_PROMPT_HOOK;
-    delete process.env.CODEGRAPH_PROMPT_HOOK;
+    delete process.env.SLEUTH_NO_PROMPT_HOOK;
+    delete process.env.SLEUTH_PROMPT_HOOK;
     profile = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-upgrade-claude-'));
     process.env.CLAUDE_CONFIG_DIR = profile;
   });
@@ -612,11 +612,11 @@ describe('post-upgrade prompt-hook self-heal', () => {
       wirePromptHook: async () => true,
     });
     expect(await runUpgrade({}, wired.deps)).toBe(0);
-    expect(wired.calls.logs.join('\n')).toMatch(/Enabled the CodeGraph front-load hook/);
+    expect(wired.calls.logs.join('\n')).toMatch(/Enabled the SleuthGraph front-load hook/);
   });
 
   it('the kill-switch skips the writer entirely', async () => {
-    process.env.CODEGRAPH_NO_PROMPT_HOOK = '1';
+    process.env.SLEUTH_NO_PROMPT_HOOK = '1';
     const { deps, calls } = makeDeps({ method: { kind: 'npm', scope: 'global' }, currentVersion: '0.9.8' });
     expect(await runUpgrade({}, deps)).toBe(0);
     expect(calls.promptHookWires).toBe(0);
@@ -660,18 +660,18 @@ describe('post-upgrade prompt-hook self-heal', () => {
 // ---------------------------------------------------------------------------
 
 describe('post-upgrade refresh of installed agent surfaces', () => {
-  it('runs `codegraph install --refresh` via the NEW binary after a successful npm upgrade', async () => {
+  it('runs `sleuth install --refresh` via the NEW binary after a successful npm upgrade', async () => {
     const { deps, calls } = makeDeps({
       method: { kind: 'npm', scope: 'global' },
       currentVersion: '0.9.8',
-      hasCommand: (cmd) => cmd === 'codegraph',
+      hasCommand: (cmd) => cmd === 'sleuth',
     });
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
     // The refresh is spawned AFTER the binary swap, so the fresh install
     // (with the current templates) does the writing — not this process.
     const last = calls.runs[calls.runs.length - 1];
-    expect(last?.cmd).toBe('codegraph');
+    expect(last?.cmd).toBe('sleuth');
     expect(last?.args).toEqual(['install', '--refresh']);
   });
 
@@ -680,16 +680,16 @@ describe('post-upgrade refresh of installed agent surfaces', () => {
       method: { kind: 'npm', scope: 'global' },
       currentVersion: '0.9.8',
       platform: 'win32',
-      hasCommand: (cmd) => cmd === 'codegraph',
+      hasCommand: (cmd) => cmd === 'sleuth',
     });
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
     const last = calls.runs[calls.runs.length - 1];
     expect(last?.cmd).toBe('cmd.exe');
-    expect(last?.args).toEqual(['/d', '/s', '/c', 'codegraph install --refresh']);
+    expect(last?.args).toEqual(['/d', '/s', '/c', 'sleuth install --refresh']);
   });
 
-  it('skips the refresh when `codegraph` is not resolvable on PATH', async () => {
+  it('skips the refresh when `sleuth` is not resolvable on PATH', async () => {
     const { deps, calls } = makeDeps({
       method: { kind: 'npm', scope: 'global' },
       currentVersion: '0.9.8',
@@ -697,18 +697,18 @@ describe('post-upgrade refresh of installed agent surfaces', () => {
     });
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
-    expect(calls.runs.filter((r) => r.cmd === 'codegraph')).toHaveLength(0);
+    expect(calls.runs.filter((r) => r.cmd === 'sleuth')).toHaveLength(0);
   });
 
   it('a failing refresh warns but does not fail the upgrade', async () => {
     const { deps, calls } = makeDeps({
       method: { kind: 'npm', scope: 'global' },
       currentVersion: '0.9.8',
-      hasCommand: (cmd) => cmd === 'codegraph',
+      hasCommand: (cmd) => cmd === 'sleuth',
     });
     deps.run = (cmd, args, env) => {
       calls.runs.push({ cmd, args, env });
-      return cmd === 'codegraph' ? 1 : 0;
+      return cmd === 'sleuth' ? 1 : 0;
     };
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
@@ -720,28 +720,28 @@ describe('post-upgrade refresh of installed agent surfaces', () => {
       {
         method: { kind: 'npm', scope: 'global' },
         currentVersion: '0.9.8',
-        hasCommand: (cmd) => cmd === 'codegraph',
+        hasCommand: (cmd) => cmd === 'sleuth',
       },
       1
     );
     const code = await runUpgrade({}, deps);
     expect(code).toBe(1);
-    expect(calls.runs.filter((r) => r.cmd === 'codegraph')).toHaveLength(0);
+    expect(calls.runs.filter((r) => r.cmd === 'sleuth')).toHaveLength(0);
   });
 
-  it('respects the CODEGRAPH_NO_INSTALL_REFRESH kill-switch', async () => {
-    process.env.CODEGRAPH_NO_INSTALL_REFRESH = '1';
+  it('respects the SLEUTH_NO_INSTALL_REFRESH kill-switch', async () => {
+    process.env.SLEUTH_NO_INSTALL_REFRESH = '1';
     try {
       const { deps, calls } = makeDeps({
         method: { kind: 'npm', scope: 'global' },
         currentVersion: '0.9.8',
-        hasCommand: (cmd) => cmd === 'codegraph',
+        hasCommand: (cmd) => cmd === 'sleuth',
       });
       const code = await runUpgrade({}, deps);
       expect(code).toBe(0);
-      expect(calls.runs.filter((r) => r.cmd === 'codegraph')).toHaveLength(0);
+      expect(calls.runs.filter((r) => r.cmd === 'sleuth')).toHaveLength(0);
     } finally {
-      delete process.env.CODEGRAPH_NO_INSTALL_REFRESH;
+      delete process.env.SLEUTH_NO_INSTALL_REFRESH;
     }
   });
 
@@ -749,20 +749,20 @@ describe('post-upgrade refresh of installed agent surfaces', () => {
     const { deps, calls } = makeDeps({
       method: { kind: 'npm', scope: 'global' },
       currentVersion: '0.9.8',
-      hasCommand: (cmd) => cmd === 'codegraph',
+      hasCommand: (cmd) => cmd === 'sleuth',
       capture: () => ({ code: 0, stdout: '0.9.8\n' }), // PATH still serves the OLD version
     });
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
-    // Spawning `codegraph install --refresh` would execute the shadowed stale
+    // Spawning `sleuth install --refresh` would execute the shadowed stale
     // binary — the exact staleness the refresh exists to heal.
-    expect(calls.runs.filter((r) => r.cmd === 'codegraph')).toHaveLength(0);
-    expect(calls.logs.join('\n')).toMatch(/run `codegraph install --refresh` once the PATH is fixed/);
+    expect(calls.runs.filter((r) => r.cmd === 'sleuth')).toHaveLength(0);
+    expect(calls.logs.join('\n')).toMatch(/run `sleuth install --refresh` once the PATH is fixed/);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Post-upgrade version probe — does the PATH-resolved `codegraph` serve the
+// Post-upgrade version probe — does the PATH-resolved `sleuth` serve the
 // version we just installed, in THIS terminal?
 // ---------------------------------------------------------------------------
 
@@ -772,12 +772,12 @@ describe('post-upgrade version probe', () => {
   it('match: confirms the same terminal already serves the new version', async () => {
     const { deps, calls } = makeDeps({
       ...npmGlobal,
-      hasCommand: (c) => c === 'codegraph',
+      hasCommand: (c) => c === 'sleuth',
       capture: () => ({ code: 0, stdout: '0.9.9\n' }),
     });
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
-    expect(calls.captures).toEqual([{ cmd: 'codegraph', args: ['--version'] }]);
+    expect(calls.captures).toEqual([{ cmd: 'sleuth', args: ['--version'] }]);
     const out = calls.logs.join('\n');
     expect(out).toMatch(/now reports v0\.9\.9/);
     expect(out).not.toMatch(/Open a new terminal/);
@@ -786,7 +786,7 @@ describe('post-upgrade version probe', () => {
   it('mismatch: warns that a shadowing install is still serving the old version', async () => {
     const { deps, calls } = makeDeps({
       ...npmGlobal,
-      hasCommand: (c) => c === 'codegraph',
+      hasCommand: (c) => c === 'sleuth',
       capture: () => ({ code: 0, stdout: '0.9.8\n' }),
     });
     const code = await runUpgrade({}, deps);
@@ -794,10 +794,10 @@ describe('post-upgrade version probe', () => {
     const out = calls.logs.join('\n');
     expect(out).toMatch(/still reports an older version/);
     expect(out).toMatch(/shadowing/);
-    expect(out).toMatch(/which -a codegraph/);
+    expect(out).toMatch(/which -a sleuth/);
   });
 
-  it('inconclusive: falls back to the soft new-terminal hint when codegraph is not on PATH', async () => {
+  it('inconclusive: falls back to the soft new-terminal hint when sleuth is not on PATH', async () => {
     const { deps, calls } = makeDeps(npmGlobal); // hasCommand resolves only curl
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
@@ -808,7 +808,7 @@ describe('post-upgrade version probe', () => {
   it('inconclusive: a failing or unparsable probe never warns about shadowing', async () => {
     const { deps, calls } = makeDeps({
       ...npmGlobal,
-      hasCommand: (c) => c === 'codegraph',
+      hasCommand: (c) => c === 'sleuth',
       capture: () => ({ code: 0, stdout: 'something went wrong\n' }),
     });
     const code = await runUpgrade({}, deps);
@@ -821,7 +821,7 @@ describe('post-upgrade version probe', () => {
   it('parses the last non-empty line, so a runtime warning above the version is harmless', () => {
     const { deps } = makeDeps({
       ...npmGlobal,
-      hasCommand: (c) => c === 'codegraph',
+      hasCommand: (c) => c === 'sleuth',
       capture: () => ({ code: 0, stdout: '(node:1) ExperimentalWarning: blah\nv0.9.9\n\n' }),
     });
     expect(verifyResolvedVersion('v0.9.9', deps)).toBe('match');
@@ -831,12 +831,12 @@ describe('post-upgrade version probe', () => {
     const { deps, calls } = makeDeps({
       ...npmGlobal,
       platform: 'win32',
-      hasCommand: (c) => c === 'codegraph' || c === 'npm.cmd',
+      hasCommand: (c) => c === 'sleuth' || c === 'npm.cmd',
       capture: () => ({ code: 0, stdout: '0.9.9\r\n' }),
     });
     const code = await runUpgrade({}, deps);
     expect(code).toBe(0);
-    expect(calls.captures).toEqual([{ cmd: 'cmd.exe', args: ['/d', '/s', '/c', 'codegraph --version'] }]);
+    expect(calls.captures).toEqual([{ cmd: 'cmd.exe', args: ['/d', '/s', '/c', 'sleuth --version'] }]);
     expect(calls.logs.join('\n')).toMatch(/now reports v0\.9\.9/);
   });
 
@@ -844,7 +844,7 @@ describe('post-upgrade version probe', () => {
     const { deps, calls } = makeDeps({
       method: { kind: 'npm', scope: 'local' },
       currentVersion: '0.9.8',
-      hasCommand: (c) => c === 'codegraph',
+      hasCommand: (c) => c === 'sleuth',
       capture: () => ({ code: 0, stdout: '0.9.7\n' }),
     });
     const code = await runUpgrade({}, deps);
@@ -855,7 +855,7 @@ describe('post-upgrade version probe', () => {
 
   it('does not probe after a failed upgrade', async () => {
     const { deps, calls } = makeDeps(
-      { ...npmGlobal, hasCommand: (c) => c === 'codegraph', capture: () => ({ code: 0, stdout: '0.9.9\n' }) },
+      { ...npmGlobal, hasCommand: (c) => c === 'sleuth', capture: () => ({ code: 0, stdout: '0.9.9\n' }) },
       1
     );
     const code = await runUpgrade({}, deps);
@@ -880,7 +880,7 @@ describe('index extraction-version stamp / isIndexStale', () => {
 
   it('stamps the current extraction version on full index and is not stale', async () => {
     fs.writeFileSync(path.join(dir, 'a.ts'), 'export function hello() { return 1; }\n');
-    const cg = await CodeGraph.init(dir, { index: false });
+    const cg = await SleuthGraph.init(dir, { index: false });
     // No index yet → not stale (nothing to refresh).
     expect(cg.isIndexStale()).toBe(false);
 
@@ -894,7 +894,7 @@ describe('index extraction-version stamp / isIndexStale', () => {
 
   it('flags an index stamped by an older extraction version as stale', async () => {
     fs.writeFileSync(path.join(dir, 'a.ts'), 'export function hello() { return 1; }\n');
-    const cg = await CodeGraph.init(dir, { index: false });
+    const cg = await SleuthGraph.init(dir, { index: false });
     await cg.indexAll();
 
     // Simulate an index built by an older engine.

@@ -11,7 +11,7 @@ import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { buildRoutes } from '../src/ui-server/api/routes';
 
 const projects: Record<string, Record<string, string>> = {
@@ -46,7 +46,7 @@ export async function POST() { return new Response('ok'); }
   },
 };
 
-const graphs: Record<string, { root: string; cg: CodeGraph }> = {};
+const graphs: Record<string, { root: string; cg: SleuthGraph }> = {};
 
 beforeAll(async () => {
   for (const [name, files] of Object.entries(projects)) {
@@ -55,7 +55,7 @@ beforeAll(async () => {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    graphs[name] = { root, cg: await CodeGraph.init(root, { index: true }) };
+    graphs[name] = { root, cg: await SleuthGraph.init(root, { index: true }) };
   }
 });
 
@@ -67,7 +67,7 @@ afterAll(() => {
 });
 
 /** route name → the files of what it calls or references. */
-function served(cg: CodeGraph): Record<string, string[]> {
+function served(cg: SleuthGraph): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   for (const route of cg.getNodesByKind('route')) {
     out[route.name] = cg.getOutgoingEdgesFrom([route.id], ['calls', 'references'])

@@ -1,7 +1,7 @@
 /**
  * Terminal color detection for CLI output (issue #1281).
  *
- * One switch decides whether any codegraph-authored output carries ANSI
+ * One switch decides whether any sleuth-authored output carries ANSI
  * color codes. Precedence, strongest first:
  *
  *   1. `--no-color` anywhere on the command line   -> off
@@ -14,7 +14,7 @@
  *
  * This intentionally tracks the detection @clack/prompts inherits from
  * picocolors closely enough that one run never mixes colored clack frames
- * with uncolored codegraph lines (or vice versa) for the common cases:
+ * with uncolored sleuth lines (or vice versa) for the common cases:
  * both honor NO_COLOR, --no-color/--color, FORCE_COLOR, TTY, and CI.
  */
 export function ansiColorsEnabled(): boolean {

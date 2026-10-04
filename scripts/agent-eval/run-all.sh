@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# With/without A/B (and optional interactive) eval for a codegraph version on a
-# repo. Codegraph is the ONLY variable: both arms launch claude with
-# --strict-mcp-config — with = codegraph-only MCP (pointed at $CG_BIN),
+# With/without A/B (and optional interactive) eval for a sleuth version on a
+# repo. Sleuthgraph is the ONLY variable: both arms launch claude with
+# --strict-mcp-config — with = sleuth-only MCP (pointed at $CG_BIN),
 # without = empty MCP. Built-in Read/Grep/Bash stay available in both arms.
 #
 # Usage: run-all.sh <repo-path> "<question>" [headless|tmux|all]
@@ -23,7 +23,7 @@
 # Segments land in run-<label>.jsonl, run-<label>.t2.jsonl, … and parse-run.mjs
 # stitches them back into one session.
 #
-# Env:   CG_BIN          codegraph binary (default: command -v codegraph)
+# Env:   CG_BIN          sleuth binary (default: command -v sleuth)
 #        AGENT_EVAL_OUT  output dir (default: /tmp/agent-eval)
 #        MODEL / EFFORT  claude model/effort (default: sonnet / high — the
 #                        standing A/B policy; see CLAUDE.md, don't raise)
@@ -41,18 +41,18 @@ while [ "$rest" != "${rest#*||}" ]; do
   rest="${rest#*||}"
 done
 TURNS+=("$rest")
-CG_BIN="${CG_BIN:-$(command -v codegraph)}"
+CG_BIN="${CG_BIN:-$(command -v sleuth)}"
 OUT="${AGENT_EVAL_OUT:-/tmp/agent-eval}"
 HARNESS="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$OUT"
 
-# Neutralize any ambient CodeGraph prompt-hook (~/.claude) in BOTH arms:
-# the hook injects codegraph context into every prompt, which contaminates
+# Neutralize any ambient SleuthGraph prompt-hook (~/.claude) in BOTH arms:
+# the hook injects sleuth context into every prompt, which contaminates
 # the without-arm (free structural context) and double-counts the with-arm.
 # The A/B's only variable must be the MCP server wired below.
-export CODEGRAPH_NO_PROMPT_HOOK=1
+export SLEUTH_NO_PROMPT_HOOK=1
 
-# Hide the codegraph CLI from BOTH arms, so the only way to reach codegraph is
+# Hide the sleuth CLI from BOTH arms, so the only way to reach sleuth is
 # the MCP server wired below — which is what makes it the A/B's single variable.
 # Two layers (sanitized PATH + a PreToolUse hook that blocks absolute-path
 # invocations), both in no-cli-shim.sh, which ab-new-vs-baseline.sh shares; the
@@ -61,17 +61,17 @@ export CODEGRAPH_NO_PROMPT_HOOK=1
 . "$HARNESS/no-cli-shim.sh"
 cg_no_cli_setup "$OUT" || exit 1
 
-[ -n "$CG_BIN" ] || { echo "no codegraph binary on PATH (set CG_BIN)"; exit 1; }
-[ -d "$REPO/.codegraph" ] || { echo "no .codegraph index at $REPO — index it first"; exit 1; }
+[ -n "$CG_BIN" ] || { echo "no sleuth binary on PATH (set CG_BIN)"; exit 1; }
+[ -d "$REPO/.sleuth" ] || { echo "no .sleuth index at $REPO — index it first"; exit 1; }
 case "$MODE" in headless|tmux|all) ;; *) echo "mode must be headless|tmux|all (got '$MODE')"; exit 1;; esac
 
 # MCP config files (path form avoids inline-JSON quoting through tmux).
-cat > "$OUT/mcp-codegraph.json" <<JSON
-{"mcpServers":{"codegraph":{"command":"$CG_BIN","args":["serve","--mcp","--path","$REPO"]}}}
+cat > "$OUT/mcp-sleuth.json" <<JSON
+{"mcpServers":{"sleuth":{"command":"$CG_BIN","args":["serve","--mcp","--path","$REPO"]}}}
 JSON
 echo '{"mcpServers":{}}' > "$OUT/mcp-empty.json"
 
-echo "###### codegraph: $CG_BIN"
+echo "###### sleuth: $CG_BIN"
 echo "###### repo:      $REPO"
 echo "###### turns:     ${#TURNS[@]}"
 for t in "${TURNS[@]}"; do echo "######   - $t"; done
@@ -126,7 +126,7 @@ headless() {
 # CG_ARMS=with|without|both — re-run one arm without redoing the other.
 ARMS="${CG_ARMS:-both}"
 if [ "$MODE" = headless ] || [ "$MODE" = all ]; then
-  case "$ARMS" in both|with)    headless "headless-with"    "$OUT/mcp-codegraph.json";; esac
+  case "$ARMS" in both|with)    headless "headless-with"    "$OUT/mcp-sleuth.json";; esac
   case "$ARMS" in both|without) headless "headless-without" "$OUT/mcp-empty.json";; esac
   # Both arms' three metrics on one screen. The per-arm blocks above say WHY a
   # number moved (which query fell short, which file was never cited); this says
@@ -138,7 +138,7 @@ fi
 
 if [ "$MODE" = tmux ] || [ "$MODE" = all ]; then
   echo "############################## INTERACTIVE [with] ##############################"
-  CLAUDE_EXTRA_ARGS="--model ${MODEL:-sonnet} --effort ${EFFORT:-high} --strict-mcp-config --mcp-config $OUT/mcp-codegraph.json" \
+  CLAUDE_EXTRA_ARGS="--model ${MODEL:-sonnet} --effort ${EFFORT:-high} --strict-mcp-config --mcp-config $OUT/mcp-sleuth.json" \
     bash "$HARNESS/itrun.sh" "$REPO" "int-with" "${TURNS[0]}" 2>&1 || echo "[itrun WITH failed]"
   echo
   echo "############################## INTERACTIVE [without] ##############################"

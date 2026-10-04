@@ -80,14 +80,14 @@ if (!existsSync(join(REPO_ROOT, 'dist/index.js'))) {
 const load = (rel) => import(pathToFileURL(resolve(REPO_ROOT, rel)).href);
 const idxMod = await load('dist/index.js');
 const toolsMod = await load('dist/mcp/tools.js');
-const CodeGraph = idxMod.default?.default ?? idxMod.default ?? idxMod.CodeGraph;
+const SleuthGraph = idxMod.default?.default ?? idxMod.default ?? idxMod.SleuthGraph;
 const ToolHandler = toolsMod.ToolHandler ?? toolsMod.default?.ToolHandler;
 
 /** Copy the fixture, apply the variant, index it. Hermetic per run. */
 function materialize(variant) {
   const dir = mkdtempSync(join(tmpdir(), 'cg-decl-'));
   cpSync(FIXTURE, dir, { recursive: true });
-  rmSync(join(dir, '.codegraph'), { recursive: true, force: true });
+  rmSync(join(dir, '.sleuth'), { recursive: true, force: true });
   if (variant === 'strip-banner') {
     const p = join(dir, GENERATED_DECL);
     // Drop only the banner comment lines; every declaration stays.
@@ -107,7 +107,7 @@ const queries = ONE_QUERY
 const dir = materialize(VARIANT);
 let rows;
 try {
-  let cg = CodeGraph.initSync(dir);
+  let cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
   cg.close?.();
 
@@ -115,12 +115,12 @@ try {
   rows = [];
   for (const q of queries) {
     rmSync(sidecar, { force: true });
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
-    cg = CodeGraph.openSync(dir);
-    const res = await new ToolHandler(cg).execute('codegraph_explore', { query: q.text });
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
+    cg = SleuthGraph.openSync(dir);
+    const res = await new ToolHandler(cg).execute('sleuth_explore', { query: q.text });
     const text = res.content?.[0]?.text ?? '';
     cg.close?.();
-    delete process.env.CODEGRAPH_EXPLORE_DEBUG;
+    delete process.env.SLEUTH_EXPLORE_DEBUG;
     const report = JSON.parse(readFileSync(sidecar, 'utf8').trim().split('\n').pop());
 
     const pick = (path) => {

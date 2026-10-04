@@ -31,7 +31,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   // directory) and there is no version of it we would serve.
   refused: 403,
   // The index is missing or unusable. 503 rather than 404: the endpoint is
-  // real, the data behind it is not there *yet* — `codegraph init` fixes it.
+  // real, the data behind it is not there *yet* — `sleuth init` fixes it.
   'no-index': 503,
   'index-unusable': 503,
   internal: 500,

@@ -546,7 +546,7 @@ Sweep policy: default `--max-deferral 0.1`; expect deferral counts of
   session scratchpad `svy-r/gate-repos/{AnomalyDetection,dplyr,ggplot2,
   shiny}` — re-clone fresh public OSS if gone (agent-eval policy). Expect
   0-diff on every file and deferrals 0/0/0/1.
-- **Full-init dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+- **Full-init dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   `scripts/dump-graph.mjs`, cmp) on dplyr, ggplot2, shiny ×3 runs.
 - **Existing R suite stays green**: `__tests__/extraction.test.ts` R block
   (~:9080-9213 — detectLanguage, functions, classes, imports/source,

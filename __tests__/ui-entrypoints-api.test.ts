@@ -26,7 +26,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { createGraphApi, startUiServer, type GraphApi, type UiServerHandle } from '../src/ui-server';
 import { resetEntryPointsCache } from '../src/ui-server/api/entrypoints';
 import { splitRouteName } from '../src/ui-server/api/routes';
@@ -39,7 +39,7 @@ const FIXTURE_GO = path.join(__dirname, 'fixtures', 'payroll-go');
 interface Instance {
   dir: string;
   root: string;
-  cg: CodeGraph;
+  cg: SleuthGraph;
   api: GraphApi;
   server: UiServerHandle;
 }
@@ -79,7 +79,7 @@ async function getJson(instance: Instance, requestPath: string, expected = 200):
   return JSON.parse(res.body);
 }
 
-async function serve(root: string, dir: string, cg: CodeGraph): Promise<Instance> {
+async function serve(root: string, dir: string, cg: SleuthGraph): Promise<Instance> {
   const api = createGraphApi({ projectRoot: root });
   const server = await startUiServer({ projectRoot: root, port: 0, api: api.handler });
   return { dir, root, cg, api, server };
@@ -109,12 +109,12 @@ describe('entry points on a routed service', () => {
 
   beforeAll(async () => {
     resetEntryPointsCache();
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-entry-go-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-entry-go-'));
     fs.cpSync(FIXTURE_GO, dir, { recursive: true });
     // A stray index in the checked-in tree would be copied in and reused.
-    fs.rmSync(path.join(dir, '.codegraph'), { recursive: true, force: true });
+    fs.rmSync(path.join(dir, '.sleuth'), { recursive: true, force: true });
 
-    const cg = CodeGraph.initSync(dir);
+    const cg = SleuthGraph.initSync(dir);
     await cg.indexAll();
     go = await serve(dir, dir, cg);
     payload = (await getJson(go, '/api/entrypoints')) as WireEntryPoints;
@@ -227,7 +227,7 @@ describe('entry points on a project with no routes', () => {
 
   beforeAll(async () => {
     resetEntryPointsCache();
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-entry-lib-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-entry-lib-'));
     const root = path.join(dir, 'project');
     fs.mkdirSync(root, { recursive: true });
 
@@ -270,7 +270,7 @@ exercisesTheStore();
     // A fixture is not a test, even though the ranking treats it as one.
     write(root, '__tests__/fixtures/sample.ts', `export const sample = 1;\n`);
 
-    const cg = CodeGraph.initSync(root, {
+    const cg = SleuthGraph.initSync(root, {
       config: { include: ['src/**/*.ts', '__tests__/**/*.ts'], exclude: [] },
     });
     await cg.indexAll();
@@ -398,7 +398,7 @@ describe('entry points skip a vendored bundle', () => {
 
   beforeAll(async () => {
     resetEntryPointsCache();
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-entry-bundle-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-entry-bundle-'));
     const root = path.join(dir, 'project');
     fs.mkdirSync(root, { recursive: true });
     write(
@@ -419,7 +419,7 @@ export function warm(): string {
     // each other on a few enormous lines.
     const body = Array.from({ length: 400 }, (_, i) => `function f${i}(e){return n(e,${i})+t(e)}`).join(';');
     write(root, 'docs/assets/bundle.js', `function n(e,r){return e+r};function t(e){return n(e,1)};${body};\n`);
-    const cg = CodeGraph.initSync(root, {
+    const cg = SleuthGraph.initSync(root, {
       config: { include: ['src/**/*.ts', 'docs/**/*.js'], exclude: [] },
     });
     await cg.indexAll();

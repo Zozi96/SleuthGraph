@@ -13,7 +13,7 @@
  * list — a node id can be a file path, and a file path can contain a comma.
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import { badRequest } from './respond';
 import { toNodeRef, type WireNodeRef } from './wire';
 
@@ -26,7 +26,7 @@ export interface WireNodeRefs {
   missing: string[];
 }
 
-export function buildNodeRefs(cg: CodeGraph, query: URLSearchParams): WireNodeRefs {
+export function buildNodeRefs(cg: SleuthGraph, query: URLSearchParams): WireNodeRefs {
   const ids = query.getAll('id').filter((id) => id !== '');
   if (ids.length === 0) {
     throw badRequest(

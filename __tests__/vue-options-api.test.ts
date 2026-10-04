@@ -7,7 +7,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { vueOptionsMembers } from '../src/extraction/vue-options-api';
 
 describe('vueOptionsMembers', () => {
@@ -95,7 +95,7 @@ export default {
 </script>
 `
     );
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const nodes = cg.getNodesInFile('src/views/login/index.vue');
       const method = (name: string) => nodes.find((n) => n.kind === 'method' && n.name === name)!;

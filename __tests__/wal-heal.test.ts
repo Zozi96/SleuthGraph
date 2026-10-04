@@ -30,7 +30,7 @@ import { watchdogProgressPaths, stampLogChunk } from '../src/mcp/index';
 
 const MB = 1024 * 1024;
 
-// Writer child: real codegraph pragmas + deferred checkpointing, grows the WAL
+// Writer child: real sleuth pragmas + deferred checkpointing, grows the WAL
 // past the target, prints READY, then idles with the connection open until the
 // parent SIGKILLs it (what the liveness watchdog does to a daemon).
 const WRITER_SOURCE = `
@@ -84,7 +84,7 @@ describe('WAL heal after killed sessions (#1431)', () => {
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-wal-heal-'));
-    dbPath = path.join(dir, 'codegraph.db');
+    dbPath = path.join(dir, 'sleuth.db');
     DatabaseConnection.initialize(dbPath).close();
   });
 
@@ -177,7 +177,7 @@ describe('daemon observability for watchdog kills (#1431)', () => {
     try {
       const { progressPaths } = watchdogProgressPaths(dir);
       expect(progressPaths).toHaveLength(2);
-      expect(progressPaths![0].endsWith(path.join('.codegraph', 'codegraph.db'))).toBe(true);
+      expect(progressPaths![0].endsWith(path.join('.sleuth', 'sleuth.db'))).toBe(true);
       expect(progressPaths![1]).toBe(`${progressPaths![0]}-wal`);
       expect(watchdogProgressPaths(null)).toEqual({});
     } finally {
@@ -187,7 +187,7 @@ describe('daemon observability for watchdog kills (#1431)', () => {
 
   it('stamps log chunks with an ISO-8601 timestamp', () => {
     const iso = /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] /;
-    expect(String(stampLogChunk('[CodeGraph daemon] Listening.\n'))).toMatch(iso);
+    expect(String(stampLogChunk('[SleuthGraph daemon] Listening.\n'))).toMatch(iso);
     const stamped = stampLogChunk(Buffer.from('bytes\n'));
     expect(Buffer.isBuffer(stamped)).toBe(true);
     expect(String(stamped)).toMatch(iso);

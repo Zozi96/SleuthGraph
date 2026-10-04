@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { QueryBuilder } from '../src/db/queries';
 
 describe('large-corpus regression fixes', () => {
@@ -30,7 +30,7 @@ describe('large-corpus regression fixes', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-skipped-file-'));
     try {
       fs.writeFileSync(path.join(dir, 'oversized.py'), 'value = 1\n'.repeat(120_000));
-      const cg = await CodeGraph.init(dir, { silent: true });
+      const cg = await SleuthGraph.init(dir, { silent: true });
       const indexed = await cg.indexAll();
       expect(indexed.filesSkipped).toBe(1);
       expect(cg.getFiles().find((f) => f.path === 'oversized.py')?.errors?.[0]?.code).toBe('size_exceeded');
@@ -46,7 +46,7 @@ describe('large-corpus regression fixes', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-single-skipped-file-'));
     try {
       fs.writeFileSync(path.join(dir, 'oversized.py'), 'value = 1\n'.repeat(120_000));
-      const cg = await CodeGraph.init(dir, { silent: true });
+      const cg = await SleuthGraph.init(dir, { silent: true });
       const indexed = await cg.indexFiles(['oversized.py']);
       expect(indexed.filesSkipped).toBe(1);
       expect(cg.getFiles().find((f) => f.path === 'oversized.py')?.errors?.[0]?.code).toBe('size_exceeded');
@@ -70,7 +70,7 @@ describe('JSX synthesis language boundary (#1560)', () => {
       path.join(dir, 'only.c'),
       'void Foo(void) {}\nvoid parent(void) { const char *s = "<Foo/>"; }\n'
     );
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const rows = (cg as any).db.db.prepare(
       "SELECT count(*) AS c FROM edges WHERE json_extract(metadata, '$.synthesizedBy') = 'jsx-render'"
@@ -88,7 +88,7 @@ describe('JSX synthesis language boundary (#1560)', () => {
       path.join(dir, 'ui.jsx'),
       'export function Widget() { return <span/>; }\nexport function App() { return <Widget/>; }\n'
     );
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const rows = (cg as any).db.db.prepare(`
       SELECT source.file_path AS source_file, target.name AS target_name
@@ -110,7 +110,7 @@ describe('failure markers vs later real results (#1557 × #1541)', () => {
       const rel = 'flaky.py';
       const content = 'def real_fn():\n    return 1\n\nclass RealClass:\n    def m(self):\n        return 2\n';
       fs.writeFileSync(path.join(dir, rel), content);
-      const cg = await CodeGraph.init(dir, { silent: true });
+      const cg = await SleuthGraph.init(dir, { silent: true });
       const { initGrammars, loadGrammarsForLanguages } = await import('../src/extraction/grammars');
       await initGrammars();
       await loadGrammarsForLanguages(['python']);

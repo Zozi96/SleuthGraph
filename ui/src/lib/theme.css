@@ -1,8 +1,8 @@
 /* =====================================================================
-   @colbymchenry/codegraph-ui — design tokens
+   @zozi96/sleuthgraph-ui — design tokens
 
    The engine's paper/ink editorial system, as specified in
-   docs/design/codegraph-ui-design-spec.md §2.2: flat, hairline rules,
+   docs/design/sleuthgraph-ui-design-spec.md §2.2: flat, hairline rules,
    square corners everywhere, no shadows, no gradients, sentence case,
    one oxblood accent, one amber (the "untested" badge).
 
@@ -91,7 +91,7 @@
 }
 
 /* An explicit choice, wherever it is made. `:root[data-theme]` is the viewer's
-   own switch; the bare attribute selector is what `<CodegraphUi theme="dark">`
+   own switch; the bare attribute selector is what `<SleuthgraphUi theme="dark">`
    sets on its wrapper — custom properties inherit, so redefining them on a
    container re-themes that subtree without touching :root. A host can therefore
    put a light reader inside a dark application, and the reverse. */

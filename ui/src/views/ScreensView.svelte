@@ -53,7 +53,7 @@
 
   // The key stays open until the reader closes it; the choice survives a
   // reload but is per browser — a preference, not a fact about the project.
-  const LEGEND_KEY = 'codegraph-ui:screens-legend';
+  const LEGEND_KEY = 'sleuthgraph-ui:screens-legend';
   let legendOpen = $state(readLegendOpen());
   function readLegendOpen(): boolean {
     try {
@@ -303,7 +303,7 @@
         <p>
           This view draws the routes a UI framework binds to components and the navigation calls
           that reach them. The index has {payload.screens.length === 0 ? 'no routes' : 'routes'} but no
-          navigation between them — it is not an app with screens, or its router is one CodeGraph
+          navigation between them — it is not an app with screens, or its router is one SleuthGraph
           does not read yet.
         </p>
       </div>

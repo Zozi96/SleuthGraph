@@ -8,7 +8,7 @@
  * + node_modules), so resolution and version lookup behave hermetically.
  *
  * The download/checksum paths run against a local self-signed HTTPS server via
- * CODEGRAPH_DOWNLOAD_BASE — no real network, no published release needed. The
+ * SLEUTH_DOWNLOAD_BASE — no real network, no published release needed. The
  * shim is launched with async `spawn` (not spawnSync), so the test's event loop
  * stays free to serve those requests.
  *
@@ -27,7 +27,7 @@ import type { AddressInfo } from 'net';
 
 const SHIM_SRC = path.join(__dirname, '..', 'scripts', 'npm-shim.js');
 const target = `${process.platform}-${process.arch}`;
-const asset = `codegraph-${target}.tar.gz`;
+const asset = `sleuthgraph-${target}.tar.gz`;
 const isWindows = process.platform === 'win32';
 
 function hasOpenssl(): boolean {
@@ -39,12 +39,12 @@ function mkTmp(label: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), `cg-shim-${label}-`));
 }
 
-// A temp dir standing in for the installed @colbymchenry/codegraph main package.
+// A temp dir standing in for the installed @zozi96/sleuthgraph main package.
 function makePkg(version = '9.9.9-test'): string {
   const dir = mkTmp('pkg');
   fs.copyFileSync(SHIM_SRC, path.join(dir, 'npm-shim.js'));
   fs.writeFileSync(path.join(dir, 'package.json'),
-    JSON.stringify({ name: '@colbymchenry/codegraph', version }) + '\n');
+    JSON.stringify({ name: '@zozi96/sleuthgraph', version }) + '\n');
   return dir;
 }
 
@@ -52,17 +52,17 @@ function makePkg(version = '9.9.9-test'): string {
 // shim found and exec'd it (and passed args through).
 function writeLauncher(binDir: string): void {
   fs.mkdirSync(binDir, { recursive: true });
-  const p = path.join(binDir, 'codegraph');
+  const p = path.join(binDir, 'sleuth');
   fs.writeFileSync(p, '#!/bin/sh\necho "FAKE_BUNDLE_RAN args:$*"\n');
   fs.chmodSync(p, 0o755);
 }
 
 // A fake bundle launcher that echoes the threaded host pid, so we can prove the
-// shim passed CODEGRAPH_HOST_PPID down to the server (#1185).
+// shim passed SLEUTH_HOST_PPID down to the server (#1185).
 function writeHostPpidLauncher(binDir: string): void {
   fs.mkdirSync(binDir, { recursive: true });
-  const p = path.join(binDir, 'codegraph');
-  fs.writeFileSync(p, '#!/bin/sh\necho "HOST_PPID=[${CODEGRAPH_HOST_PPID}]"\n');
+  const p = path.join(binDir, 'sleuth');
+  fs.writeFileSync(p, '#!/bin/sh\necho "HOST_PPID=[${SLEUTH_HOST_PPID}]"\n');
   fs.chmodSync(p, 0o755);
 }
 
@@ -100,12 +100,12 @@ describe('npm-shim windowsHide (#1092)', () => {
 describe.skipIf(isWindows)('npm-shim launcher', () => {
   it('runs the installed optional-dependency bundle without any download', async () => {
     const pkg = makePkg();
-    const platformPkg = path.join(pkg, 'node_modules', '@colbymchenry', `codegraph-${target}`);
+    const platformPkg = path.join(pkg, 'node_modules', '@zozi96', `sleuthgraph-${target}`);
     writeLauncher(path.join(platformPkg, 'bin'));
     fs.writeFileSync(path.join(platformPkg, 'package.json'),
-      JSON.stringify({ name: `@colbymchenry/codegraph-${target}`, version: '9.9.9-test' }) + '\n');
+      JSON.stringify({ name: `@zozi96/sleuthgraph-${target}`, version: '9.9.9-test' }) + '\n');
     const cache = mkTmp('cache');
-    const r = await runShim(pkg, ['--probe-abc'], { CODEGRAPH_INSTALL_DIR: cache });
+    const r = await runShim(pkg, ['--probe-abc'], { SLEUTH_INSTALL_DIR: cache });
 
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('FAKE_BUNDLE_RAN');
@@ -119,8 +119,8 @@ describe.skipIf(isWindows)('npm-shim launcher', () => {
     const cache = mkTmp('cache');
     writeLauncher(path.join(cache, 'bundles', `${target}-1.2.3-cached`, 'bin'));
     const r = await runShim(pkg, ['--probe-xyz'], {
-      CODEGRAPH_INSTALL_DIR: cache,
-      CODEGRAPH_NO_DOWNLOAD: '1',
+      SLEUTH_INSTALL_DIR: cache,
+      SLEUTH_NO_DOWNLOAD: '1',
     });
 
     expect(r.status).toBe(0);
@@ -142,8 +142,8 @@ describe.skipIf(isWindows)('npm-shim launcher', () => {
     fs.mkdirSync(path.join(bundles, '.dl-inflight'), { recursive: true });
 
     const r = await runShim(pkg, ['--probe-prune'], {
-      CODEGRAPH_INSTALL_DIR: cache,
-      CODEGRAPH_NO_DOWNLOAD: '1',
+      SLEUTH_INSTALL_DIR: cache,
+      SLEUTH_NO_DOWNLOAD: '1',
     });
 
     expect(r.status).toBe(0);
@@ -159,13 +159,13 @@ describe.skipIf(isWindows)('npm-shim launcher', () => {
   it('prints actionable guidance and exits 1 when disabled with no bundle', async () => {
     const pkg = makePkg();
     const r = await runShim(pkg, ['--version'], {
-      CODEGRAPH_INSTALL_DIR: mkTmp('cache'),
-      CODEGRAPH_NO_DOWNLOAD: '1',
+      SLEUTH_INSTALL_DIR: mkTmp('cache'),
+      SLEUTH_NO_DOWNLOAD: '1',
     });
 
     expect(r.status).toBe(1);
     expect(r.stderr).toContain(`no prebuilt bundle for ${target}`);
-    expect(r.stderr).toContain(`@colbymchenry/codegraph-${target}`);
+    expect(r.stderr).toContain(`@zozi96/sleuthgraph-${target}`);
     expect(r.stderr).toContain('--registry=https://registry.npmjs.org');
     expect(r.stderr).toContain('install.sh');
   });
@@ -174,13 +174,13 @@ describe.skipIf(isWindows)('npm-shim launcher', () => {
   // bundled server so the server's orphan watchdog can poll the host directly
   // — the fix for a server left orphaned when the launcher is killed during its
   // startup. The shim's own parent here is the vitest runner (a real live pid).
-  it('threads CODEGRAPH_HOST_PPID to the bundled server (#1185)', async () => {
+  it('threads SLEUTH_HOST_PPID to the bundled server (#1185)', async () => {
     const pkg = makePkg();
-    const platformPkg = path.join(pkg, 'node_modules', '@colbymchenry', `codegraph-${target}`);
+    const platformPkg = path.join(pkg, 'node_modules', '@zozi96', `sleuthgraph-${target}`);
     writeHostPpidLauncher(path.join(platformPkg, 'bin'));
     fs.writeFileSync(path.join(platformPkg, 'package.json'),
-      JSON.stringify({ name: `@colbymchenry/codegraph-${target}`, version: '9.9.9-test' }) + '\n');
-    const r = await runShim(pkg, [], { CODEGRAPH_INSTALL_DIR: mkTmp('cache') });
+      JSON.stringify({ name: `@zozi96/sleuthgraph-${target}`, version: '9.9.9-test' }) + '\n');
+    const r = await runShim(pkg, [], { SLEUTH_INSTALL_DIR: mkTmp('cache') });
 
     expect(r.status).toBe(0);
     // Non-empty and numeric — the shim's parent pid was passed through.
@@ -189,15 +189,15 @@ describe.skipIf(isWindows)('npm-shim launcher', () => {
     expect(Number(m![1])).toBeGreaterThan(0);
   });
 
-  it('does not clobber an already-set CODEGRAPH_HOST_PPID (#1185)', async () => {
+  it('does not clobber an already-set SLEUTH_HOST_PPID (#1185)', async () => {
     const pkg = makePkg();
-    const platformPkg = path.join(pkg, 'node_modules', '@colbymchenry', `codegraph-${target}`);
+    const platformPkg = path.join(pkg, 'node_modules', '@zozi96', `sleuthgraph-${target}`);
     writeHostPpidLauncher(path.join(platformPkg, 'bin'));
     fs.writeFileSync(path.join(platformPkg, 'package.json'),
-      JSON.stringify({ name: `@colbymchenry/codegraph-${target}`, version: '9.9.9-test' }) + '\n');
+      JSON.stringify({ name: `@zozi96/sleuthgraph-${target}`, version: '9.9.9-test' }) + '\n');
     // An outer launcher already threaded the true host pid — it must win over
     // the shim's own parent, or a chain of launchers would each overwrite it.
-    const r = await runShim(pkg, [], { CODEGRAPH_INSTALL_DIR: mkTmp('cache'), CODEGRAPH_HOST_PPID: '424242' });
+    const r = await runShim(pkg, [], { SLEUTH_INSTALL_DIR: mkTmp('cache'), SLEUTH_HOST_PPID: '424242' });
 
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('HOST_PPID=[424242]');
@@ -221,11 +221,11 @@ describe.skipIf(!CAN_NET)('npm-shim download fallback (local HTTPS)', () => {
       { stdio: 'ignore' },
     );
 
-    // Build a fake bundle archive (codegraph-<target>/bin/codegraph), like a real release asset.
+    // Build a fake bundle archive (sleuth-<target>/bin/sleuth), like a real release asset.
     const work = mkTmp('fixture');
-    writeLauncher(path.join(work, `codegraph-${target}`, 'bin'));
+    writeLauncher(path.join(work, `sleuthgraph-${target}`, 'bin'));
     const archive = path.join(work, asset);
-    execSync(`tar -czf ${JSON.stringify(archive)} -C ${JSON.stringify(work)} codegraph-${target}`);
+    execSync(`tar -czf ${JSON.stringify(archive)} -C ${JSON.stringify(work)} sleuthgraph-${target}`);
     fixtureBytes = fs.readFileSync(archive);
     fixtureSha = crypto.createHash('sha256').update(fixtureBytes).digest('hex');
 
@@ -248,8 +248,8 @@ describe.skipIf(!CAN_NET)('npm-shim download fallback (local HTTPS)', () => {
 
   function netEnv(cache: string): Record<string, string> {
     return {
-      CODEGRAPH_INSTALL_DIR: cache,
-      CODEGRAPH_DOWNLOAD_BASE: `https://127.0.0.1:${port}`,
+      SLEUTH_INSTALL_DIR: cache,
+      SLEUTH_DOWNLOAD_BASE: `https://127.0.0.1:${port}`,
       NODE_TLS_REJECT_UNAUTHORIZED: '0',
     };
   }
@@ -265,7 +265,7 @@ describe.skipIf(!CAN_NET)('npm-shim download fallback (local HTTPS)', () => {
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('FAKE_BUNDLE_RAN');
     expect(r.stdout).toContain('--probe-net');
-    expect(fs.existsSync(path.join(cache, 'bundles', `${target}-5.0.0-net`, 'bin', 'codegraph'))).toBe(true);
+    expect(fs.existsSync(path.join(cache, 'bundles', `${target}-5.0.0-net`, 'bin', 'sleuth'))).toBe(true);
   }, 20000);
 
   it('prunes older cached bundles after downloading a new one (#1074)', async () => {
@@ -282,7 +282,7 @@ describe.skipIf(!CAN_NET)('npm-shim download fallback (local HTTPS)', () => {
     expect(r.stderr).toContain('downloading');
     expect(r.stdout).toContain('FAKE_BUNDLE_RAN');
     // freshly downloaded version present, stale one pruned
-    expect(fs.existsSync(path.join(bundles, `${target}-6.0.0-new`, 'bin', 'codegraph'))).toBe(true);
+    expect(fs.existsSync(path.join(bundles, `${target}-6.0.0-new`, 'bin', 'sleuth'))).toBe(true);
     expect(fs.existsSync(path.join(bundles, `${target}-5.0.0-stale`))).toBe(false);
   }, 20000);
 

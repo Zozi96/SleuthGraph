@@ -1,8 +1,8 @@
 /**
  * Live sync follows a rebuilt index (issue #1902).
  *
- * `codegraph index` rebuilds through `CodeGraph.recreate()`, which unlinks
- * `.codegraph/codegraph.db` and creates a new file (a new inode) at the same
+ * `sleuth index` rebuilds through `SleuthGraph.recreate()`, which unlinks
+ * `.sleuth/sleuth.db` and creates a new file (a new inode) at the same
  * path. A long-lived instance — the MCP daemon — keeps its handle on the old,
  * unlinked inode. Before the fix its watcher kept "auto-syncing" into that dead
  * inode (nothing it wrote was visible to any other process), and the #925
@@ -16,21 +16,21 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph, { LockUnavailableError } from '../src/index';
+import SleuthGraph, { LockUnavailableError } from '../src/index';
 import type { MCPEngine } from '../src/mcp/engine';
 
 const posixOnly = it.runIf(process.platform !== 'win32');
 
-/** Rebuild the index in a separate instance, the way `codegraph index` does. */
+/** Rebuild the index in a separate instance, the way `sleuth index` does. */
 async function rebuild(root: string): Promise<void> {
-  const cg = await CodeGraph.recreate(root);
+  const cg = await SleuthGraph.recreate(root);
   await cg.indexAll();
   cg.close();
 }
 
 /** Open the file at the path fresh (as a new CLI process would) and look up a name. */
 async function onDiskHas(root: string, name: string): Promise<boolean> {
-  const cg = await CodeGraph.open(root);
+  const cg = await SleuthGraph.open(root);
   try {
     return cg.searchNodes(name).some((r) => r.node.name === name);
   } finally {
@@ -62,7 +62,7 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
   });
 
   posixOnly('a watcher-picked-up edit lands in the NEW database file, not the unlinked one', async () => {
-    const server = CodeGraph.initSync(root);
+    const server = SleuthGraph.initSync(root);
     await server.indexAll();
     let synced = 0;
     expect(server.watch({ debounceMs: 100, onSyncComplete: () => { synced++; } })).toBe(true);
@@ -84,11 +84,11 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
   });
 
   posixOnly('a sync in the gap between recreate and indexAll steps aside, then reconciles in full', async () => {
-    const server = CodeGraph.initSync(root);
+    const server = SleuthGraph.initSync(root);
     await server.indexAll();
     try {
-      // `codegraph index`: the file is recreated first, the write lock is taken later by indexAll.
-      const rebuilder = await CodeGraph.recreate(root);
+      // `sleuth index`: the file is recreated first, the write lock is taken later by indexAll.
+      const rebuilder = await SleuthGraph.recreate(root);
       fs.appendFileSync(path.join(root, 'src', 'a.ts'), 'export function gamma() { return 3; }\n');
       // The server's sync lands in the gap: it must not claim the lock for a
       // full reconcile of the empty file, and reports contention instead of success.
@@ -116,12 +116,12 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
   });
 
   posixOnly('a watcher sync that lands in the rebuild gap keeps its pending files until the rebuild is reconciled', async () => {
-    const server = CodeGraph.initSync(root);
+    const server = SleuthGraph.initSync(root);
     await server.indexAll();
     // Record every sync the watcher starts, so the test can wait for the one in the gap.
     const attempts: Array<Promise<unknown>> = [];
     const realSync = server.sync.bind(server);
-    (server as any).sync = (options?: Parameters<CodeGraph['sync']>[0]) => {
+    (server as any).sync = (options?: Parameters<SleuthGraph['sync']>[0]) => {
       const run = realSync(options);
       attempts.push(run);
       return run;
@@ -131,8 +131,8 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
     // must outlast the rebuild below; 200 ms leaves several seconds.
     expect(server.watch({ debounceMs: 200, onSyncComplete: () => { synced++; } })).toBe(true);
     try {
-      // `codegraph index` has recreated the file but not taken the write lock yet.
-      const rebuilder = await CodeGraph.recreate(root);
+      // `sleuth index` has recreated the file but not taken the write lock yet.
+      const rebuilder = await SleuthGraph.recreate(root);
       fs.appendFileSync(path.join(root, 'src', 'a.ts'), 'export function gamma() { return 3; }\n');
       await waitFor(() => attempts.length > 0);
       await expect(attempts[0]).rejects.toBeInstanceOf(LockUnavailableError);
@@ -155,7 +155,7 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
   });
 
   posixOnly('a scoped sync that finds the database replaced reconciles the whole tree', async () => {
-    const server = CodeGraph.initSync(root);
+    const server = SleuthGraph.initSync(root);
     await server.indexAll();
     try {
       await rebuild(root);
@@ -179,7 +179,7 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
   });
 
   posixOnly('reopenIfReplaced does not swap the connection under an in-flight sync', async () => {
-    const server = CodeGraph.initSync(root);
+    const server = SleuthGraph.initSync(root);
     await server.indexAll();
     try {
       await rebuild(root);
@@ -197,7 +197,7 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
     }
   });
 
-  // The engine lazily `require`s the CodeGraph module, which only resolves in
+  // The engine lazily `require`s the SleuthGraph module, which only resolves in
   // the built output, so this block drives the built engine (as the
   // spawned-CLI suites do); `npm run build` first.
   describe('tool-call reopen through the MCP engine', () => {
@@ -207,17 +207,17 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
     beforeEach(() => {
       // Keep the watcher from syncing the edit on its own, so only the
       // tool-call path's catch-up can put it in the rebuilt file.
-      prevDebounce = process.env.CODEGRAPH_WATCH_DEBOUNCE_MS;
-      process.env.CODEGRAPH_WATCH_DEBOUNCE_MS = '60000';
+      prevDebounce = process.env.SLEUTH_WATCH_DEBOUNCE_MS;
+      process.env.SLEUTH_WATCH_DEBOUNCE_MS = '60000';
     });
 
     afterEach(() => {
-      if (prevDebounce === undefined) delete process.env.CODEGRAPH_WATCH_DEBOUNCE_MS;
-      else process.env.CODEGRAPH_WATCH_DEBOUNCE_MS = prevDebounce;
+      if (prevDebounce === undefined) delete process.env.SLEUTH_WATCH_DEBOUNCE_MS;
+      else process.env.SLEUTH_WATCH_DEBOUNCE_MS = prevDebounce;
     });
 
     async function openEngine(watch: boolean): Promise<MCPEngine> {
-      const seed = CodeGraph.initSync(root);
+      const seed = SleuthGraph.initSync(root);
       await seed.indexAll();
       seed.close();
       if (!fs.existsSync(ENGINE)) throw new Error(`${ENGINE} missing — run \`npm run build\` first`);
@@ -225,7 +225,7 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
       const engine = new Engine({ watch, writerLockRoot: watch ? root : undefined });
       await engine.ensureInitialized(root);
       // Drain the post-open catch-up gate (and prove the project is loaded).
-      const first = await engine.getToolHandler().execute('codegraph_search', { query: 'alpha' });
+      const first = await engine.getToolHandler().execute('sleuth_search', { query: 'alpha' });
       expect(first.content[0].text).toMatch(/alpha/);
       return engine;
     }
@@ -240,8 +240,8 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
         const handler = engine.getToolHandler();
         // This call reopens the replaced database and starts the catch-up;
         // the next call awaits its gate.
-        await handler.execute('codegraph_search', { query: 'alpha' });
-        const res = await handler.execute('codegraph_search', { query: 'foxtrot' });
+        await handler.execute('sleuth_search', { query: 'alpha' });
+        const res = await handler.execute('sleuth_search', { query: 'foxtrot' });
         expect(res.isError).toBeFalsy();
         expect(res.content[0].text).toMatch(/foxtrot/);
         expect(await onDiskHas(root, 'foxtrot')).toBe(true);
@@ -257,8 +257,8 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
         fs.appendFileSync(path.join(root, 'src', 'b.ts'), 'export function golf() { return 8; }\n');
 
         const handler = engine.getToolHandler();
-        await handler.execute('codegraph_search', { query: 'alpha' });
-        await handler.execute('codegraph_search', { query: 'golf' });
+        await handler.execute('sleuth_search', { query: 'alpha' });
+        await handler.execute('sleuth_search', { query: 'golf' });
         expect(await onDiskHas(root, 'golf')).toBe(false);
       } finally {
         engine.stop();
@@ -267,7 +267,7 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
   });
 
   posixOnly('a reopen by a tool call widens the next scoped sync to the whole tree', async () => {
-    const server = CodeGraph.initSync(root);
+    const server = SleuthGraph.initSync(root);
     await server.indexAll();
     try {
       await rebuild(root);
@@ -290,7 +290,7 @@ describe('live sync after the index is rebuilt by another process (#1902)', () =
   });
 
   posixOnly('a catch-up sync that fails keeps the full reconcile for the next one', async () => {
-    const server = CodeGraph.initSync(root);
+    const server = SleuthGraph.initSync(root);
     await server.indexAll();
     try {
       await rebuild(root);

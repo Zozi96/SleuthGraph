@@ -1,5 +1,5 @@
 /**
- * `codegraph.json` → `deprioritize` — user-extensible ranking de-prioritization (#982).
+ * `sleuth.json` → `deprioritize` — user-extensible ranking de-prioritization (#982).
  *
  * `matchesNonProductionDir` hardcodes example/sample/fixture/benchmark/demo, so a
  * peripheral tree only the project knows about — `optional-skills/`, `scripts/` —
@@ -20,7 +20,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 import { loadDeprioritizePatterns } from '../src/project-config';
 import { nameMatchBonus, scorePathRelevance } from '../src/search/query-utils';
@@ -86,7 +86,7 @@ function writeRepro(root: string): void {
 const isHelper = (r: { node: { name: string; filePath: string } }): boolean =>
   r.node.name.toLowerCase() === 'usage' && r.node.filePath.includes('optional-skills');
 
-describe('codegraph.json deprioritize — parsing', () => {
+describe('sleuth.json deprioritize — parsing', () => {
   let dir: string;
 
   beforeAll(() => {
@@ -99,7 +99,7 @@ describe('codegraph.json deprioritize — parsing', () => {
 
   const write = (config: unknown): string => {
     const sub = fs.mkdtempSync(path.join(dir, 'p-'));
-    fs.writeFileSync(path.join(sub, 'codegraph.json'), JSON.stringify(config));
+    fs.writeFileSync(path.join(sub, 'sleuth.json'), JSON.stringify(config));
     return sub;
   };
 
@@ -132,8 +132,8 @@ describe('codegraph.json deprioritize — parsing', () => {
 describe('#982 minimal repro — ranking with and without deprioritize', () => {
   let baseDir: string;
   let cfgDir: string;
-  let baseCg: CodeGraph;
-  let cfgCg: CodeGraph;
+  let baseCg: SleuthGraph;
+  let cfgCg: SleuthGraph;
 
   beforeAll(async () => {
     await initGrammars();
@@ -141,16 +141,16 @@ describe('#982 minimal repro — ranking with and without deprioritize', () => {
 
     baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-deprio-base-'));
     writeRepro(baseDir);
-    baseCg = CodeGraph.initSync(baseDir);
+    baseCg = SleuthGraph.initSync(baseDir);
     await baseCg.indexAll();
 
     cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-deprio-on-'));
     writeRepro(cfgDir);
     fs.writeFileSync(
-      path.join(cfgDir, 'codegraph.json'),
+      path.join(cfgDir, 'sleuth.json'),
       JSON.stringify({ deprioritize: ['optional-skills/'] }, null, 2)
     );
-    cfgCg = CodeGraph.initSync(cfgDir);
+    cfgCg = SleuthGraph.initSync(cfgDir);
     await cfgCg.indexAll();
   }, 180_000);
 
@@ -185,7 +185,7 @@ describe('#982 minimal repro — ranking with and without deprioritize', () => {
 
   it('leaves paths outside the patterns alone', () => {
     // gateway/ and packages/ are not named, so their scores must not move.
-    const score = (cg: CodeGraph, file: string): number | undefined =>
+    const score = (cg: SleuthGraph, file: string): number | undefined =>
       cg.searchNodes('slugify', { limit: 20 }).find((r) => r.node.filePath.includes(file))?.score;
     const baseline = score(baseCg, 'packages/core/util/strings.ts');
     expect(baseline).toBeDefined();
@@ -202,7 +202,7 @@ describe('#982 minimal repro — ranking with and without deprioritize', () => {
   });
 
   it('explore ranking honours the setting, not just search', () => {
-    // #982's reproduction rows B/C/D are all `codegraph explore`. Explore ranks
+    // #982's reproduction rows B/C/D are all `sleuth explore`. Explore ranks
     // through its own path scorer as well as through searchNodes, so a
     // search-only fix would leave the reported surface unchanged.
     const matcher = (cfgCg as unknown as { queries: { getDeprioritizedPathMatcher(): ((p: string) => boolean) | undefined } })
@@ -214,11 +214,11 @@ describe('#982 minimal repro — ranking with and without deprioritize', () => {
 
   it('picks up a config written after the project was opened', async () => {
     // wireLayers runs once per open, so a matcher captured there would freeze
-    // at open time — and the MCP server keeps one CodeGraph per root alive for
+    // at open time — and the MCP server keeps one SleuthGraph per root alive for
     // its whole lifetime, which would make an edited config look like a no-op.
     const late = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-deprio-late-'));
     writeRepro(late);
-    const cg = CodeGraph.initSync(late);
+    const cg = SleuthGraph.initSync(late);
     try {
       await cg.indexAll();
       const before = cg.searchNodes(QUERY, { limit: 20 });
@@ -226,7 +226,7 @@ describe('#982 minimal repro — ranking with and without deprioritize', () => {
       expect(before.slice(0, 2).every(isHelper)).toBe(true);
 
       fs.writeFileSync(
-        path.join(late, 'codegraph.json'),
+        path.join(late, 'sleuth.json'),
         JSON.stringify({ deprioritize: ['optional-skills/'] })
       );
       const after = cg.searchNodes(QUERY, { limit: 20 });

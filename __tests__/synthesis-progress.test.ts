@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph, IndexProgress } from '../src/index';
+import { SleuthGraph, IndexProgress } from '../src/index';
 import { SYNTH_PASSES, SYNTH_PROGRESS_STEPS } from '../src/resolution/callback-synthesizer';
 
 describe('synthesis progress ("Linking dynamic dispatch" phase)', () => {
@@ -42,7 +42,7 @@ describe('synthesis progress ("Linking dynamic dispatch" phase)', () => {
       );
 
       const events: IndexProgress[] = [];
-      const cg = await CodeGraph.init(dir, {
+      const cg = await SleuthGraph.init(dir, {
         index: true,
         onProgress: (p) => events.push(p),
       });

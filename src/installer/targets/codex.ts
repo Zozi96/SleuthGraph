@@ -2,7 +2,7 @@
  * OpenAI Codex CLI target.
  *
  *   - MCP server entry to `config.toml` as the dotted-key table
- *     `[mcp_servers.codegraph]`. TOML — not JSON — handled by the
+ *     `[mcp_servers.sleuth]`. TOML — not JSON — handled by the
  *     narrow serializer in `./toml.ts`.
  *   - Instructions to `AGENTS.md`.
  *
@@ -20,7 +20,7 @@
  * accurate. The project layer strips a denylist of settings that
  * repo contents shouldn't get to choose (base URLs, model providers,
  * `notify`, profiles, otel — `loader/mod.rs`), and `mcp_servers` is
- * NOT on it, so a project-scoped `[mcp_servers.codegraph]` is honored.
+ * NOT on it, so a project-scoped `[mcp_servers.sleuth]` is honored.
  *
  * Caveat surfaced as an install note: project layers are "loaded but
  * disabled when untrusted," so a local install only takes effect in a
@@ -46,12 +46,12 @@ import {
   upsertInstructionsEntry,
 } from './shared';
 import {
-  CODEGRAPH_SECTION_END,
-  CODEGRAPH_SECTION_START,
+  SLEUTH_SECTION_END,
+  SLEUTH_SECTION_START,
 } from '../instructions-template';
 import { buildTomlTable, removeTomlTable, upsertTomlTable } from './toml';
 
-const TOML_HEADER = 'mcp_servers.codegraph';
+const TOML_HEADER = 'mcp_servers.sleuth';
 
 function configDir(loc: Location): string {
   if (loc !== 'global') return path.join(process.cwd(), '.codex');
@@ -117,7 +117,7 @@ class CodexTarget implements AgentTarget {
 
     files.push(writeMcpEntry(loc));
 
-    // AGENTS.md gets the short marker-fenced CodeGraph block (#704):
+    // AGENTS.md gets the short marker-fenced SleuthGraph block (#704):
     // subagents and non-MCP harnesses read AGENTS.md but never the MCP
     // initialize instructions. Upsert self-heals a stale pre-#529 block.
     files.push(upsertInstructionsEntry(instructionsPath(loc)));
@@ -152,7 +152,7 @@ class CodexTarget implements AgentTarget {
   }
 
   printConfig(loc: Location): string {
-    const block = buildCodegraphBlock();
+    const block = buildSleuthgraphBlock();
     return `# Add to ${tomlConfigPath(loc)}\n\n${block}\n`;
   }
 
@@ -161,7 +161,7 @@ class CodexTarget implements AgentTarget {
   }
 }
 
-function buildCodegraphBlock(): string {
+function buildSleuthgraphBlock(): string {
   const mcp = getMcpServerConfig();
   return buildTomlTable(TOML_HEADER, {
     command: mcp.command,
@@ -174,7 +174,7 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
   const dir = path.dirname(file);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  const block = buildCodegraphBlock();
+  const block = buildSleuthgraphBlock();
   // Single read — `existing === ''` derives both "is the file empty
   // or absent" and "what was its content," avoiding a TOCTOU window
   // between two `fs.existsSync` calls.
@@ -190,13 +190,13 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
 }
 
 /**
- * Strip the marker-delimited CodeGraph block from this location's
+ * Strip the marker-delimited SleuthGraph block from this location's
  * AGENTS.md if a prior install wrote one. Used by both install
  * (self-heal on upgrade) and uninstall — see issue #529.
  */
 function removeInstructionsEntry(loc: Location): WriteResult['files'][number] {
   const file = instructionsPath(loc);
-  const action = removeMarkedSection(file, CODEGRAPH_SECTION_START, CODEGRAPH_SECTION_END);
+  const action = removeMarkedSection(file, SLEUTH_SECTION_START, SLEUTH_SECTION_END);
   return { path: file, action };
 }
 

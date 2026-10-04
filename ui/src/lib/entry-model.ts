@@ -95,7 +95,7 @@ export interface EntryPanel {
 
 /* -------------------------------------------------------------- grouping -- */
 
-/** `src/bin/codegraph.ts` -> `src/bin`; a root file -> `project root`. */
+/** `src/bin/sleuth.ts` -> `src/bin`; a root file -> `project root`. */
 export function directoryOf(path: string): string {
   const cut = path.lastIndexOf('/');
   return cut < 0 ? 'project root' : path.slice(0, cut);

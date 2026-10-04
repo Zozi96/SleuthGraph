@@ -4,7 +4,7 @@
  * A directory holding several independent git repositories can be indexed as a
  * whole, but ONLY when the project opts the gitignored directories in. The
  * default is the universal one: `.gitignore` excludes. Walking into a gitignored
- * directory to index embedded repos there is OPT-IN via `codegraph.json`
+ * directory to index embedded repos there is OPT-IN via `sleuth.json`
  * `includeIgnored` (#622, #699) — without it a gitignored `node_modules`-style
  * reference/data dir full of nested clones is left untouched, instead of blowing
  * the graph up or stalling the scan (#970, #976).
@@ -25,7 +25,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { scanDirectory, buildScopeIgnore, discoverEmbeddedRepoRoots, findUnindexedIgnoredRepos } from '../src/extraction';
 import { clearProjectConfigCache } from '../src/project-config';
 
@@ -58,9 +58,9 @@ describe('multi-repo workspaces (#514) + .gitignore-respect default (#970, #976)
     fs.rmSync(ws, { recursive: true, force: true });
   });
 
-  /** Drop a `codegraph.json` at the workspace root. */
+  /** Drop a `sleuth.json` at the workspace root. */
   const writeConfig = (obj: unknown) =>
-    fs.writeFileSync(path.join(ws, 'codegraph.json'),
+    fs.writeFileSync(path.join(ws, 'sleuth.json'),
       typeof obj === 'string' ? obj : JSON.stringify(obj));
 
   describe('default: .gitignore is respected (#970, #976)', () => {
@@ -103,7 +103,7 @@ describe('multi-repo workspaces (#514) + .gitignore-respect default (#970, #976)
     });
   });
 
-  describe('opt-in: codegraph.json includeIgnored re-includes a gitignored dir (#622, #699)', () => {
+  describe('opt-in: sleuth.json includeIgnored re-includes a gitignored dir (#622, #699)', () => {
     it('indexes embedded repos hidden by the super-repo .gitignore', () => {
       write(path.join(ws, 'packages/proj-a/src/auth.ts'), 'export function login() { return 1; }\n');
       write(path.join(ws, 'packages/proj-b/src/billing.ts'), 'export function charge() { return 2; }\n');
@@ -221,7 +221,7 @@ describe('multi-repo workspaces (#514) + .gitignore-respect default (#970, #976)
       writeConfig({ includeIgnored: ['packages/'] });
       makeRepo(ws);
 
-      const cg = CodeGraph.initSync(ws, { config: { include: ['**/*.ts'], exclude: [] } });
+      const cg = SleuthGraph.initSync(ws, { config: { include: ['**/*.ts'], exclude: [] } });
       try {
         await cg.indexAll();
         expect(cg.searchNodes('login', { limit: 5 }).length).toBeGreaterThan(0);
@@ -281,7 +281,7 @@ describe('multi-repo workspaces (#514) + .gitignore-respect default (#970, #976)
       git(ws, 'rm', '-r', '--cached', '-q', 'vendor-src');
       git(ws, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'untrack');
 
-      // No codegraph.json: the untracked path is unaffected by the opt-in gate.
+      // No sleuth.json: the untracked path is unaffected by the opt-in gate.
       const files = scanDirectory(ws);
       expect(files).toContain('vendor-src/lib/src/util.ts');
       expect(files).toContain('main.ts');
@@ -388,7 +388,7 @@ describe('multi-repo workspaces (#514) + .gitignore-respect default (#970, #976)
       // That sentinel used to reach the `ignore` matcher and throw
       // ("path should be a `path.relative()`d string, but got "./""), aborting
       // buildScopeIgnore → the MCP daemon's watcher never started and auto-sync
-      // silently stalled until a manual `codegraph sync`.
+      // silently stalled until a manual `sleuth sync`.
       write(path.join(ws, 'child/src/a.ts'), 'export const x = 1;\n');
       write(path.join(ws, '.gitignore'), '/child/\n');
       makeRepo(ws);

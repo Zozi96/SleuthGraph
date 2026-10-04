@@ -787,7 +787,7 @@ members, import nodes.
 
 ## Value-reference edges (:398-931) — swift IS in VALUE_REF_LANGS (:401)
 
-Port the full machinery (crib go.rs/java.rs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib go.rs/java.rs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES = 20,000 caps the prune DFS and each reader scan;
 isGeneratedFile skip.
 
@@ -961,7 +961,7 @@ extraction-side feed that keeps pivot models un-orphaned on Fluent repos.
   - `…/scratchpad/gate-repos/swift-nio` (large, 554 files, **raw-buffers
     path** — no framework detects)
   (all three cloned at survey time; re-clone fresh if gone). Then **full-init
-  dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+  dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   dump-graph.mjs, cmp) on the same three.
 - **Alamofire #1020 spot-check** (belt to the dump gate's suspenders): after
   a kernel-arm index, node-kind census must match the wasm arm EXACTLY —
@@ -976,7 +976,7 @@ extraction-side feed that keeps pivot models un-orphaned on Fluent repos.
   variants + an intentionally-erroring defer fixture (use a NEW-only
   regression construct — e.g. `#if DEBUG` between enum cases — asserting the
   kernel defers and wasm output is served); full suite ×2 green with
-  `CODEGRAPH_KERNEL_EXPECT=1`.
+  `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'swift'`** (kernel/index.ts:37) only after ALL of the
   above; changelog rides the existing kernel entry.
 - Post-route sanity: §Architecture #2 — Alamofire/vapor ride the decoded

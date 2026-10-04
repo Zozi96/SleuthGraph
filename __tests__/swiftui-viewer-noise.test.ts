@@ -14,7 +14,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { classifyEffect } from '../src/ui-server/api/effects';
 import { buildEntryPoints, resetEntryPointsCache, swiftPreviewSpans } from '../src/ui-server/api/entrypoints';
 import { buildSteps } from '../src/ui-server/api/steps';
@@ -87,14 +87,14 @@ afterAll(() => {
   for (const p of projects.splice(0)) fs.rmSync(p, { recursive: true, force: true });
 });
 
-async function project(files: Record<string, string>): Promise<{ cg: CodeGraph; root: string }> {
+async function project(files: Record<string, string>): Promise<{ cg: SleuthGraph; root: string }> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-swiftui-noise-'));
   projects.push(root);
   for (const [rel, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return { cg: await CodeGraph.init(root, { index: true }), root };
+  return { cg: await SleuthGraph.init(root, { index: true }), root };
 }
 
 describe('a SwiftUI app in the viewer', () => {

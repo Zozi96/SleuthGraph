@@ -34,13 +34,13 @@ before (one okhttp file fixed, none broken).
 ```
 git clone --depth 1 --branch 0.3.8 https://github.com/fwcd/tree-sitter-kotlin
 cd tree-sitter-kotlin
-git apply /path/to/codegraph/docs/grammars/tree-sitter-kotlin.patch
+git apply /path/to/sleuth/docs/grammars/tree-sitter-kotlin.patch
 # the 0.3.8 tag predates tree-sitter.json, which cli 0.25.10 requires —
 # add the METADATA-ONLY shim (grammar name/scope; nothing regenerated):
 #   {"grammars":[{"name":"kotlin","scope":"source.kotlin","path":".",
 #     "file-types":["kt","kts"]}],"metadata":{"version":"0.3.8","license":"MIT"}}
 npx -y tree-sitter-cli@0.25.10 build --wasm -o tree-sitter-kotlin.wasm .
-cp src/scanner.c /path/to/codegraph/sleuth-kernel/grammars/kotlin/scanner.c
+cp src/scanner.c /path/to/sleuth/sleuth-kernel/grammars/kotlin/scanner.c
 ```
 
 Built without the patch, the same command reproduces the upstream wasm above

@@ -1,5 +1,5 @@
 /**
- * The `codegraph ui` server's security boundary.
+ * The `sleuth ui` server's security boundary.
  *
  * Threat model, stated plainly: this process serves a browser-readable view of
  * the user's SOURCE CODE from a port on their machine. It binds loopback, so
@@ -23,7 +23,7 @@
  * - **GET/HEAD everywhere; POST/DELETE only under `/api/`, and only for a
  *   request that could not have been forged by a form.** See
  *   {@link isWriteRequest} below — the viewer went from a pure reader to one
- *   that saves trails into `.codegraph/ui/`, and that is the entire change to
+ *   that saves trails into `.sleuth/ui/`, and that is the entire change to
  *   this boundary.
  * - **Every path resolves through {@link validatePathWithinRoot}** — the same
  *   chokepoint the MCP read sinks use, which catches `../` traversal AND
@@ -66,7 +66,7 @@ export const ALLOWED_METHODS: readonly string[] = [...READ_METHODS, ...WRITE_MET
  * `<form method="post">` submitted from another page, which sends no `Origin`
  * in some older browsers and cannot set a custom header in any of them.
  */
-export const WRITE_HEADER = 'x-codegraph-ui';
+export const WRITE_HEADER = 'x-sleuthgraph-ui';
 
 /** The content type a write body must declare. A form can send none of these. */
 const WRITE_CONTENT_TYPE = 'application/json';
@@ -80,7 +80,7 @@ export function isWriteMethod(method: string): boolean {
  *
  * @param method     the request method, already known to be a write method
  * @param pathname   the raw request path
- * @param headers    `x-codegraph-ui` and, for a body-carrying method, `content-type`
+ * @param headers    `x-sleuthgraph-ui` and, for a body-carrying method, `content-type`
  */
 export function isWriteRequest(
   pathname: string,

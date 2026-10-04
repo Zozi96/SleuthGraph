@@ -1,7 +1,7 @@
 /** Shared synchronization ownership for projects accessed by MCP engines (#1835). */
 import { realpathSync } from 'fs';
 import type { Socket } from 'net';
-import type CodeGraph from '../index';
+import type SleuthGraph from '../index';
 import { canonicalProjectRoot, isInitialized } from '../directory';
 import { LockUnavailableError, watchDisabledReason } from '../sync';
 import { getDaemonSocketCandidates } from './daemon-paths';
@@ -11,7 +11,7 @@ import { markWriterReady, readWriterLock, releaseWriterLock, tryAcquireWriterLoc
 interface Project {
   /** Identity key: one entry however the root is spelled (#2278). */
   key: string;
-  cg: CodeGraph;
+  cg: SleuthGraph;
   refs: number;
   owner: boolean;
   caughtUp: boolean;
@@ -19,11 +19,11 @@ interface Project {
   gate: Promise<void> | null;
   socket: Socket | null;
   timer: NodeJS.Timeout;
-  options: Parameters<CodeGraph['watch']>[0];
+  options: Parameters<SleuthGraph['watch']>[0];
 }
 
 export interface ProjectLease {
-  cg: CodeGraph;
+  cg: SleuthGraph;
   ready(): Promise<void>;
   release(): Promise<void>;
 }
@@ -33,8 +33,8 @@ const projects = new Map<string, Project>();
 /** Engines in one process share a graph; other processes share the writer slot. */
 export function acquireProject(
   root: string,
-  open: () => CodeGraph,
-  options: Parameters<CodeGraph['watch']>[0],
+  open: () => SleuthGraph,
+  options: Parameters<SleuthGraph['watch']>[0],
 ): ProjectLease {
   root = realpathSync(root);
   const key = canonicalProjectRoot(root);
@@ -98,10 +98,10 @@ function ready(root: string, project: Project): Promise<void> {
     return Promise.resolve();
   }
   const gate = activate(root, project).catch((err) => {
-    // A CLI/indexer can hold codegraph.lock even while we own writer.pid.
+    // A CLI/indexer can hold sleuth.lock even while we own writer.pid.
     // Leave caughtUp false so the next access or timer retries quietly (#1361).
     if (err instanceof LockUnavailableError) return;
-    process.stderr.write(`[CodeGraph MCP] Catch-up sync failed for ${root}: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.stderr.write(`[SleuthGraph MCP] Catch-up sync failed for ${root}: ${err instanceof Error ? err.message : String(err)}\n`);
   }).finally(() => {
     if (project.gate === gate) project.gate = null;
   });
@@ -145,10 +145,10 @@ async function activate(root: string, project: Project): Promise<void> {
   project.owner = true;
   const disabled = watchDisabledReason(root);
   if (disabled) {
-    process.stderr.write(`[CodeGraph MCP] File watcher disabled for ${root} — ${disabled}.\n`);
+    process.stderr.write(`[SleuthGraph MCP] File watcher disabled for ${root} — ${disabled}.\n`);
   } else {
     if (project.cg.watch(project.options)) {
-      process.stderr.write(`[CodeGraph MCP] File watcher active for ${root} — graph will auto-sync on changes\n`);
+      process.stderr.write(`[SleuthGraph MCP] File watcher active for ${root} — graph will auto-sync on changes\n`);
     }
   }
   await project.cg.sync();
@@ -183,6 +183,6 @@ function daemonCatchUp(socket: Socket): Promise<void> {
     socket.on('data', onData);
     socket.once('close', finish);
     socket.write(JSON.stringify({ jsonrpc: '2.0', id: 'project-catchup', method: 'tools/call',
-      params: { name: 'codegraph_status', arguments: {} } }) + '\n');
+      params: { name: 'sleuth_status', arguments: {} } }) + '\n');
   });
 }

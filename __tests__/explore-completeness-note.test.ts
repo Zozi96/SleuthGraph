@@ -1,5 +1,5 @@
 /**
- * The completeness note at the end of a codegraph_explore response claims
+ * The completeness note at the end of a sleuth_explore response claims
  * "complete" only for sections that are.
  *
  * On the tiers with `includeCompletenessSignal` (>= 500 indexed files) every
@@ -20,7 +20,7 @@ import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ExploreSessionState } from '../src/mcp/explore-session-state';
 import {
   EXPLORE_FALLBACK_NOTES,
@@ -37,7 +37,7 @@ const span = (
 ): ExploreWantedSpan => ({ name, kind, start, end, importance, spine });
 
 /** The note this change replaced, for the size bound. */
-const OLD_NOTE = '> **Complete source for 8 files is included above — do NOT re-read them.** If your question also needs files/symbols listed under "Not shown above" (or any area this call didn\'t cover), make ANOTHER codegraph_explore targeting those names — it returns the same source with line numbers and is cheaper and more complete than reading. Reserve Read for a single specific line range explore can\'t surface.';
+const OLD_NOTE = '> **Complete source for 8 files is included above — do NOT re-read them.** If your question also needs files/symbols listed under "Not shown above" (or any area this call didn\'t cover), make ANOTHER sleuth_explore targeting those names — it returns the same source with line numbers and is cheaper and more complete than reading. Reserve Read for a single specific line range explore can\'t surface.';
 
 /**
  * Anything that offers Read as a way forward. "treat it as already Read" is the
@@ -119,7 +119,7 @@ describe('exploreCompletenessNotes', () => {
       expect(note).not.toContain('Complete source');
       expect(note).toContain('Verbatim source for 3 files');
       expect(note).toContain('treat it as already Read');
-      expect(note).toContain('codegraph_explore');
+      expect(note).toContain('sleuth_explore');
       expect(note).not.toMatch(OFFERS_READ);
     }
     expect(notes[0]).toContain('`rpcProtocol.ts`');
@@ -185,7 +185,7 @@ describe('EXPLORE_FALLBACK_NOTES', () => {
     expect(note.trimmed).not.toMatch(/\bcomplete\b/);
     expect(note.trimmed).toContain('treat it as already Read');
     for (const text of [note.complete, note.trimmed]) {
-      expect(text).toContain('codegraph_explore');
+      expect(text).toContain('sleuth_explore');
       expect(text).not.toMatch(OFFERS_READ);
     }
   });
@@ -247,9 +247,9 @@ describe('fitExploreEpilogue — the note and the pointer list share what is lef
   });
 });
 
-describe('codegraph_explore — the note follows what the render cut', () => {
+describe('sleuth_explore — the note follows what the render cut', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   // Long enough that no tier ships the file whole, and past the 200-line
@@ -259,7 +259,7 @@ describe('codegraph_explore — the note follows what the render cut', () => {
   const CALL_AT = 180;
 
   beforeAll(async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-completeness-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-completeness-'));
     fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"cg-completeness","version":"1.0.0"}\n');
     const src = path.join(dir, 'src');
     fs.mkdirSync(src);
@@ -289,7 +289,7 @@ describe('codegraph_explore — the note follows what the render cut', () => {
     );
     fs.writeFileSync(path.join(src, 'pad.ts'), "export function padValue(s: string): string {\n  return s.padStart(8, ' ');\n}\n");
 
-    cg = CodeGraph.initSync(dir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cg = SleuthGraph.initSync(dir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   }, 120_000);
@@ -302,9 +302,9 @@ describe('codegraph_explore — the note follows what the render cut', () => {
   const explore = async (query: string, fileCount?: number): Promise<string> => {
     const spy = fileCount === undefined
       ? null
-      : vi.spyOn(cg, 'getStats').mockReturnValue({ fileCount, nodeCount: 50 } as ReturnType<CodeGraph['getStats']>);
+      : vi.spyOn(cg, 'getStats').mockReturnValue({ fileCount, nodeCount: 50 } as ReturnType<SleuthGraph['getStats']>);
     try {
-      const result = await handler.execute('codegraph_explore', { query });
+      const result = await handler.execute('sleuth_explore', { query });
       return result.content?.[0]?.text ?? '';
     } finally {
       spy?.mockRestore();
@@ -346,16 +346,16 @@ describe('codegraph_explore — the note follows what the render cut', () => {
   });
 });
 
-describe('codegraph_explore — a dedup remainder folded into the back-reference is not delivered', () => {
+describe('sleuth_explore — a dedup remainder folded into the back-reference is not delivered', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
   let previousDedup: string | undefined;
 
   beforeAll(async () => {
-    previousDedup = process.env.CODEGRAPH_EXPLORE_DEDUP;
-    process.env.CODEGRAPH_EXPLORE_DEDUP = '1';
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-completeness-fold-'));
+    previousDedup = process.env.SLEUTH_EXPLORE_DEDUP;
+    process.env.SLEUTH_EXPLORE_DEDUP = '1';
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-completeness-fold-'));
     fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"cg-completeness-fold","version":"1.0.0"}\n');
     const src = path.join(dir, 'src');
     fs.mkdirSync(src);
@@ -373,24 +373,24 @@ describe('codegraph_explore — a dedup remainder folded into the back-reference
       body.push('  return x;', '}', '');
     }
     fs.writeFileSync(path.join(src, 'ledger.ts'), body.join('\n'));
-    cg = CodeGraph.initSync(dir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cg = SleuthGraph.initSync(dir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   }, 120_000);
 
   afterAll(() => {
-    if (previousDedup === undefined) delete process.env.CODEGRAPH_EXPLORE_DEDUP;
-    else process.env.CODEGRAPH_EXPLORE_DEDUP = previousDedup;
+    if (previousDedup === undefined) delete process.env.SLEUTH_EXPLORE_DEDUP;
+    else process.env.SLEUTH_EXPLORE_DEDUP = previousDedup;
     cg?.destroy();
     if (dir && fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
   });
 
   it('does not call the file complete when the folded lines were never sent', async () => {
-    const spy = vi.spyOn(cg, 'getStats').mockReturnValue({ fileCount: 1000, nodeCount: 50 } as ReturnType<CodeGraph['getStats']>);
+    const spy = vi.spyOn(cg, 'getStats').mockReturnValue({ fileCount: 1000, nodeCount: 50 } as ReturnType<SleuthGraph['getStats']>);
     try {
       const session = new ExploreSessionState();
       const run = (query: string) =>
-        handler.execute('codegraph_explore', { query }, session).then((r) => r.content?.[0]?.text ?? '');
+        handler.execute('sleuth_explore', { query }, session).then((r) => r.content?.[0]?.text ?? '');
       const first = await run('loadLedger');
       expect(first).toContain('loadLedger');
       expect(first).not.toContain('tinyTail = ()');

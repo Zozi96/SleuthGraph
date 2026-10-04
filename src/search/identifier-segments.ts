@@ -109,7 +109,7 @@ const ENGLISH_PROSE_STOPWORDS = new Set([
  * {@link normalizeProseWord}, length-bounded, digit-only dropped,
  * {@link ENGLISH_PROSE_STOPWORDS} dropped, deduped, capped. Everything that
  * survives is judged per-repo by the rarity and co-occurrence rules in
- * CodeGraph.getSegmentMatches — there is no domain-word list.
+ * SleuthGraph.getSegmentMatches — there is no domain-word list.
  */
 export function extractProseCandidates(prompt: string): string[] {
   if (!prompt) return [];

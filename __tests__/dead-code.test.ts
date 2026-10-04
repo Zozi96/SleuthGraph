@@ -25,7 +25,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import {
   buildDeadCodeReport,
   isHeaderFile,
@@ -41,7 +41,7 @@ let server: UiServerHandle;
 let api: GraphApi;
 let tempDir: string;
 let projectRoot: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 function write(root: string, rel: string, body: string): void {
   const full = path.join(root, rel);
@@ -88,7 +88,7 @@ const names = (report: { entries: Array<{ node: { name: string } }> }): string[]
   report.entries.map((entry) => entry.node.name);
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-deadcode-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-deadcode-'));
   projectRoot = path.join(tempDir, 'project');
 
   // The one genuinely dead symbol, plus a live one beside it so the file is
@@ -259,14 +259,14 @@ export function testFacade(): string {
 `
   );
 
-  const init = CodeGraph.initSync(projectRoot, {
+  const init = SleuthGraph.initSync(projectRoot, {
     config: { include: ['src/**/*.ts', 'tests/**/*.ts'], exclude: [] },
   });
   await init.indexAll();
   init.resolveReferences();
   init.close();
 
-  cg = CodeGraph.openSync(projectRoot);
+  cg = SleuthGraph.openSync(projectRoot);
 
   const viewerDir = path.join(tempDir, 'viewer');
   fs.mkdirSync(viewerDir, { recursive: true });
@@ -486,7 +486,7 @@ describe('GET /api/map — generated files and islands', () => {
 
 describe('an ancestor outside the index (#1973)', () => {
   let root: string;
-  let graph: CodeGraph;
+  let graph: SleuthGraph;
 
   beforeEach(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-deadcode-external-'));
@@ -506,7 +506,7 @@ function reallyUnused() {}
 `
     );
     write(root, 'src/main.ts', `import { Clock, Upper, Boot, Ticker, Third, Plain } from './clock';\nexport const all = [Clock, Upper, Boot, Ticker, Third, Plain];\n`);
-    graph = CodeGraph.initSync(root, { config: { include: ['src/**/*.ts', 'src/**/*.tsx'], exclude: [] } });
+    graph = SleuthGraph.initSync(root, { config: { include: ['src/**/*.ts', 'src/**/*.tsx'], exclude: [] } });
     await graph.indexAll();
   }, 60_000);
 

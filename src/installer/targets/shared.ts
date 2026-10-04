@@ -11,20 +11,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-  CODEGRAPH_INSTRUCTIONS_BLOCK,
-  CODEGRAPH_SECTION_START,
-  CODEGRAPH_SECTION_END,
+  SLEUTH_INSTRUCTIONS_BLOCK,
+  SLEUTH_SECTION_START,
+  SLEUTH_SECTION_END,
 } from '../instructions-template';
 
 /**
- * The MCP-server config block codegraph injects. Same shape across
+ * The MCP-server config block sleuth injects. Same shape across
  * all JSON-shaped agent configs (Claude, Cursor, opencode), only the
  * surrounding wrapper differs. Codex (TOML) builds its own block.
  */
 export function getMcpServerConfig(): { type: string; command: string; args: string[] } {
   return {
     type: 'stdio',
-    command: 'codegraph',
+    command: 'sleuth',
     args: ['serve', '--mcp'],
   };
 }
@@ -34,26 +34,26 @@ export function getMcpServerConfig(): { type: string; command: string; args: str
  * have a permissions concept can compose this list directly.
  *
  * One server-scoped wildcard rather than a per-tool list. By default only
- * `codegraph_explore` is even LISTED to the agent (see DEFAULT_MCP_TOOLS in
+ * `sleuth_explore` is even LISTED to the agent (see DEFAULT_MCP_TOOLS in
  * mcp/tools.ts), so in practice explore is the only tool this auto-approves —
  * but the wildcard means that if a user re-enables another tool via
- * CODEGRAPH_MCP_TOOLS, it's already pre-approved (no permission prompt, no
+ * SLEUTH_MCP_TOOLS, it's already pre-approved (no permission prompt, no
  * hand-editing settings.json), and future tools are covered too. Claude only
  * honors globs after a literal `mcp__<server>__` prefix, so this exact string
- * is the way to allow-all for one server; a bare `mcp__codegraph` or `*` is
+ * is the way to allow-all for one server; a bare `mcp__sleuth` or `*` is
  * ignored. The allowlist gates PROMPTING, not visibility, so a superset here
  * never makes a hidden tool appear.
  */
-export function getCodeGraphPermissions(): string[] {
-  return ['mcp__codegraph__*'];
+export function getSleuthGraphPermissions(): string[] {
+  return ['mcp__sleuth__*'];
 }
 
 /**
  * Read a JSON file, returning `{}` when missing or unparseable.
  *
  * Read-only, and deliberately silent: every target's `detect()` reads
- * its agent's config on every `codegraph install`, and most of those
- * agents codegraph was never installed into. A warning about a file we
+ * its agent's config on every `sleuth install`, and most of those
+ * agents sleuth was never installed into. A warning about a file we
  * are not going to touch is noise, and a `<path>.backup` beside it is a
  * bug — `install --refresh` promises unconfigured agents are "skipped
  * untouched", and an empty `~/.gemini/config/mcp_config.json` was
@@ -157,8 +157,8 @@ export function jsonDeepEqual(a: unknown, b: unknown): boolean {
 /**
  * Replace or append a marker-delimited section in a markdown-ish file.
  *
- * Used by Claude / Codex for the `<!-- CODEGRAPH_START --> ... <!--
- * CODEGRAPH_END -->` block. Preserves all content outside the
+ * Used by Claude / Codex for the `<!-- SLEUTH_START --> ... <!--
+ * SLEUTH_END -->` block. Preserves all content outside the
  * markers verbatim.
  *
  * Returns `created` when the file didn't exist; `updated` when
@@ -201,7 +201,7 @@ export function replaceOrAppendMarkedSection(
 }
 
 /**
- * Upsert the CodeGraph instructions block into an agent instructions
+ * Upsert the SleuthGraph instructions block into an agent instructions
  * file (CLAUDE.md / AGENTS.md / GEMINI.md). The one write shared by
  * every target: self-heals a stale pre-#529 long block (markers match →
  * replaced by the current short one), appends after existing user
@@ -213,9 +213,9 @@ export function replaceOrAppendMarkedSection(
 export function upsertInstructionsEntry(file: string): { path: string; action: 'created' | 'updated' | 'unchanged' } {
   const action = replaceOrAppendMarkedSection(
     file,
-    CODEGRAPH_INSTRUCTIONS_BLOCK,
-    CODEGRAPH_SECTION_START,
-    CODEGRAPH_SECTION_END,
+    SLEUTH_INSTRUCTIONS_BLOCK,
+    SLEUTH_SECTION_START,
+    SLEUTH_SECTION_END,
   );
   return { path: file, action: action === 'appended' ? 'updated' : action };
 }

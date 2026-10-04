@@ -1,22 +1,22 @@
 /**
  * Foundation Tests
  *
- * Tests for the CodeGraph foundation layer.
+ * Tests for the SleuthGraph foundation layer.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { Node, Edge } from '../src/types';
-import { isInitialized, getCodeGraphDir, validateDirectory, codeGraphDirName, isCodeGraphDataDir } from '../src/directory';
+import { isInitialized, getSleuthGraphDir, validateDirectory, sleuthGraphDirName, isSleuthGraphDataDir } from '../src/directory';
 import { DatabaseConnection, getDatabasePath, removeDatabaseFiles } from '../src/db';
 import { CURRENT_SCHEMA_VERSION } from '../src/db/migrations';
 
 // Create a temporary directory for each test
 function createTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-test-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-test-'));
 }
 
 // Clean up temporary directory
@@ -33,7 +33,7 @@ function pragmaValue(raw: unknown, key: string): unknown {
   return row;
 }
 
-describe('CodeGraph Foundation', () => {
+describe('SleuthGraph Foundation', () => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -46,23 +46,23 @@ describe('CodeGraph Foundation', () => {
 
   describe('Initialization', () => {
     it('should initialize a new project', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
 
-      expect(CodeGraph.isInitialized(tempDir)).toBe(true);
-      expect(fs.existsSync(getCodeGraphDir(tempDir))).toBe(true);
+      expect(SleuthGraph.isInitialized(tempDir)).toBe(true);
+      expect(fs.existsSync(getSleuthGraphDir(tempDir))).toBe(true);
       expect(fs.existsSync(getDatabasePath(tempDir))).toBe(true);
 
       cg.close();
     });
 
-    it('should create .gitignore in .CodeGraph directory', () => {
-      const cg = CodeGraph.initSync(tempDir);
+    it('should create .gitignore in .SleuthGraph directory', () => {
+      const cg = SleuthGraph.initSync(tempDir);
 
-      const gitignorePath = path.join(getCodeGraphDir(tempDir), '.gitignore');
+      const gitignorePath = path.join(getSleuthGraphDir(tempDir), '.gitignore');
       expect(fs.existsSync(gitignorePath)).toBe(true);
 
       const content = fs.readFileSync(gitignorePath, 'utf-8');
-      // Ignore everything in .codegraph/ except this file itself, so transient
+      // Ignore everything in .sleuth/ except this file itself, so transient
       // files (db, daemon.pid, sockets, logs) never show up in git. (#492, #484)
       expect(content).toContain('*');
       expect(content).toContain('!.gitignore');
@@ -71,45 +71,45 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('should throw if already initialized', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
       cg.close();
 
-      expect(() => CodeGraph.initSync(tempDir)).toThrow(/already initialized/i);
+      expect(() => SleuthGraph.initSync(tempDir)).toThrow(/already initialized/i);
     });
   });
 
   describe('Opening Projects', () => {
     it('should open an existing project', () => {
       // First initialize
-      const cg1 = CodeGraph.initSync(tempDir);
+      const cg1 = SleuthGraph.initSync(tempDir);
       cg1.close();
 
       // Then open
-      const cg2 = CodeGraph.openSync(tempDir);
+      const cg2 = SleuthGraph.openSync(tempDir);
       expect(cg2.getProjectRoot()).toBe(path.resolve(tempDir));
       cg2.close();
     });
 
     it('should throw if not initialized', () => {
-      expect(() => CodeGraph.openSync(tempDir)).toThrow(/not initialized/i);
+      expect(() => SleuthGraph.openSync(tempDir)).toThrow(/not initialized/i);
     });
   });
 
   describe('Static Methods', () => {
     it('isInitialized should return false for new directory', () => {
-      expect(CodeGraph.isInitialized(tempDir)).toBe(false);
+      expect(SleuthGraph.isInitialized(tempDir)).toBe(false);
     });
 
     it('isInitialized should return true after init', () => {
-      const cg = CodeGraph.initSync(tempDir);
-      expect(CodeGraph.isInitialized(tempDir)).toBe(true);
+      const cg = SleuthGraph.initSync(tempDir);
+      expect(SleuthGraph.isInitialized(tempDir)).toBe(true);
       cg.close();
     });
   });
 
   describe('Database', () => {
     it('should create database with correct schema', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
 
       // Check that we can get stats (requires tables to exist)
       const stats = cg.getStats();
@@ -156,7 +156,7 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('should return correct database size', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
       const stats = cg.getStats();
 
       // Database should have some size (at least the schema)
@@ -166,7 +166,7 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('should support optimize operation', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
 
       // Should not throw
       expect(() => cg.optimize()).not.toThrow();
@@ -175,7 +175,7 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('should support clear operation', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
 
       // Should not throw
       expect(() => cg.clear()).not.toThrow();
@@ -187,19 +187,19 @@ describe('CodeGraph Foundation', () => {
     });
   });
 
-  // recreate() backs `codegraph index`: it discards the existing DB and returns
+  // recreate() backs `sleuth index`: it discards the existing DB and returns
   // a fresh, empty instance rather than DELETE-clearing in place — the path that
   // recovers a poisoned/oversized prior index without wedging (#1067).
   describe('Recreate (#1067)', () => {
     it('returns a fresh, empty, usable instance', async () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
       // Give the DB some content so "empty afterwards" is meaningful.
       fs.writeFileSync(path.join(tempDir, 'a.ts'), 'export function f() { return 1; }\n');
       await cg.indexAll();
       expect(cg.getStats().nodeCount).toBeGreaterThan(0);
       cg.close();
 
-      const fresh = await CodeGraph.recreate(tempDir);
+      const fresh = await SleuthGraph.recreate(tempDir);
       try {
         // Empty graph, but a working instance: re-indexing repopulates it.
         expect(fresh.getStats().nodeCount).toBe(0);
@@ -212,7 +212,7 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('discards the old database file rather than emptying it in place', async () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
       await cg.indexAll();
       cg.close();
 
@@ -226,7 +226,7 @@ describe('CodeGraph Foundation', () => {
       stamp.getDb().pragma('user_version = 4242');
       stamp.close();
 
-      const fresh = await CodeGraph.recreate(tempDir);
+      const fresh = await SleuthGraph.recreate(tempDir);
       fresh.close();
 
       // The file exists, and the sentinel is gone — proof the old DB was
@@ -240,13 +240,13 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('throws a clear error when the project is not initialized', async () => {
-      await expect(CodeGraph.recreate(tempDir)).rejects.toThrow(/not initialized/i);
+      await expect(SleuthGraph.recreate(tempDir)).rejects.toThrow(/not initialized/i);
     });
   });
 
   describe('removeDatabaseFiles (#1067)', () => {
     it('deletes the database and its -wal/-shm sidecars', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
       cg.close();
       const dbPath = getDatabasePath(tempDir);
       // Materialise the WAL sidecars so we can prove they're cleaned up too.
@@ -270,7 +270,7 @@ describe('CodeGraph Foundation', () => {
 
   describe('Directory Management', () => {
     it('should validate directory structure', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
       cg.close();
 
       const validation = validateDirectory(tempDir);
@@ -285,22 +285,22 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('upgrades a stale pre-wildcard .gitignore in place (issue #788)', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
       cg.close();
 
-      const gitignorePath = path.join(getCodeGraphDir(tempDir), '.gitignore');
+      const gitignorePath = path.join(getSleuthGraphDir(tempDir), '.gitignore');
       // A .gitignore written by an older version (<= 0.9.9): an explicit
       // allowlist that never ignored daemon.pid, so the daemon's runtime
       // pidfile got committed.
       const staleV099 =
-        '# CodeGraph data files\n' +
+        '# SleuthGraph data files\n' +
         '# These are local to each machine and should not be committed\n\n' +
         '# Database\n*.db\n*.db-wal\n*.db-shm\n\n' +
         '# Cache\ncache/\n\n# Logs\n*.log\n\n# Hook markers\n.dirty\n';
       fs.writeFileSync(gitignorePath, staleV099, 'utf-8');
 
       // Opening the project runs validateDirectory, which self-heals.
-      const cg2 = CodeGraph.openSync(tempDir);
+      const cg2 = SleuthGraph.openSync(tempDir);
       cg2.close();
 
       const upgraded = fs.readFileSync(gitignorePath, 'utf-8');
@@ -309,16 +309,16 @@ describe('CodeGraph Foundation', () => {
       expect(upgraded).not.toContain('.dirty'); // old explicit list is gone
     });
 
-    it('leaves a user-customized .codegraph/.gitignore untouched', () => {
-      const cg = CodeGraph.initSync(tempDir);
+    it('leaves a user-customized .sleuth/.gitignore untouched', () => {
+      const cg = SleuthGraph.initSync(tempDir);
       cg.close();
 
-      const gitignorePath = path.join(getCodeGraphDir(tempDir), '.gitignore');
-      // No CodeGraph header → user-authored → must not be rewritten.
+      const gitignorePath = path.join(getSleuthGraphDir(tempDir), '.gitignore');
+      // No SleuthGraph header → user-authored → must not be rewritten.
       const custom = '# my own rules\n*.db\n!keep-this.json\n';
       fs.writeFileSync(gitignorePath, custom, 'utf-8');
 
-      const cg2 = CodeGraph.openSync(tempDir);
+      const cg2 = SleuthGraph.openSync(tempDir);
       cg2.close();
 
       expect(fs.readFileSync(gitignorePath, 'utf-8')).toBe(custom);
@@ -326,30 +326,30 @@ describe('CodeGraph Foundation', () => {
   });
 
   describe('Uninitialize', () => {
-    it('should remove .CodeGraph directory', () => {
-      const cg = CodeGraph.initSync(tempDir);
+    it('should remove .SleuthGraph directory', () => {
+      const cg = SleuthGraph.initSync(tempDir);
 
       cg.uninitialize();
 
-      expect(fs.existsSync(getCodeGraphDir(tempDir))).toBe(false);
-      expect(CodeGraph.isInitialized(tempDir)).toBe(false);
+      expect(fs.existsSync(getSleuthGraphDir(tempDir))).toBe(false);
+      expect(SleuthGraph.isInitialized(tempDir)).toBe(false);
     });
   });
 
   describe('Close/Destroy', () => {
-    it('should close database but keep .CodeGraph directory', () => {
-      const cg = CodeGraph.initSync(tempDir);
+    it('should close database but keep .SleuthGraph directory', () => {
+      const cg = SleuthGraph.initSync(tempDir);
 
       cg.destroy(); // destroy is alias for close
 
-      expect(fs.existsSync(getCodeGraphDir(tempDir))).toBe(true);
-      expect(CodeGraph.isInitialized(tempDir)).toBe(true);
+      expect(fs.existsSync(getSleuthGraphDir(tempDir))).toBe(true);
+      expect(SleuthGraph.isInitialized(tempDir)).toBe(true);
     });
   });
 
   describe('Graph Query Methods', () => {
     it('should throw "Node not found" for non-existent nodes', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
 
       // getContext throws for non-existent nodes
       expect(() => cg.getContext('non-existent')).toThrow(/not found/i);
@@ -358,7 +358,7 @@ describe('CodeGraph Foundation', () => {
     });
 
     it('should return empty results for non-existent nodes', () => {
-      const cg = CodeGraph.initSync(tempDir);
+      const cg = SleuthGraph.initSync(tempDir);
 
       // These methods return empty results instead of throwing
       const traverseResult = cg.traverse('non-existent');
@@ -435,11 +435,11 @@ describe('Database Connection', () => {
 
 describe('Query Builder', () => {
   let tempDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(() => {
     tempDir = createTempDir();
-    cg = CodeGraph.initSync(tempDir);
+    cg = SleuthGraph.initSync(tempDir);
   });
 
   afterEach(() => {
@@ -474,87 +474,87 @@ describe('Query Builder', () => {
 });
 
 // Two environments that share one working tree (Windows-native + WSL) must not
-// share one `.codegraph/`. CODEGRAPH_DIR overrides the data directory name so
+// share one `.sleuth/`. SLEUTH_DIR overrides the data directory name so
 // each side keeps its own index in the same tree (issue #636).
-describe('CODEGRAPH_DIR override (#636)', () => {
-  const saved = process.env.CODEGRAPH_DIR;
+describe('SLEUTH_DIR override (#636)', () => {
+  const saved = process.env.SLEUTH_DIR;
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-dirname-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-dirname-'));
   });
   afterEach(() => {
-    if (saved === undefined) delete process.env.CODEGRAPH_DIR;
-    else process.env.CODEGRAPH_DIR = saved;
+    if (saved === undefined) delete process.env.SLEUTH_DIR;
+    else process.env.SLEUTH_DIR = saved;
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  describe('codeGraphDirName()', () => {
-    it('defaults to .codegraph when unset', () => {
-      delete process.env.CODEGRAPH_DIR;
-      expect(codeGraphDirName()).toBe('.codegraph');
+  describe('sleuthGraphDirName()', () => {
+    it('defaults to .sleuth when unset', () => {
+      delete process.env.SLEUTH_DIR;
+      expect(sleuthGraphDirName()).toBe('.sleuth');
     });
 
     it('honors a valid override', () => {
-      process.env.CODEGRAPH_DIR = '.codegraph-win';
-      expect(codeGraphDirName()).toBe('.codegraph-win');
+      process.env.SLEUTH_DIR = '.sleuth-win';
+      expect(sleuthGraphDirName()).toBe('.sleuth-win');
     });
 
     // Anything that isn't a plain segment could escape the project root or
     // clobber it, so it's ignored in favor of the default.
     it.each(['foo/bar', 'a\\b', '..', '../x', '.', '/abs/path', '   ', ''])(
-      'falls back to .codegraph for invalid value %j',
+      'falls back to .sleuth for invalid value %j',
       (bad) => {
-        process.env.CODEGRAPH_DIR = bad;
-        expect(codeGraphDirName()).toBe('.codegraph');
+        process.env.SLEUTH_DIR = bad;
+        expect(sleuthGraphDirName()).toBe('.sleuth');
       }
     );
   });
 
-  describe('isCodeGraphDataDir()', () => {
-    it('matches the default, the active override, and .codegraph-* siblings', () => {
-      process.env.CODEGRAPH_DIR = '.codegraph-win';
-      expect(isCodeGraphDataDir('.codegraph')).toBe(true);       // the other env's dir
-      expect(isCodeGraphDataDir('.codegraph-win')).toBe(true);   // active override
-      expect(isCodeGraphDataDir('.codegraph-wsl')).toBe(true);   // any sibling
+  describe('isSleuthGraphDataDir()', () => {
+    it('matches the default, the active override, and .sleuth-* siblings', () => {
+      process.env.SLEUTH_DIR = '.sleuth-win';
+      expect(isSleuthGraphDataDir('.sleuth')).toBe(true);       // the other env's dir
+      expect(isSleuthGraphDataDir('.sleuth-win')).toBe(true);   // active override
+      expect(isSleuthGraphDataDir('.sleuth-wsl')).toBe(true);   // any sibling
     });
 
     it('does not match unrelated directories', () => {
-      delete process.env.CODEGRAPH_DIR;
-      for (const name of ['src', 'node_modules', '.git', 'codegraph', '.codegraphextra']) {
-        expect(isCodeGraphDataDir(name)).toBe(false);
+      delete process.env.SLEUTH_DIR;
+      for (const name of ['src', 'node_modules', '.git', 'sleuth', '.sleuthextra']) {
+        expect(isSleuthGraphDataDir(name)).toBe(false);
       }
     });
   });
 
-  it('init writes the index under the overridden directory, not .codegraph', () => {
-    process.env.CODEGRAPH_DIR = '.codegraph-win';
-    const cg = CodeGraph.initSync(tempDir);
+  it('init writes the index under the overridden directory, not .sleuth', () => {
+    process.env.SLEUTH_DIR = '.sleuth-win';
+    const cg = SleuthGraph.initSync(tempDir);
     try {
-      expect(fs.existsSync(path.join(tempDir, '.codegraph-win', 'codegraph.db'))).toBe(true);
-      expect(fs.existsSync(path.join(tempDir, '.codegraph'))).toBe(false);
-      expect(getCodeGraphDir(tempDir)).toBe(path.join(tempDir, '.codegraph-win'));
-      expect(CodeGraph.isInitialized(tempDir)).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, '.sleuth-win', 'sleuth.db'))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, '.sleuth'))).toBe(false);
+      expect(getSleuthGraphDir(tempDir)).toBe(path.join(tempDir, '.sleuth-win'));
+      expect(SleuthGraph.isInitialized(tempDir)).toBe(true);
     } finally {
       cg.close();
     }
   });
 
   it('two index dirs coexist in one tree and the override side skips the sibling', async () => {
-    // WSL side: default `.codegraph`, with a source file.
-    delete process.env.CODEGRAPH_DIR;
+    // WSL side: default `.sleuth`, with a source file.
+    delete process.env.SLEUTH_DIR;
     fs.writeFileSync(path.join(tempDir, 'app.ts'), 'export function onlyReal() {}\n');
-    const wsl = await CodeGraph.init(tempDir, { index: true });
+    const wsl = await SleuthGraph.init(tempDir, { index: true });
     wsl.close();
 
     // Windows side: override dir, same tree. Plant a decoy source file INSIDE
     // the WSL data dir — the override-side index must not pick it up.
-    process.env.CODEGRAPH_DIR = '.codegraph-win';
-    fs.writeFileSync(path.join(tempDir, '.codegraph', 'decoy.ts'), 'export function decoyLeak() {}\n');
-    const win = await CodeGraph.init(tempDir, { index: true });
+    process.env.SLEUTH_DIR = '.sleuth-win';
+    fs.writeFileSync(path.join(tempDir, '.sleuth', 'decoy.ts'), 'export function decoyLeak() {}\n');
+    const win = await SleuthGraph.init(tempDir, { index: true });
     try {
-      expect(fs.existsSync(path.join(tempDir, '.codegraph', 'codegraph.db'))).toBe(true);
-      expect(fs.existsSync(path.join(tempDir, '.codegraph-win', 'codegraph.db'))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, '.sleuth', 'sleuth.db'))).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, '.sleuth-win', 'sleuth.db'))).toBe(true);
       expect(win.searchNodes('onlyReal').length).toBeGreaterThan(0);
       expect(win.searchNodes('decoyLeak')).toEqual([]); // sibling data dir not indexed
     } finally {

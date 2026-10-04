@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
-const projects: { dir: string; cg: CodeGraph }[] = [];
+const projects: { dir: string; cg: SleuthGraph }[] = [];
 afterEach(() => {
   for (const { dir, cg } of projects.splice(0)) {
     cg.close();
@@ -33,7 +33,7 @@ export const useStore = create((set) => ({ reset: () => set({}) }));
 `);
   fs.writeFileSync(path.join(dir, 'decoy.ts'), 'export function reset() { return 99; }');
   fs.writeFileSync(path.join(dir, 'consumer.ts'), consumer(active));
-  const cg = CodeGraph.initSync(dir);
+  const cg = SleuthGraph.initSync(dir);
   projects.push({ dir, cg });
   const result = await cg.indexAll();
   expect(result.success).toBe(true);
@@ -41,7 +41,7 @@ export const useStore = create((set) => ({ reset: () => set({}) }));
   return { dir, cg };
 }
 
-function assertBindings(cg: CodeGraph, active: boolean) {
+function assertBindings(cg: SleuthGraph, active: boolean) {
   const functions = cg.getNodesByKind('function');
   const run = functions.find(n => n.name === 'run' && n.filePath === 'consumer.ts')!;
   const action = functions.find(n => n.name === 'reset' && n.filePath === 'store.ts')!;
@@ -66,7 +66,7 @@ describe('store eligibility cache across edits and resolver contexts', () => {
   it.each([false, true])('sync refreshes eligibility starting with getState=%s', async (initial) => {
     const { dir, cg } = await project(initial);
     assertBindings(cg, initial);
-    // Reuse the same CodeGraph/resolver and path in both directions. A cached
+    // Reuse the same SleuthGraph/resolver and path in both directions. A cached
     // negative must not mask a new store binding, and removing it must remove
     // both action edges while preserving unresolved call-site evidence.
     for (const active of [!initial, initial]) {

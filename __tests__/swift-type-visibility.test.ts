@@ -11,25 +11,25 @@ import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const projects: string[] = [];
 afterAll(() => {
   for (const p of projects.splice(0)) fs.rmSync(p, { recursive: true, force: true });
 });
 
-async function project(files: Record<string, string>): Promise<CodeGraph> {
+async function project(files: Record<string, string>): Promise<SleuthGraph> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-swift-types-'));
   projects.push(root);
   for (const [rel, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return CodeGraph.init(root, { index: true });
+  return SleuthGraph.init(root, { index: true });
 }
 
 /** Every non-`contains` edge as `kind source -> target (file)`. */
-function edges(cg: CodeGraph): string[] {
+function edges(cg: SleuthGraph): string[] {
   const out: string[] = [];
   for (const file of cg.getFiles()) {
     for (const node of cg.getNodesInFile(file.path)) {
@@ -42,7 +42,7 @@ function edges(cg: CodeGraph): string[] {
 }
 
 describe('Swift: an extension is not the type it extends', () => {
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let all: string[];
   beforeAll(async () => {
     cg = await project({

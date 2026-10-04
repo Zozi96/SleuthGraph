@@ -23,7 +23,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { createGraphApi, startUiServer, type GraphApi, type UiServerHandle } from '../src/ui-server';
 import { MAX_FILE_CALL_GROUPS, MAX_FILE_OUTSIDE_REFS } from '../src/ui-server/api/filecode';
 
@@ -84,7 +84,7 @@ function pairs(payload: any): string[] {
 }
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-filecode-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-filecode-'));
   projectRoot = path.join(tempDir, 'project');
 
   // `format` is called by TWO functions in this file and by one in another, and
@@ -125,7 +125,7 @@ render('a', 'b');
   // Nothing in it reaches anything: the empty-rail, no-arc case.
   write(projectRoot, 'src/quiet.ts', `export const NAME = 'quiet';\n`);
 
-  const cg = CodeGraph.initSync(projectRoot, {
+  const cg = SleuthGraph.initSync(projectRoot, {
     config: { include: ['src/**/*.ts'], exclude: [] },
   });
   await cg.indexAll();
@@ -267,7 +267,7 @@ describe('GET /api/filecode', () => {
   it('answers 404 for a file that is fine but not indexed', async () => {
     const payload = await getCode('src/nope.ts', 404);
     expect(payload.code).toBe('not-found');
-    expect(payload.error).toMatch(/not in this CodeGraph index/);
+    expect(payload.error).toMatch(/not in this SleuthGraph index/);
   });
 
   it('says what the endpoint wants when given no path', async () => {

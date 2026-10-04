@@ -2,7 +2,7 @@
  * Sync Module Tests
  *
  * Tests for sync functionality (incremental updates).
- * Note: Git hooks functionality has been removed in favor of codegraph's
+ * Note: Git hooks functionality has been removed in favor of sleuth's
  * Claude Code hooks integration.
  */
 
@@ -11,17 +11,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execFileSync } from 'child_process';
-import CodeGraph, { LockUnavailableError } from '../src/index';
+import SleuthGraph, { LockUnavailableError } from '../src/index';
 import { QueryBuilder } from '../src/db/queries';
 import { __emitWatchEventForTests } from '../src/sync/watcher';
 
 describe('Sync Module', () => {
   describe('Sync Functionality', () => {
     let testDir: string;
-    let cg: CodeGraph;
+    let cg: SleuthGraph;
 
     beforeEach(async () => {
-      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-sync-func-'));
+      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-sync-func-'));
 
       // Create initial source files
       const srcDir = path.join(testDir, 'src');
@@ -32,7 +32,7 @@ describe('Sync Module', () => {
       );
 
       // Initialize and index
-      cg = CodeGraph.initSync(testDir, {
+      cg = SleuthGraph.initSync(testDir, {
         config: {
           include: ['**/*.ts'],
           exclude: [],
@@ -93,7 +93,7 @@ describe('Sync Module', () => {
 
     describe('sync()', () => {
       it('rejects a live lock and applies the pending edit after release (#1361)', async () => {
-        const lockPath = path.join(testDir, '.codegraph', 'codegraph.lock');
+        const lockPath = path.join(testDir, '.sleuth', 'sleuth.lock');
         fs.writeFileSync(path.join(testDir, 'src', 'index.ts'),
           'export function changedUnderLock() { return 2; }');
         fs.writeFileSync(lockPath, String(process.pid));
@@ -109,14 +109,14 @@ describe('Sync Module', () => {
       });
 
       it('open with sync rejects contention without removing the held lock (#1361)', async () => {
-        const lockPath = path.join(testDir, '.codegraph', 'codegraph.lock');
+        const lockPath = path.join(testDir, '.sleuth', 'sleuth.lock');
         fs.writeFileSync(lockPath, String(process.pid));
-        await expect(CodeGraph.open(testDir, { sync: true })).rejects.toBeInstanceOf(LockUnavailableError);
+        await expect(SleuthGraph.open(testDir, { sync: true })).rejects.toBeInstanceOf(LockUnavailableError);
         expect(fs.readFileSync(lockPath, 'utf8')).toBe(String(process.pid));
       });
 
       it('watch retains pending edits under a live lock and retries after release (#1361)', async () => {
-        const lockPath = path.join(testDir, '.codegraph', 'codegraph.lock');
+        const lockPath = path.join(testDir, '.sleuth', 'sleuth.lock');
         const sync = vi.spyOn(cg, 'sync');
         const onSyncComplete = vi.fn();
         const onSyncError = vi.fn();
@@ -230,14 +230,14 @@ describe('Sync Module', () => {
 
   describe('Git-based sync', () => {
     let testDir: string;
-    let cg: CodeGraph;
+    let cg: SleuthGraph;
 
     function git(...args: string[]) {
       execFileSync('git', args, { cwd: testDir, stdio: 'pipe' });
     }
 
     beforeEach(async () => {
-      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-git-sync-'));
+      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-git-sync-'));
 
       // Initialize a git repo with an initial commit
       git('init');
@@ -254,8 +254,8 @@ describe('Sync Module', () => {
       git('add', '-A');
       git('commit', '-m', 'initial');
 
-      // Initialize CodeGraph and index
-      cg = CodeGraph.initSync(testDir, {
+      // Initialize SleuthGraph and index
+      cg = SleuthGraph.initSync(testDir, {
         config: {
           include: ['**/*.ts'],
           exclude: [],
@@ -302,7 +302,7 @@ describe('Sync Module', () => {
     });
 
     it('should stop reporting untracked files once they are indexed (issue #206)', async () => {
-      // Untracked files stay `??` in git status even after codegraph indexes
+      // Untracked files stay `??` in git status even after sleuth indexes
       // them. Change detection must compare them against the DB by hash, not
       // report every untracked file as "added" on every sync/status.
       fs.writeFileSync(
@@ -387,14 +387,14 @@ describe('Sync Module', () => {
   // git fast path must exclude exactly what the full scan does. (#766)
   describe('Incremental sync honors the ignore matcher (#766)', () => {
     let testDir: string;
-    let cg: CodeGraph;
+    let cg: SleuthGraph;
 
     function git(...args: string[]) {
       execFileSync('git', args, { cwd: testDir, stdio: 'pipe' });
     }
 
     beforeEach(async () => {
-      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-766-'));
+      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-766-'));
 
       git('init');
       git('config', 'user.email', 'test@test.com');
@@ -428,7 +428,7 @@ describe('Sync Module', () => {
       git('add', '-f', 'generated/out.ts'); // force the ignored-but-tracked file in
       git('commit', '-m', 'initial');
 
-      cg = CodeGraph.initSync(testDir, {
+      cg = SleuthGraph.initSync(testDir, {
         config: { include: ['**/*.ts'], exclude: [] },
       });
       await cg.indexAll();
@@ -477,7 +477,7 @@ describe('Sync Module', () => {
     });
 
     it('status (getChangedFiles) agrees with sync — no phantom pending changes', async () => {
-      // The user-visible symptom today: `codegraph status` reads getChangedFiles
+      // The user-visible symptom today: `sleuth status` reads getChangedFiles
       // and reports a vendor edit as a pending change that `sync` (a filesystem
       // reconcile) then never indexes — so the count never clears. Both must now
       // agree that nothing happened.
@@ -514,7 +514,7 @@ describe('Sync Module', () => {
   // carrying a matching symbol name. (#1240)
   describe('Sync resolves refs satisfied by a new export in another file (#1240)', () => {
     let testDir: string;
-    let cg: CodeGraph;
+    let cg: SleuthGraph;
 
     function write(rel: string, content: string) {
       fs.writeFileSync(path.join(testDir, rel), content);
@@ -528,14 +528,14 @@ describe('Sync Module', () => {
     }
 
     beforeEach(async () => {
-      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1240-'));
+      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1240-'));
 
       // a.ts references `greet`, which does not exist anywhere yet — the ref
       // fails resolution during the initial index.
       write('a.ts', `import { greet } from './b';\n\nexport function run(): number {\n  return greet();\n}\n`);
       write('b.ts', `export function other(): number {\n  return 1;\n}\n`);
 
-      cg = CodeGraph.initSync(testDir, {
+      cg = SleuthGraph.initSync(testDir, {
         config: { include: ['**/*.ts'], exclude: [] },
       });
       await cg.indexAll();
@@ -615,7 +615,7 @@ describe('Sync Module', () => {
   // failed until the symbol reappears.
   describe('Sync rebinds or parks refs when a resolved symbol is removed (#1240 removal case)', () => {
     let testDir: string;
-    let cg: CodeGraph;
+    let cg: SleuthGraph;
 
     function write(rel: string, content: string) {
       fs.writeFileSync(path.join(testDir, rel), content);
@@ -633,14 +633,14 @@ describe('Sync Module', () => {
     }
 
     beforeEach(async () => {
-      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1240-removal-'));
+      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1240-removal-'));
 
       // No import — cross-file name matching, so the caller can legitimately
       // rebind to a definition in ANY file, which is what a full re-index does.
       write('a.ts', `export function run(): number {\n  return greet();\n}\n`);
       write('b.ts', `export function greet(): number {\n  return 42;\n}\n`);
 
-      cg = CodeGraph.initSync(testDir, {
+      cg = SleuthGraph.initSync(testDir, {
         config: { include: ['**/*.ts'], exclude: [] },
       });
       await cg.indexAll();
@@ -701,10 +701,10 @@ describe('Sync Module', () => {
 
   describe('Cross-file module-attribute caller edges survive callee re-index (#899)', () => {
     let testDir: string;
-    let cg: CodeGraph;
+    let cg: SleuthGraph;
 
     beforeEach(async () => {
-      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-899-'));
+      testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-899-'));
 
       // pkg/mod.py — a module with two functions, both called from a separate
       // test file via `mod.<fn>(...)` (module-attribute access). This is the
@@ -745,7 +745,7 @@ describe('Sync Module', () => {
         ].join('\n')
       );
 
-      cg = CodeGraph.initSync(testDir, {
+      cg = SleuthGraph.initSync(testDir, {
         config: { include: ['**/*.py'], exclude: [] },
       });
       await cg.indexAll();
@@ -836,7 +836,7 @@ describe('Sync Module', () => {
 
 describe('Same-named symbols keep their own cross-file callers across a re-index (#2276)', () => {
   const dirs: string[] = [];
-  const graphs: CodeGraph[] = [];
+  const graphs: SleuthGraph[] = [];
 
   afterEach(() => {
     for (const cg of graphs.splice(0)) cg.destroy();
@@ -844,20 +844,20 @@ describe('Same-named symbols keep their own cross-file callers across a re-index
   });
 
   async function indexProject(files: Record<string, string>, include: string[]) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-2276-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-2276-'));
     dirs.push(dir);
     for (const [rel, content] of Object.entries(files)) {
       fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
       fs.writeFileSync(path.join(dir, rel), content);
     }
-    const cg = CodeGraph.initSync(dir, { config: { include, exclude: [] } });
+    const cg = SleuthGraph.initSync(dir, { config: { include, exclude: [] } });
     graphs.push(cg);
     await cg.indexAll();
     return { dir, cg };
   }
 
   /** Every method named `name`, in file/line order, with its callers. */
-  function callersOf(cg: CodeGraph, name: string): string[] {
+  function callersOf(cg: SleuthGraph, name: string): string[] {
     return cg
       .getNodesByName(name)
       .filter((n) => n.kind === 'method')
@@ -1058,9 +1058,9 @@ describe('Same-named symbols keep their own cross-file callers across a re-index
 
 describe('Scoped sync parity (#watcher-scoped)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
-  const snapshot = (g: CodeGraph): string => {
+  const snapshot = (g: SleuthGraph): string => {
     // Natural-key snapshot of the whole graph, mirroring dump-graph.mjs at
     // unit scale: scoped and full sync must land the DB in the same state.
     const nodes = g
@@ -1073,12 +1073,12 @@ describe('Scoped sync parity (#watcher-scoped)', () => {
   };
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-sync-scoped-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-sync-scoped-'));
     const srcDir = path.join(testDir, 'src');
     fs.mkdirSync(srcDir);
     fs.writeFileSync(path.join(srcDir, 'a.ts'), `export function alpha() { return beta(); }`);
     fs.writeFileSync(path.join(srcDir, 'b.ts'), `export function beta() { return 1; }`);
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
   });
 
@@ -1128,11 +1128,11 @@ describe('Scoped sync parity (#watcher-scoped)', () => {
     expect(cg.searchNodes('beta').length).toBeGreaterThan(0);
   });
 
-  it('a scoped path that codegraph.json now excludes is removed, never re-parsed (#1590)', async () => {
+  it('a scoped path that sleuth.json now excludes is removed, never re-parsed (#1590)', async () => {
     // The daemon's watcher hands sync the exact edited path. If the project's
     // scope changed underneath it, that path must be treated the way the full
     // scan treats it — out of scope, hence gone — never parsed on trust.
-    const cfg = path.join(testDir, 'codegraph.json');
+    const cfg = path.join(testDir, 'sleuth.json');
     fs.writeFileSync(cfg, JSON.stringify({ exclude: ['src/b.ts'] }));
     fs.writeFileSync(path.join(testDir, 'src', 'b.ts'), `export function beta() { return 2; }\nexport function gamma() { return 3; }`);
     const scoped = await cg.sync({ paths: ['src/b.ts'] });
@@ -1166,13 +1166,13 @@ describe('Scoped sync parity (#watcher-scoped)', () => {
 // (#1829)
 describe('committed-but-unindexed changes (#1829)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   const git = (...args: string[]) =>
     execFileSync('git', args, { cwd: testDir, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1829-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1829-'));
     git('init');
     git('config', 'user.email', 'test@test.com');
     git('config', 'user.name', 'Test');
@@ -1182,7 +1182,7 @@ describe('committed-but-unindexed changes (#1829)', () => {
     git('add', '-A');
     git('commit', '-m', 'initial');
 
-    cg = CodeGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cg.indexAll();
   });
 
@@ -1323,13 +1323,13 @@ describe('committed-but-unindexed changes (#1829)', () => {
 
 describe('sync pending-reference recovery reporting (#1360)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-sync-recovery-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-sync-recovery-'));
     fs.writeFileSync(path.join(testDir, 'index.ts'),
       'export function caller() { return target(); }\nexport function target() { return 1; }\n');
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
   });
 

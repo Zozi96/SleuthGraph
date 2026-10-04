@@ -27,7 +27,7 @@ together). What landed, per suspect:
   sub-transactions with yields between (crash semantics unchanged — the batch
   was already several transactions, and #1187's sweep re-resolves leftovers).
 - **Scan:** attributed (phase timings now in the code, `[phase-timing]` on
-  `CODEGRAPH_SYNTH_TIMINGS`) — it is the synchronous git enumeration
+  `SLEUTH_SYNTH_TIMINGS`) — it is the synchronous git enumeration
   (`getGitVisibleFiles`/`collectGitFiles`), NOT a hash loop. See "Accepted
   residuals" below for why it was left synchronous.
 
@@ -95,7 +95,7 @@ tail showed recurring single stalls that nothing currently yields through:
 | kernel (2 cores) | extraction (t+980–1080s) | 3.0–3.3s |
 | kernel (2 cores) | extraction→resolution boundary (t+1354s) | 8.5s |
 | llvm (mac, fast) | extraction / early resolution (t+1000–1320s) | 5–14s, recurring |
-| kernel (2 cores) | `codegraph sync` on the same DB (110 files) | **28.2s** (single stall) |
+| kernel (2 cores) | `sleuth sync` on the same DB (110 files) | **28.2s** (single stall) |
 
 None of these approaches 60s on the tested hardware, and none are regressions —
 they pre-date #1212. But the #1212 pattern (Windows NTFS + Defender, small VMs)
@@ -128,8 +128,8 @@ of this bug class if left unmeasured.
 
 ## Diagnosis plan (before any fix)
 
-Extend the env-gated timing that located #1212 (`CODEGRAPH_SYNTH_TIMINGS`) to
-the suspects — or add a sibling `CODEGRAPH_PHASE_TIMINGS` — so each suspect
+Extend the env-gated timing that located #1212 (`SLEUTH_SYNTH_TIMINGS`) to
+the suspects — or add a sibling `SLEUTH_PHASE_TIMINGS` — so each suspect
 logs spans >250ms with a label:
 
 - wrap `storeExtractionResult` (log file path + node count when slow — this
@@ -166,7 +166,7 @@ first guess is often wrong.
 
 - Instrumented full `init` on the kernel index (2-core/6GB container) and
   llvm-project shows **no single event-loop stall > ~2s** in any phase.
-- `codegraph sync` on the kernel DB shows the same bound (kills the 28.2s span).
+- `sleuth sync` on the kernel DB shows the same bound (kills the 28.2s span).
 - Graph parity: byte-identical node/edge sets on a re-index of at least
   elasticsearch + redis (the #1212 parity harness in the session scratchpad
   automates the synthesized-edge half; extraction parity = compare
@@ -185,4 +185,4 @@ first guess is often wrong.
   against an existing index — ~2 min iteration instead of a 40-min re-index),
   `parity.mjs` (synthesized-edge set differ).
 - The #1091 methodology note applies: a real CLI run at a lowered
-  `CODEGRAPH_WATCHDOG_TIMEOUT_MS` is the authoritative kill/no-kill test.
+  `SLEUTH_WATCHDOG_TIMEOUT_MS` is the authoritative kill/no-kill test.

@@ -35,7 +35,7 @@ const REPO = resolve(HERE, '..', '..');
 const load = async (rel) => import(pathToFileURL(resolve(REPO, rel)).href);
 const idxMod = await load('dist/index.js');
 const toolsMod = await load('dist/mcp/tools.js');
-const CodeGraph = idxMod.default?.default ?? idxMod.default ?? idxMod.CodeGraph;
+const SleuthGraph = idxMod.default?.default ?? idxMod.default ?? idxMod.SleuthGraph;
 const { ToolHandler } = toolsMod;
 
 /**
@@ -93,9 +93,9 @@ function check(cg, response, names) {
 }
 
 async function runCase(root, { query, symbols }) {
-  const cg = CodeGraph.openSync(root);
+  const cg = SleuthGraph.openSync(root);
   try {
-    const res = await new ToolHandler(cg).execute('codegraph_explore', { query });
+    const res = await new ToolHandler(cg).execute('sleuth_explore', { query });
     const response = res.content?.[0]?.text ?? '';
     return { response, results: check(cg, response, symbols) };
   } finally {
@@ -129,8 +129,8 @@ if (positional.length >= 3) {
   const dir = mkdtempSync(join(tmpdir(), 'cg-named-'));
   try {
     cpSync(src, dir, { recursive: true });
-    rmSync(join(dir, '.codegraph'), { recursive: true, force: true });
-    const cg = CodeGraph.initSync(dir);
+    rmSync(join(dir, '.sleuth'), { recursive: true, force: true });
+    const cg = SleuthGraph.initSync(dir);
     await cg.indexAll();
     cg.close?.();
 

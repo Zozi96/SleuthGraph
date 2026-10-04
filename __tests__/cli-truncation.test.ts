@@ -3,14 +3,14 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 function runCli(cwd: string, args: string[]) {
   return spawnSync(process.execPath, [BIN, ...args, '-p', cwd], {
     encoding: 'utf-8',
-    env: { ...process.env, CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_WASM_RELAUNCHED: '1', NO_COLOR: '1' },
+    env: { ...process.env, SLEUTH_NO_DAEMON: '1', SLEUTH_WASM_RELAUNCHED: '1', NO_COLOR: '1' },
   });
 }
 
@@ -18,7 +18,7 @@ describe('CLI truncation reporting (#1639)', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cli-truncation-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cli-truncation-'));
     fs.writeFileSync(
       path.join(tempDir, 'lib.ts'),
       [
@@ -38,7 +38,7 @@ describe('CLI truncation reporting (#1639)', () => {
         `import { target } from './lib';\nexport function caller${i}() { target(); }\n`,
       );
     }
-    const cg = CodeGraph.initSync(tempDir);
+    const cg = SleuthGraph.initSync(tempDir);
     await cg.indexAll();
     cg.close();
   });

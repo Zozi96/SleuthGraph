@@ -29,14 +29,14 @@ describe('telemetry disabled across instances', () => {
     make().setEnabled(true, 'cli');
     expect(a.isEnabled()).toBe(false);
     a.recordLifecycle('install', {});
-    a.recordUsage('mcp_tool', 'codegraph_explore', true);
+    a.recordUsage('mcp_tool', 'sleuth_explore', true);
     a.persistSync();
     await a.flushNow();
     expect(sends).toEqual([]);
     expect(telemetryFiles()).toEqual([]);
   });
 
-  it.each(['DO_NOT_TRACK', 'CODEGRAPH_TELEMETRY'])('an env var cannot revive recording or sending: %s', async key => {
+  it.each(['DO_NOT_TRACK', 'SLEUTH_TELEMETRY'])('an env var cannot revive recording or sending: %s', async key => {
     const a = make({ [key]: key === 'DO_NOT_TRACK' ? '0' : '1' });
     a.setEnabled(true, 'cli');
     a.recordLifecycle('install', {});

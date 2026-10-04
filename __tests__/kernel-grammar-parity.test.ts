@@ -12,7 +12,7 @@
  * the full node-kind and field tables, compared id by id.
  *
  * Runs wherever a kernel binary is staged (scripts/build-kernel.sh); skips
- * otherwise. CI that builds the kernel sets CODEGRAPH_KERNEL_EXPECT=1 so the
+ * otherwise. CI that builds the kernel sets SLEUTH_KERNEL_EXPECT=1 so the
  * skip can't mask a missing build (asserted in kernel-scaffold.test.ts).
  */
 

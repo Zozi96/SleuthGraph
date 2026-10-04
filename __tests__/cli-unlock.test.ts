@@ -4,27 +4,27 @@ import * as fs from 'fs';
 import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { getDaemonPidPath, getDaemonSocketPath } from '../src/mcp/daemon-paths';
-import { CodeGraphPackageVersion } from '../src/mcp/version';
+import { SleuthGraphPackageVersion } from '../src/mcp/version';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
-function runCodegraph(args: string[], cwd: string): string {
+function runSleuthgraph(args: string[], cwd: string): string {
   return execFileSync(process.execPath, [BIN, ...args], {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, CODEGRAPH_NO_DAEMON: '1' },
+    env: { ...process.env, SLEUTH_NO_DAEMON: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }
 
-function runCodegraphAsync(args: string[], cwd: string): Promise<string> {
+function runSleuthgraphAsync(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       process.execPath,
       [BIN, ...args],
-      { cwd, encoding: 'utf8', env: { ...process.env, CODEGRAPH_NO_DAEMON: '1' } },
+      { cwd, encoding: 'utf8', env: { ...process.env, SLEUTH_NO_DAEMON: '1' } },
       (error, stdout, stderr) => {
         if (error) reject(new Error(`${error.message}\n${stderr}`));
         else resolve(stdout);
@@ -33,12 +33,12 @@ function runCodegraphAsync(args: string[], cwd: string): Promise<string> {
   });
 }
 
-describe('codegraph unlock — daemon artifact recovery (#1553)', () => {
+describe('sleuth unlock — daemon artifact recovery (#1553)', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-unlock-'));
-    const cg = CodeGraph.initSync(tempDir);
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-unlock-'));
+    const cg = SleuthGraph.initSync(tempDir);
     cg.close();
   });
 
@@ -47,26 +47,26 @@ describe('codegraph unlock — daemon artifact recovery (#1553)', () => {
   });
 
   it('removes indexing and phantom-daemon artifacts, then permits indexing', () => {
-    const graphDir = path.join(tempDir, '.codegraph');
+    const graphDir = path.join(tempDir, '.sleuth');
     const pidPath = getDaemonPidPath(tempDir);
     const socketPath = getDaemonSocketPath(tempDir);
-    fs.writeFileSync(path.join(graphDir, 'codegraph.lock'), 'stale\n');
+    fs.writeFileSync(path.join(graphDir, 'sleuth.lock'), 'stale\n');
     fs.writeFileSync(pidPath, JSON.stringify({
       pid: process.pid,
-      version: CodeGraphPackageVersion,
+      version: SleuthGraphPackageVersion,
       socketPath,
       startedAt: Date.now() - 60_000,
     }));
     if (process.platform !== 'win32') fs.writeFileSync(socketPath, 'stale\n');
 
-    const output = runCodegraph(['unlock', tempDir], tempDir);
+    const output = runSleuthgraph(['unlock', tempDir], tempDir);
 
     expect(output).toContain('Removed stale lock artifacts');
-    expect(fs.existsSync(path.join(graphDir, 'codegraph.lock'))).toBe(false);
+    expect(fs.existsSync(path.join(graphDir, 'sleuth.lock'))).toBe(false);
     expect(fs.existsSync(pidPath)).toBe(false);
     if (process.platform !== 'win32') expect(fs.existsSync(socketPath)).toBe(false);
     expect(() => process.kill(process.pid, 0)).not.toThrow();
-    expect(() => runCodegraph(['index', '--quiet', tempDir], tempDir)).not.toThrow();
+    expect(() => runSleuthgraph(['index', '--quiet', tempDir], tempDir)).not.toThrow();
   });
 
   it('preserves artifacts when the recorded live daemon answers the socket hello', async () => {
@@ -74,7 +74,7 @@ describe('codegraph unlock — daemon artifact recovery (#1553)', () => {
     const socketPath = getDaemonSocketPath(tempDir);
     const server = net.createServer((socket) => {
       socket.end(JSON.stringify({
-        codegraph: CodeGraphPackageVersion,
+        sleuth: SleuthGraphPackageVersion,
         pid: process.pid,
         socketPath,
         protocol: 1,
@@ -86,13 +86,13 @@ describe('codegraph unlock — daemon artifact recovery (#1553)', () => {
     });
     fs.writeFileSync(pidPath, JSON.stringify({
       pid: process.pid,
-      version: CodeGraphPackageVersion,
+      version: SleuthGraphPackageVersion,
       socketPath,
       startedAt: Date.now(),
     }));
 
     try {
-      const output = await runCodegraphAsync(['unlock', tempDir], tempDir);
+      const output = await runSleuthgraphAsync(['unlock', tempDir], tempDir);
       expect(output).toContain('No stale lock files found');
       expect(fs.existsSync(pidPath)).toBe(true);
     } finally {
@@ -104,7 +104,7 @@ describe('codegraph unlock — daemon artifact recovery (#1553)', () => {
     const pidPath = getDaemonPidPath(tempDir);
     fs.writeFileSync(pidPath, `${process.pid}\n`);
 
-    const output = runCodegraph(['unlock', tempDir], tempDir);
+    const output = runSleuthgraph(['unlock', tempDir], tempDir);
 
     expect(output).toContain('No stale lock files found');
     expect(fs.readFileSync(pidPath, 'utf8')).toBe(`${process.pid}\n`);
@@ -115,7 +115,7 @@ describe('codegraph unlock — daemon artifact recovery (#1553)', () => {
     const pidPath = getDaemonPidPath(tempDir);
     fs.writeFileSync(pidPath, '999999\n');
 
-    const output = runCodegraph(['unlock', tempDir], tempDir);
+    const output = runSleuthgraph(['unlock', tempDir], tempDir);
 
     expect(output).toContain('Removed stale lock artifacts');
     expect(fs.existsSync(pidPath)).toBe(false);
@@ -125,7 +125,7 @@ describe('codegraph unlock — daemon artifact recovery (#1553)', () => {
     const pidPath = getDaemonPidPath(tempDir);
     fs.writeFileSync(pidPath, 'not-a-lock\n');
 
-    const output = runCodegraph(['unlock', tempDir], tempDir);
+    const output = runSleuthgraph(['unlock', tempDir], tempDir);
 
     expect(output).toContain('Removed stale lock artifacts');
     expect(fs.existsSync(pidPath)).toBe(false);

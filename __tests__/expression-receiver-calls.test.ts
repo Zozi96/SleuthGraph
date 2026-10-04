@@ -12,12 +12,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { extractFromSource } from '../src/extraction';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 const files: Record<string, string> = {
   'src/adapter.ts':
@@ -61,7 +61,7 @@ beforeAll(async () => {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
     fs.writeFileSync(path.join(dir, rel), text);
   }
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 });
 

@@ -17,7 +17,7 @@ import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { blankLoneMacroLines, flattenMidStatementConditionals } from '../src/extraction/languages/c-cpp';
 
 const HEADER = `#pragma once
@@ -76,13 +76,13 @@ class basic_json
 `;
 
 let root = '';
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-cpp-conditional-'));
   fs.mkdirSync(path.join(root, 'include'), { recursive: true });
   fs.writeFileSync(path.join(root, 'include/json.hpp'), HEADER);
-  cg = await CodeGraph.init(root, { index: true });
+  cg = await SleuthGraph.init(root, { index: true });
 });
 
 afterAll(() => {

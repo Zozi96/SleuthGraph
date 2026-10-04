@@ -12,21 +12,21 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const projects: string[] = [];
 afterAll(() => {
   for (const p of projects.splice(0)) fs.rmSync(p, { recursive: true, force: true });
 });
 
-async function project(files: Record<string, string>): Promise<CodeGraph> {
+async function project(files: Record<string, string>): Promise<SleuthGraph> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-nest-prefix-'));
   projects.push(root);
   for (const [rel, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return CodeGraph.init(root, { index: true });
+  return SleuthGraph.init(root, { index: true });
 }
 
 const MAIN = `import { NestFactory } from '@nestjs/core';

@@ -32,7 +32,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import type { ExploreDiagnosticReport, ExploreDiagnosticFile } from '../src/mcp/explore-diagnostics';
 
@@ -53,20 +53,20 @@ const TYPE_QUERY = 'what does the UploadStorage interface declare for putting an
 
 describe('CG-28 — a declaration-only file does not outrank implementation on a flow query', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let sidecar: string;
 
   /** One explore call; returns its diagnostic report plus the response text. */
   const explore = async (query: string): Promise<{ report: ExploreDiagnosticReport; text: string }> => {
     fs.rmSync(sidecar, { force: true });
-    const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+    const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
     let text: string;
     try {
-      text = (await new ToolHandler(cg).execute('codegraph_explore', { query })).content?.[0]?.text ?? '';
+      text = (await new ToolHandler(cg).execute('sleuth_explore', { query })).content?.[0]?.text ?? '';
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-      else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+      else process.env.SLEUTH_EXPLORE_DEBUG = previous;
     }
     const written = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
     return { report: JSON.parse(written[written.length - 1]!) as ExploreDiagnosticReport, text };
@@ -79,12 +79,12 @@ describe('CG-28 — a declaration-only file does not outrank implementation on a
   let typed: { report: ExploreDiagnosticReport; text: string };
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cg28-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cg28-'));
     fs.cpSync(FIXTURE_SRC, testDir, { recursive: true });
-    fs.rmSync(path.join(testDir, '.codegraph'), { recursive: true, force: true });
+    fs.rmSync(path.join(testDir, '.sleuth'), { recursive: true, force: true });
     sidecar = path.join(testDir, 'explore-diag.jsonl');
 
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
 
     flow = await explore(FLOW_QUERY);

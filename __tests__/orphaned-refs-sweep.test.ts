@@ -17,16 +17,16 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { createDatabase } from '../src/db/sqlite-adapter';
 import type { ReferenceResolver } from '../src/resolution';
 
 describe('Orphaned refs sweep (#1187)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(() => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-orphan-sweep-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-orphan-sweep-'));
   });
 
   afterEach(() => {
@@ -67,7 +67,7 @@ describe('Orphaned refs sweep (#1187)', () => {
   // Compare call sites and resolution evidence, not just edge counts: a
   // recovery can also silently downgrade confidence without losing a row.
   function graphSnapshot() {
-    const { db } = createDatabase(path.join(testDir, '.codegraph', 'codegraph.db'), { readOnly: true });
+    const { db } = createDatabase(path.join(testDir, '.sleuth', 'sleuth.db'), { readOnly: true });
     try {
       const sorted = (sql: string) => db.prepare(sql).all().map((row) => JSON.stringify(row)).sort();
       return {
@@ -94,7 +94,7 @@ describe('Orphaned refs sweep (#1187)', () => {
       fs.writeFileSync(path.join(testDir, 'zCaller.java'),
         'class Caller { void run(Child child) { child.draw(); } }\n');
 
-      cg = CodeGraph.initSync(testDir);
+      cg = SleuthGraph.initSync(testDir);
       await cg.indexAll();
       const target = cg.getNodesByKind('method').find((n) => n.qualifiedName === 'Base::draw')!;
       expect(callerFiles(target)).toEqual(['zCaller.java']);
@@ -104,7 +104,7 @@ describe('Orphaned refs sweep (#1187)', () => {
         await interruptAfterExtraction(file);
       }
       cg.destroy();
-      cg = CodeGraph.openSync(testDir);
+      cg = SleuthGraph.openSync(testDir);
       expect(cg.getPendingReferenceCount()).toBeGreaterThan(5000);
 
       const recovered = await cg.sync();
@@ -128,7 +128,7 @@ describe('Orphaned refs sweep (#1187)', () => {
         '  missing() { bus.on("missing", this.missingHandler); }',
         '}',
       ].join('\n'));
-      cg = CodeGraph.initSync(testDir);
+      cg = SleuthGraph.initSync(testDir);
       await cg.indexAll();
       const target = findMethod('handleSubmit');
       expect(cg.getIncomingEdges(target.id).filter((e) => e.kind === 'references')).toHaveLength(3);
@@ -145,7 +145,7 @@ describe('Orphaned refs sweep (#1187)', () => {
         if (current === total) throw new Error('interrupted before deferred resolution');
       }, 1)).rejects.toThrow('interrupted before deferred resolution');
       cg.destroy();
-      cg = CodeGraph.openSync(testDir);
+      cg = SleuthGraph.openSync(testDir);
 
       await cg.sync();
       expect(cg.getIncomingEdges(target.id).filter((e) => e.kind === 'references')).toHaveLength(3);
@@ -198,7 +198,7 @@ describe('Orphaned refs sweep (#1187)', () => {
         ].join('\n')
       );
 
-      cg = CodeGraph.initSync(testDir);
+      cg = SleuthGraph.initSync(testDir);
       await cg.indexAll();
     });
 
@@ -257,7 +257,7 @@ describe('Orphaned refs sweep (#1187)', () => {
         ].join('\n')
       );
 
-      cg = CodeGraph.initSync(testDir);
+      cg = SleuthGraph.initSync(testDir);
       await cg.indexAll();
       expect(cg.getPendingReferenceCount()).toBe(0);
 
@@ -304,7 +304,7 @@ describe('Orphaned refs sweep (#1187)', () => {
         'export function target() { return 2; }\n'
       );
 
-      cg = CodeGraph.initSync(testDir);
+      cg = SleuthGraph.initSync(testDir);
       await cg.indexAll();
 
       // Re-queue A's refs then B's, in that order.

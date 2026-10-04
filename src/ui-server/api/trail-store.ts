@@ -1,12 +1,12 @@
 /**
- * Where saved trails live on disk — the only thing `codegraph ui` ever writes.
+ * Where saved trails live on disk — the only thing `sleuth ui` ever writes.
  *
  * Every other module under `api/` is a reader. This one holds the single write
  * path in the whole viewer, and it is scoped as narrowly as a write can be: one
- * directory, `<CODEGRAPH_DIR>/ui/trails/`, inside the project the server was
+ * directory, `<SLEUTH_DIR>/ui/trails/`, inside the project the server was
  * started on, one JSON file per trail. It never touches source, never touches
- * the index, and never writes anywhere a `codegraph init` would not already
- * have created. `.codegraph/.gitignore` ignores everything but itself, so a
+ * the index, and never writes anywhere a `sleuth init` would not already
+ * have created. `.sleuth/.gitignore` ignores everything but itself, so a
  * saved trail is local by default; exporting one to commit is a copy the reader
  * makes deliberately.
  *
@@ -29,12 +29,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { CODEGRAPH_DIR } from '../../directory';
+import { SLEUTH_DIR } from '../../directory';
 import { resolveProjectFile } from '../security';
 import { ApiError, badRequest } from './respond';
 
 /** Where trails live, relative to the project root. Forward slashes always. */
-export const TRAILS_RELATIVE_DIR = `${CODEGRAPH_DIR}/ui/trails`;
+export const TRAILS_RELATIVE_DIR = `${SLEUTH_DIR}/ui/trails`;
 
 /** The only `version` this build writes, and the only one it reads. */
 export const TRAIL_FORMAT_VERSION = 1;
@@ -264,7 +264,7 @@ export function readStoredTrail(projectRoot: string, id: string): StoredTrail | 
  *
  * Temp file beside the target then `rename`, so a reader either sees the
  * previous trail or the new one and never a partial file. The temp name carries
- * the pid: two `codegraph ui` processes on one project is unusual but not
+ * the pid: two `sleuth ui` processes on one project is unusual but not
  * forbidden, and two writers sharing a temp name would corrupt each other's.
  */
 export function writeStoredTrail(projectRoot: string, trail: StoredTrail): void {

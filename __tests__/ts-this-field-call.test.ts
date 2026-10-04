@@ -13,11 +13,11 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   await initGrammars();
@@ -82,7 +82,7 @@ beforeAll(async () => {
       '  put(x: string): void { this.#items.add(x); }\n' +
       '}\n'
   );
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 });
 
@@ -134,7 +134,7 @@ describe('this.<field>.<method>() (#1496)', () => {
 
 describe.each(['ts', 'tsx', 'js', 'jsx'])('private field receivers in %s (#1987)', (ext) => {
   let temp: string;
-  let graph: CodeGraph | undefined;
+  let graph: SleuthGraph | undefined;
   afterEach(() => {
     graph?.destroy();
     graph = undefined;
@@ -157,7 +157,7 @@ export class Vault {
 }
 `;
     fs.writeFileSync(path.join(temp, `vault.${ext}`), ending === 'CRLF' ? source.replace(/\n/g, '\r\n') : source);
-    graph = await CodeGraph.init(temp, { index: true });
+    graph = await SleuthGraph.init(temp, { index: true });
     const callees = (name: string) => {
       const caller = graph!.getNodesByKind('method').find(n => n.qualifiedName === `Vault::${name}`)!;
       expect(caller).toBeDefined();

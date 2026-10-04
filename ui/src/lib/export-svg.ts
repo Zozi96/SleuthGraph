@@ -109,7 +109,7 @@ export const EXPORT_PADDING = 24;
 /** Space between the bottom of the drawing and the mark under it. */
 export const MARK_GAP = 14;
 export const MARK_SIZE = 11;
-export const MARK_TEXT = 'CodeGraph';
+export const MARK_TEXT = 'SleuthGraph';
 /** Device-pixel multiplier for a rasterised export. */
 export const EXPORT_SCALE = 2;
 
@@ -963,7 +963,7 @@ export function mapSvg(layout: MapLayout, options: MapExportOptions = {}): strin
 /* ------------------------------------------------------------- filenames -- */
 
 /**
- * A safe file stem — `codegraph-flow-execute-getfile`. No extension: the caller
+ * A safe file stem — `sleuth-flow-execute-getfile`. No extension: the caller
  * adds one, because the same picture goes out as both `.svg` and `.png`.
  */
 export function exportFilename(kind: 'flow' | 'map', label: string): string {
@@ -973,7 +973,7 @@ export function exportFilename(kind: 'flow' | 'map', label: string): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
     .replace(/-+$/g, '');
-  return `codegraph-${kind}${slug ? `-${slug}` : ''}`;
+  return `sleuth-${kind}${slug ? `-${slug}` : ''}`;
 }
 
 export { CARD_WIDTH };

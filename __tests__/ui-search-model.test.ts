@@ -71,7 +71,7 @@ describe('the flow grammar', () => {
   it('asks about the last segment of a qualified name', () => {
     // `Class.method` names the method; the class is how you say WHICH one, and
     // the search ranks that out on its own.
-    expect(parseFlowQuery('how does CodeGraph.sync reach Cache.read')).toEqual({
+    expect(parseFlowQuery('how does SleuthGraph.sync reach Cache.read')).toEqual({
       from: 'sync',
       to: 'read',
     });
@@ -155,7 +155,7 @@ describe('the palette', () => {
     expect(locationOf(result({ file: 'src/mcp/tools.ts', line: 412 }))).toBe('tools.ts:412');
     // The name column is already the basename; repeating the path says nothing.
     expect(
-      locationOf(result({ kind: 'file', file: 'src/bin/codegraph.ts', name: 'codegraph.ts' }))
+      locationOf(result({ kind: 'file', file: 'src/bin/sleuth.ts', name: 'sleuth.ts' }))
     ).toBe('src/bin');
     expect(locationOf(result({ kind: 'file', file: 'README.md', name: 'README.md' }))).toBe(
       'project root'
@@ -201,8 +201,8 @@ function entryPoints(over: Partial<WireEntryPoints> = {}): WireEntryPoints {
       truncated: false,
       items: [
         {
-          ...result({ id: 'file:src/bin/codegraph.ts', kind: 'file', name: 'codegraph.ts' }),
-          file: 'src/bin/codegraph.ts',
+          ...result({ id: 'file:src/bin/sleuth.ts', kind: 'file', name: 'sleuth.ts' }),
+          file: 'src/bin/sleuth.ts',
           calls: 9,
           reaches: 37,
           dependents: 3,
@@ -368,7 +368,7 @@ describe('the trail in the URL', () => {
       hop('method:c', 'down'),
       hop('method:d', 'up'),
       hop('method:e', 'down'),
-      hop('file:src/bin/codegraph.ts', 'up'),
+      hop('file:src/bin/sleuth.ts', 'up'),
     ];
 
     const encoded = encodeTrail(walked);
@@ -408,7 +408,7 @@ describe('the trail in the URL', () => {
 
   it('labels an unresolved hop with something readable, never a raw hash', () => {
     expect(hopLabel({ ...hop('method:x', 'down'), name: 'load' })).toBe('load');
-    expect(hopLabel(hop('file:src/bin/codegraph.ts', 'start'))).toBe('codegraph.ts');
+    expect(hopLabel(hop('file:src/bin/sleuth.ts', 'start'))).toBe('sleuth.ts');
     expect(hopLabel(hop('method:ada8ef1603fc03e3566eec72dc91138f', 'down'))).toBe('ada8ef16…');
   });
 });

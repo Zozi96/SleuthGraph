@@ -4,7 +4,7 @@
  * Two ideas run through this file:
  *
  * 1. **One round-trip per screen.** Every endpoint returns everything a screen
- *    draws, in the spirit of `codegraph_explore`: the Symbol view never has to
+ *    draws, in the spirit of `sleuth_explore`: the Symbol view never has to
  *    ask a follow-up question to render a rail, a badge or a count.
  * 2. **Capped lists, honest totals.** A symbol with 545 callers cannot ship 545
  *    rows, but it must never claim it has fewer. Every capped list carries the
@@ -50,11 +50,11 @@ export const MAX_TEST_FILES = 6;
 
 /**
  * Dependency hops the blast-radius summary walks. Matches the depth
- * `codegraph_explore` claims when it says "within 3 hops".
+ * `sleuth_explore` claims when it says "within 3 hops".
  */
 export const BLAST_DEPTH = 3;
 
-/** Caller hops walked looking for a test. Mirrors `codegraph_explore`'s "tests:" line. */
+/** Caller hops walked looking for a test. Mirrors `sleuth_explore`'s "tests:" line. */
 export const TEST_CALLER_HOPS = 3;
 
 /** `getCallers` lookups the test walk may spend, so a god-symbol can't stall a request. */

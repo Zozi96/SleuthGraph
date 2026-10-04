@@ -1,13 +1,13 @@
 /**
- * A schema-less `codegraph.db` does not make a project initialized (#1895).
+ * A schema-less `sleuth.db` does not make a project initialized (#1895).
  *
- * `isInitialized()` used to accept any existing `.codegraph/codegraph.db`, so
+ * `isInitialized()` used to accept any existing `.sleuth/sleuth.db`, so
  * an empty or table-less file in an ANCESTOR directory (an interrupted `init`,
- * a stray `touch`, a never-populated `$HOME/.codegraph/`) captured the upward
+ * a stray `touch`, a never-populated `$HOME/.sleuth/`) captured the upward
  * resolution of every project beneath it: the CLI and the MCP server operated
  * on the broken file instead of the project's own index, or instead of the
  * "not initialized" guidance. An initialized project is now one whose db
- * carries the codegraph schema.
+ * carries the sleuth schema.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { spawnSync } from 'child_process';
@@ -16,29 +16,29 @@ import * as os from 'os';
 import * as path from 'path';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { DatabaseSync } = require('node:sqlite');
-import { CodeGraph } from '../src';
-import { isInitialized, findNearestCodeGraphRoot, resolveServerRoot, planFrontload, hasSchemalessDb, hasForeignDbFile } from '../src/directory';
+import { SleuthGraph } from '../src';
+import { isInitialized, findNearestSleuthGraphRoot, resolveServerRoot, planFrontload, hasSchemalessDb, hasForeignDbFile } from '../src/directory';
 import { ToolHandler } from '../src/mcp/tools';
 
 // A configurable `fs`, so a test can watch which files the probe opens.
 vi.mock('fs', async (importOriginal) => ({ ...await importOriginal<typeof import('fs')>() }));
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 function run(cwd: string, args: string[]) {
   const r = spawnSync(process.execPath, [BIN, ...args], {
     cwd,
     encoding: 'utf-8',
-    env: { ...process.env, CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_WASM_RELAUNCHED: '1', NO_COLOR: '1' },
+    env: { ...process.env, SLEUTH_NO_DAEMON: '1', SLEUTH_WASM_RELAUNCHED: '1', NO_COLOR: '1' },
   });
   return { status: r.status, out: (r.stdout ?? '') + (r.stderr ?? '') };
 }
 
-/** A `.codegraph/codegraph.db` that exists but is not a codegraph index. */
+/** A `.sleuth/sleuth.db` that exists but is not a sleuth index. */
 function plantBrokenDb(dir: string, kind: 'empty' | 'no-tables' | 'garbage'): string {
-  const cgDir = path.join(dir, '.codegraph');
+  const cgDir = path.join(dir, '.sleuth');
   fs.mkdirSync(cgDir, { recursive: true });
-  const dbPath = path.join(cgDir, 'codegraph.db');
+  const dbPath = path.join(cgDir, 'sleuth.db');
   if (kind === 'empty') {
     fs.writeFileSync(dbPath, '');
   } else if (kind === 'garbage') {
@@ -55,12 +55,12 @@ function plantBrokenDb(dir: string, kind: 'empty' | 'no-tables' | 'garbage'): st
 async function indexProject(dir: string): Promise<void> {
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'src', 'a.py'), 'def alpha(x):\n    return beta(x) + 1\n\ndef beta(x):\n    return x * 2\n');
-  const cg = CodeGraph.initSync(dir);
+  const cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
   cg.close();
 }
 
-describe('a schema-less codegraph.db is not an initialized project (#1895)', () => {
+describe('a schema-less sleuth.db is not an initialized project (#1895)', () => {
   let tmp: string;
   let parent: string;
   let child: string;
@@ -75,10 +75,10 @@ describe('a schema-less codegraph.db is not an initialized project (#1895)', () 
     fs.rmSync(tmp, { recursive: true, force: true });
   });
 
-  it.each(['empty', 'no-tables', 'garbage'] as const)('isInitialized() rejects a %s codegraph.db', (kind) => {
+  it.each(['empty', 'no-tables', 'garbage'] as const)('isInitialized() rejects a %s sleuth.db', (kind) => {
     plantBrokenDb(parent, kind);
     expect(isInitialized(parent)).toBe(false);
-    expect(findNearestCodeGraphRoot(child)).toBeNull();
+    expect(findNearestSleuthGraphRoot(child)).toBeNull();
     expect(resolveServerRoot(child).root).toBeNull();
     expect(planFrontload(child, 'how does alpha call beta').exploreRoot).toBeNull();
   });
@@ -90,15 +90,15 @@ describe('a schema-less codegraph.db is not an initialized project (#1895)', () 
     // non-writable the read-only open throws. That is a database we cannot
     // inspect, not a schema-less one — it must keep resolving (#1913 review).
     await indexProject(parent);
-    const src = path.join(parent, '.codegraph', 'codegraph.db');
+    const src = path.join(parent, '.sleuth', 'sleuth.db');
     const other = path.join(tmp, 'other');
-    fs.mkdirSync(path.join(other, '.codegraph'), { recursive: true });
-    fs.copyFileSync(src, path.join(other, '.codegraph', 'codegraph.db'));
-    const dir = path.join(other, '.codegraph');
+    fs.mkdirSync(path.join(other, '.sleuth'), { recursive: true });
+    fs.copyFileSync(src, path.join(other, '.sleuth', 'sleuth.db'));
+    const dir = path.join(other, '.sleuth');
     fs.chmodSync(dir, 0o555);
     try {
       expect(isInitialized(other)).toBe(true);
-      expect(findNearestCodeGraphRoot(path.join(other, 'sub'))).toBe(other);
+      expect(findNearestSleuthGraphRoot(path.join(other, 'sub'))).toBe(other);
     } finally {
       fs.chmodSync(dir, 0o755);
     }
@@ -109,7 +109,7 @@ describe('a schema-less codegraph.db is not an initialized project (#1895)', () 
     // process holds on it, including an open connection's (the MCP server
     // resolves projects through isInitialized on every call, as the writer).
     await indexProject(parent);
-    const live = await CodeGraph.open(parent);
+    const live = await SleuthGraph.open(parent);
     const opened: string[] = [];
     const real = fs.openSync;
     const spy = vi.spyOn(fs, 'openSync').mockImplementation(((file: fs.PathLike, ...rest: unknown[]) => {
@@ -125,13 +125,13 @@ describe('a schema-less codegraph.db is not an initialized project (#1895)', () 
       spy.mockRestore();
       live.close();
     }
-    expect(opened.filter((f) => path.basename(f).startsWith('codegraph.db'))).toEqual([]);
+    expect(opened.filter((f) => path.basename(f).startsWith('sleuth.db'))).toEqual([]);
   });
 
   it('a real index still resolves upward from a subdirectory', async () => {
     await indexProject(parent);
     expect(isInitialized(parent)).toBe(true);
-    expect(findNearestCodeGraphRoot(child)).toBe(parent);
+    expect(findNearestSleuthGraphRoot(child)).toBe(parent);
     const r = run(child, ['status']);
     expect(r.status).toBe(0);
     expect(r.out).toContain(parent);
@@ -147,7 +147,7 @@ describe('a schema-less codegraph.db is not an initialized project (#1895)', () 
   it('(a) an empty db in the parent does not hijack the initialized child', async () => {
     plantBrokenDb(parent, 'empty');
     await indexProject(child);
-    expect(findNearestCodeGraphRoot(child)).toBe(child);
+    expect(findNearestSleuthGraphRoot(child)).toBe(child);
     expect(resolveServerRoot(child).root).toBe(child);
 
     const status = run(child, ['status']);
@@ -178,26 +178,26 @@ describe('a schema-less codegraph.db is not an initialized project (#1895)', () 
     plantBrokenDb(parent, 'no-tables');
     const r = run(child, ['status']);
     expect(r.out).toMatch(/not initialized/i);
-    expect(r.out).toContain('codegraph init');
+    expect(r.out).toContain('sleuth init');
     expect(r.out).not.toMatch(/SQLITE_|not a database|no such table/i);
   });
 
   it('(b) MCP: the handler returns success-shaped not-indexed guidance for the child', async () => {
     plantBrokenDb(parent, 'no-tables');
     const handler = new ToolHandler(null);
-    const res = await handler.execute('codegraph_explore', { query: 'alpha', projectPath: child });
+    const res = await handler.execute('sleuth_explore', { query: 'alpha', projectPath: child });
     expect(res.isError).toBeUndefined();
     const text = res.content.map((c: any) => c.text ?? '').join('\n');
-    expect(text).toMatch(/isn't indexed|codegraph init/i);
+    expect(text).toMatch(/isn't indexed|sleuth init/i);
     expect(text).not.toMatch(/SQLITE_|not a database|no such table/i);
   });
 
-  it('(d) codegraph init in the directory with the broken file repairs it', () => {
+  it('(d) sleuth init in the directory with the broken file repairs it', () => {
     const dbPath = plantBrokenDb(parent, 'no-tables');
     fs.writeFileSync(path.join(parent, 'a.py'), 'def alpha():\n    return 1\n');
     const r = run(parent, ['init', '--yes']);
     expect(r.status).toBe(0);
-    expect(r.out).toContain('without the codegraph schema');
+    expect(r.out).toContain('without the sleuth schema');
     expect(r.out).not.toContain('Already initialized');
     expect(isInitialized(parent)).toBe(true);
     const db = new DatabaseSync(dbPath, { readOnly: true });
@@ -211,15 +211,15 @@ describe('a schema-less codegraph.db is not an initialized project (#1895)', () 
     fs.writeFileSync(path.join(parent, 'a.py'), 'def alpha():\n    return 1\n');
     const empty = run(parent, ['init', '--yes']);
     expect(empty.status).toBe(0);
-    expect(empty.out).toContain('without the codegraph schema');
+    expect(empty.out).toContain('without the sleuth schema');
     expect(isInitialized(parent)).toBe(true);
 
     for (const bytes of ['x'.repeat(4096), 'hello']) {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1895-foreign-'));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1895-foreign-'));
       try {
-        const cgDir = path.join(dir, '.codegraph');
+        const cgDir = path.join(dir, '.sleuth');
         fs.mkdirSync(cgDir);
-        const dbPath = path.join(cgDir, 'codegraph.db');
+        const dbPath = path.join(cgDir, 'sleuth.db');
         fs.writeFileSync(dbPath, bytes);
         fs.writeFileSync(path.join(dir, 'a.py'), 'def alpha():\n    return 1\n');
         const r = run(dir, ['init', '--yes']);

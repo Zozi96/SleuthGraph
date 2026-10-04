@@ -1,7 +1,7 @@
 /**
  * Directory Management
  *
- * Manages the .codegraph/ directory structure for CodeGraph data.
+ * Manages the .sleuth/ directory structure for SleuthGraph data.
  */
 
 import * as fs from 'fs';
@@ -10,28 +10,28 @@ import * as path from 'path';
 import { isWslWindowsDrive } from './sync/watch-policy';
 
 /** The default per-project data directory name. */
-export const DEFAULT_CODEGRAPH_DIR = '.codegraph';
+export const DEFAULT_SLEUTH_DIR = '.sleuth';
 
 /**
  * The data directory name WSL gives a fresh project on a Windows drive, so it
- * never shares one index with CodeGraph on Windows (issue #995). Indexing and
- * watching skip every `.codegraph-*` sibling on both sides (#636).
+ * never shares one index with SleuthGraph on Windows (issue #995). Indexing and
+ * watching skip every `.sleuth-*` sibling on both sides (#636).
  */
-export const WSL_CODEGRAPH_DIR = '.codegraph-wsl';
+export const WSL_SLEUTH_DIR = '.sleuth-wsl';
 
 let warnedBadDirName = false;
 
 /**
- * Resolve the per-project data directory name, honoring the `CODEGRAPH_DIR`
- * environment override (default `.codegraph`). The override is a single path
+ * Resolve the per-project data directory name, honoring the `SLEUTH_DIR`
+ * environment override (default `.sleuth`). The override is a single path
  * segment that lives in the project root.
  *
  * Why this exists: two environments that share one working tree must NOT share
- * one `.codegraph/` — most concretely Windows-native and WSL (issue #636). The
- * daemon lockfile (`.codegraph/daemon.pid`) records a platform-specific pid and
+ * one `.sleuth/` — most concretely Windows-native and WSL (issue #636). The
+ * daemon lockfile (`.sleuth/daemon.pid`) records a platform-specific pid and
  * socket path (a Windows named pipe vs a WSL Unix socket), and SQLite file
  * locking across the WSL2 ↔ Windows filesystem boundary is unreliable, so two
- * daemons sharing one index risks corruption. Setting `CODEGRAPH_DIR=.codegraph-win`
+ * daemons sharing one index risks corruption. Setting `SLEUTH_DIR=.sleuth-win`
  * on one side gives each environment its own index in the same tree.
  *
  * Read live (not captured at load) so it is both process-accurate and testable.
@@ -40,9 +40,9 @@ let warnedBadDirName = false;
  * default) rather than risk writing the index outside the project or into the
  * project root itself; we warn once to stderr so the misconfiguration is seen.
  */
-export function codeGraphDirName(): string {
-  const raw = process.env.CODEGRAPH_DIR?.trim();
-  if (!raw) return DEFAULT_CODEGRAPH_DIR;
+export function sleuthGraphDirName(): string {
+  const raw = process.env.SLEUTH_DIR?.trim();
+  if (!raw) return DEFAULT_SLEUTH_DIR;
   const invalid =
     raw === '.' ||
     raw.includes('..') ||
@@ -54,77 +54,77 @@ export function codeGraphDirName(): string {
       warnedBadDirName = true;
       // stderr only — stdout is the MCP protocol channel.
       console.warn(
-        `[codegraph] Ignoring invalid CODEGRAPH_DIR="${raw}" — it must be a plain ` +
-          `directory name (no path separators, no "..", not absolute). Using "${DEFAULT_CODEGRAPH_DIR}".`
+        `[sleuth] Ignoring invalid SLEUTH_DIR="${raw}" — it must be a plain ` +
+          `directory name (no path separators, no "..", not absolute). Using "${DEFAULT_SLEUTH_DIR}".`
       );
     }
-    return DEFAULT_CODEGRAPH_DIR;
+    return DEFAULT_SLEUTH_DIR;
   }
   return raw;
 }
 
 /**
- * CodeGraph directory name — a load-time snapshot of {@link codeGraphDirName}.
+ * SleuthGraph directory name — a load-time snapshot of {@link sleuthGraphDirName}.
  * A running process's environment is fixed, so this equals the live value;
  * it's kept as a stable string export for backward compatibility. Internal code
- * resolves the name through {@link codeGraphDirName} / {@link getCodeGraphDir}
- * so the `CODEGRAPH_DIR` override always applies.
+ * resolves the name through {@link sleuthGraphDirName} / {@link getSleuthGraphDir}
+ * so the `SLEUTH_DIR` override always applies.
  */
-export const CODEGRAPH_DIR = codeGraphDirName();
+export const SLEUTH_DIR = sleuthGraphDirName();
 
 /**
- * Is `name` (a single path segment) a CodeGraph data directory? Matches the
- * default `.codegraph`, the active `CODEGRAPH_DIR` override, and any
- * `.codegraph-*` sibling. File-watching and the indexer skip ALL of these, so
+ * Is `name` (a single path segment) a SleuthGraph data directory? Matches the
+ * default `.sleuth`, the active `SLEUTH_DIR` override, and any
+ * `.sleuth-*` sibling. File-watching and the indexer skip ALL of these, so
  * when two environments share one working tree (Windows + WSL, issue #636)
  * neither indexes or watches the other's index directory.
  */
-export function isCodeGraphDataDir(name: string): boolean {
+export function isSleuthGraphDataDir(name: string): boolean {
   return (
-    name === DEFAULT_CODEGRAPH_DIR ||
-    name === codeGraphDirName() ||
-    name.startsWith(DEFAULT_CODEGRAPH_DIR + '-')
+    name === DEFAULT_SLEUTH_DIR ||
+    name === sleuthGraphDirName() ||
+    name.startsWith(DEFAULT_SLEUTH_DIR + '-')
   );
 }
 
 /**
- * The data directory name for one project: {@link codeGraphDirName}, except
+ * The data directory name for one project: {@link sleuthGraphDirName}, except
  * for a project on a Windows drive under WSL (`/mnt/c/...`) with no
- * `CODEGRAPH_DIR` set. Windows-native CodeGraph opens `.codegraph` in that
+ * `SLEUTH_DIR` set. Windows-native SleuthGraph opens `.sleuth` in that
  * same tree, and SQLite's locking doesn't hold across the 9p/DrvFs bridge, so
  * the two sharing one index fails with "disk I/O error" (issue #995). There:
  *
- *   1. `.codegraph-wsl/` exists → it. Once WSL has its own index it keeps it,
- *      even after Windows builds a `.codegraph` beside it.
- *   2. `.codegraph/codegraph.db` exists → `.codegraph`. An index built before
+ *   1. `.sleuth-wsl/` exists → it. Once WSL has its own index it keeps it,
+ *      even after Windows builds a `.sleuth` beside it.
+ *   2. `.sleuth/sleuth.db` exists → `.sleuth`. An index built before
  *      this default is kept rather than silently rebuilt somewhere else.
- *   3. neither → `.codegraph-wsl`, so a fresh WSL index never shares.
+ *   3. neither → `.sleuth-wsl`, so a fresh WSL index never shares.
  *
  * Every other host keeps the plain name without a stat: the WSL check is
  * cached per process.
  */
-export function codeGraphDirNameFor(projectRoot: string): string {
-  if (process.env.CODEGRAPH_DIR?.trim() || !isWslWindowsDrive(projectRoot)) return codeGraphDirName();
+export function sleuthGraphDirNameFor(projectRoot: string): string {
+  if (process.env.SLEUTH_DIR?.trim() || !isWslWindowsDrive(projectRoot)) return sleuthGraphDirName();
   try {
-    if (fs.statSync(path.join(projectRoot, WSL_CODEGRAPH_DIR)).isDirectory()) return WSL_CODEGRAPH_DIR;
+    if (fs.statSync(path.join(projectRoot, WSL_SLEUTH_DIR)).isDirectory()) return WSL_SLEUTH_DIR;
   } catch {
     // absent — fall through
   }
-  if (fs.existsSync(path.join(projectRoot, DEFAULT_CODEGRAPH_DIR, 'codegraph.db'))) return DEFAULT_CODEGRAPH_DIR;
-  return WSL_CODEGRAPH_DIR;
+  if (fs.existsSync(path.join(projectRoot, DEFAULT_SLEUTH_DIR, 'sleuth.db'))) return DEFAULT_SLEUTH_DIR;
+  return WSL_SLEUTH_DIR;
 }
 
 /**
- * Get the .codegraph directory path for a project
+ * Get the .sleuth directory path for a project
  */
-export function getCodeGraphDir(projectRoot: string): string {
-  return path.join(projectRoot, codeGraphDirNameFor(projectRoot));
+export function getSleuthGraphDir(projectRoot: string): string {
+  return path.join(projectRoot, sleuthGraphDirNameFor(projectRoot));
 }
 
 /**
- * Check if a project has been initialized with CodeGraph.
+ * Check if a project has been initialized with SleuthGraph.
  *
- * Requires `.codegraph/codegraph.db` to exist AND to carry the codegraph
+ * Requires `.sleuth/sleuth.db` to exist AND to carry the sleuth
  * schema. A file that merely exists — empty, or a SQLite database with no
  * tables, as an interrupted `init` or a stray `touch` leaves behind — used to
  * count as initialized, so one such file in an ANCESTOR directory (worst
@@ -139,29 +139,29 @@ export function getCodeGraphDir(projectRoot: string): string {
  * schema, or a file SQLite refuses as not a database, says no.
  */
 export function isInitialized(projectRoot: string): boolean {
-  const codegraphDir = getCodeGraphDir(projectRoot);
-  if (!fs.existsSync(codegraphDir) || !fs.statSync(codegraphDir).isDirectory()) {
+  const sleuthDir = getSleuthGraphDir(projectRoot);
+  if (!fs.existsSync(sleuthDir) || !fs.statSync(sleuthDir).isDirectory()) {
     return false;
   }
-  // Must have codegraph.db, not just .codegraph folder
-  const dbPath = path.join(codegraphDir, 'codegraph.db');
+  // Must have sleuth.db, not just .sleuth folder
+  const dbPath = path.join(sleuthDir, 'sleuth.db');
   let st: fs.Stats;
   try {
     st = fs.statSync(dbPath);
   } catch {
     return false;
   }
-  return hasCodeGraphSchema(dbPath, st);
+  return hasSleuthGraphSchema(dbPath, st);
 }
 
 /**
- * `codegraph.db` exists at `projectRoot` but does not carry the schema, and
+ * `sleuth.db` exists at `projectRoot` but does not carry the schema, and
  * `init` can add it in place: an empty file, or a SQLite database without the
- * codegraph tables (#1895). A file that is not SQLite at all is NOT this case —
+ * sleuth tables (#1895). A file that is not SQLite at all is NOT this case —
  * see {@link hasForeignDbFile}.
  */
 export function hasSchemalessDb(projectRoot: string): boolean {
-  const dbPath = path.join(getCodeGraphDir(projectRoot), 'codegraph.db');
+  const dbPath = path.join(getSleuthGraphDir(projectRoot), 'sleuth.db');
   let st: fs.Stats;
   try { st = fs.statSync(dbPath); } catch { return false; }
   if (!st.isFile() || isInitialized(projectRoot)) return false;
@@ -169,13 +169,13 @@ export function hasSchemalessDb(projectRoot: string): boolean {
 }
 
 /**
- * `codegraph.db` exists at `projectRoot` and is not a SQLite database (no
+ * `sleuth.db` exists at `projectRoot` and is not a SQLite database (no
  * header magic): SQLite refuses to open it, so `init` cannot rebuild it in
  * place. The caller must say so rather than promise a repair; nothing here
  * deletes the file.
  */
 export function hasForeignDbFile(projectRoot: string): boolean {
-  const dbPath = path.join(getCodeGraphDir(projectRoot), 'codegraph.db');
+  const dbPath = path.join(getSleuthGraphDir(projectRoot), 'sleuth.db');
   let st: fs.Stats;
   try { st = fs.statSync(dbPath); } catch { return false; }
   return st.isFile() && st.size > 0 && probeSchema(dbPath) === 'not-sqlite';
@@ -187,7 +187,7 @@ const SQLITE_HEADER_SIZE = 100;
 const SQLITE_NOTADB = 26;
 const schemaProbeCache = new Map<string, { mtimeMs: number; size: number; ok: boolean }>();
 
-function hasCodeGraphSchema(dbPath: string, st: fs.Stats): boolean {
+function hasSleuthGraphSchema(dbPath: string, st: fs.Stats): boolean {
   if (!st.isFile() || st.size < SQLITE_HEADER_SIZE) return false;
   const cached = schemaProbeCache.get(dbPath);
   if (cached && cached.mtimeMs === st.mtimeMs && cached.size === st.size) return cached.ok;
@@ -198,8 +198,8 @@ function hasCodeGraphSchema(dbPath: string, st: fs.Stats): boolean {
 }
 
 /**
- * What `codegraph.db` holds, asked of SQLite itself through a read-only
- * connection: the codegraph schema, a database without it, not a database at
+ * What `sleuth.db` holds, asked of SQLite itself through a read-only
+ * connection: the sleuth schema, a database without it, not a database at
  * all (SQLITE_NOTADB), or `unknown` — locked, busy, a WAL db in a directory we
  * cannot create `-shm` in (read-only checkout, mount, another user's tree),
  * disk I/O. Callers treat `unknown` as initialized: the pre-existing behaviour
@@ -230,13 +230,13 @@ function probeSchema(dbPath: string): 'schema' | 'no-schema' | 'not-sqlite' | 'u
 }
 
 /**
- * Find the nearest parent directory containing .codegraph/
+ * Find the nearest parent directory containing .sleuth/
  *
- * Walks up from the given path to find a CodeGraph-initialized project,
+ * Walks up from the given path to find a SleuthGraph-initialized project,
  * similar to how git finds .git/ directories.
  *
  * @param startPath - Directory to start searching from
- * @returns The project root containing .codegraph/, or null if not found
+ * @returns The project root containing .sleuth/, or null if not found
  */
 /**
  * Reason a directory is unsafe to use as an index ROOT, or null when it's fine.
@@ -245,7 +245,7 @@ function probeSchema(dbPath: string): 'schema' | 'no-schema' | 'not-sqlite' | 'u
  * every other project, etc. — a multi-GB index, constant file-watcher churn, and
  * (pre-1.0 on macOS) a file-descriptor blowup that exhausted `kern.maxfiles` and
  * took unrelated apps / the whole machine down (#845). The classic trigger:
- * running the installer or `codegraph init` from `$HOME`, which auto-indexes the
+ * running the installer or `sleuth init` from `$HOME`, which auto-indexes the
  * current directory. These are never intended project roots, so the installer
  * and `init`/`index` refuse them (overridable with `--force`).
  *
@@ -313,8 +313,8 @@ export function statInode(p: string): string | null {
  * is already running: it probes a socket nobody bound, spawns a redundant
  * daemon, and that daemon dies on the lock the first one holds, so the session
  * degrades to a single-process engine. `path.resolve` alone does NOT satisfy
- * that contract — NTFS is case-insensitive, so `d:\work\codegraph` and
- * `D:\work\codegraph` name one directory but two strings, and non-native
+ * that contract — NTFS is case-insensitive, so `d:\work\sleuth` and
+ * `D:\work\sleuth` name one directory but two strings, and non-native
  * `fs.realpathSync` keeps whichever casing the caller passed (only `.native`
  * asks the filesystem for the on-disk name — the same reason
  * {@link isSameIndexRoot} uses it). Both spellings really do occur: a
@@ -331,7 +331,7 @@ export function canonicalProjectRoot(projectRoot: string): string {
   try {
     canonical = fs.realpathSync.native(resolved);
   } catch {
-    // ENOENT/EACCES/ELOOP — the root is normally there (`.codegraph/` lives in
+    // ENOENT/EACCES/ELOOP — the root is normally there (`.sleuth/` lives in
     // it), so this is a fallback rather than a path we expect to take.
   }
   return process.platform === 'win32' ? canonical.toLowerCase() : canonical;
@@ -349,16 +349,16 @@ export function isSameIndexRoot(a: string, b: string): boolean {
   if (a === b) return true;
   if (process.platform === 'win32') {
     try {
-      return fs.realpathSync.native(getCodeGraphDir(a)) === fs.realpathSync.native(getCodeGraphDir(b));
+      return fs.realpathSync.native(getSleuthGraphDir(a)) === fs.realpathSync.native(getSleuthGraphDir(b));
     } catch {
       return false;
     }
   }
-  const id = statInode(getCodeGraphDir(a));
-  return id !== null && id === statInode(getCodeGraphDir(b));
+  const id = statInode(getSleuthGraphDir(a));
+  return id !== null && id === statInode(getSleuthGraphDir(b));
 }
 
-export function findNearestCodeGraphRoot(startPath: string): string | null {
+export function findNearestSleuthGraphRoot(startPath: string): string | null {
   let current = path.resolve(startPath);
   const root = path.parse(current).root;
 
@@ -407,7 +407,7 @@ function escapeRegExp(s: string): string {
 /**
  * Indexed sub-project roots beneath `root` (bounded breadth-first scan). For
  * the monorepo case behind #964: the index lives in a CHILD
- * (`packages/x/.codegraph/`), not at the workspace root the agent's cwd points
+ * (`packages/x/.sleuth/`), not at the workspace root the agent's cwd points
  * at. Descent stops at the first indexed directory on a branch (a project's
  * own sub-dirs aren't separate projects) and is bounded by depth + count so it
  * never turns into a full-tree crawl on a large repo.
@@ -473,7 +473,7 @@ function eligibleForSubprojectScan(base: string): boolean {
 
 /**
  * Resolve the project root an MCP server should serve as its DEFAULT project
- * (#1606). Up-walk first (`findNearestCodeGraphRoot` — the common case, and
+ * (#1606). Up-walk first (`findNearestSleuthGraphRoot` — the common case, and
  * cheap). When nothing is indexed at or above `searchFrom`, run the bounded
  * sub-project down-scan `planFrontload` already uses, behind the workspace
  * gate above: EXACTLY ONE indexed sub-project is unambiguous and is adopted
@@ -487,7 +487,7 @@ export function resolveServerRoot(
   searchFrom: string,
   opts: { subprojectScan?: boolean } = {},
 ): ServerRootResolution {
-  const up = findNearestCodeGraphRoot(searchFrom);
+  const up = findNearestSleuthGraphRoot(searchFrom);
   if (up) return { root: up, viaSubScan: false, candidates: [] };
   if (opts.subprojectScan === false) return { root: null, viaSubScan: false, candidates: [] };
   const base = path.resolve(searchFrom);
@@ -782,21 +782,21 @@ export function isStructuralPrompt(prompt: string): boolean {
 export const CLAUDE_CODE_INLINE_HOOK_OUTPUT_LIMIT = 10_000;
 
 /**
- * Max characters of explore text injected by `codegraph prompt-hook` before
+ * Max characters of explore text injected by `sleuth prompt-hook` before
  * truncation. Must stay under {@link CLAUDE_CODE_INLINE_HOOK_OUTPUT_LIMIT} so
  * the host delivers the payload inline. 9,000 leaves ~1k for the
- * `<codegraph_context>` wrapper and the `projectPath` nudge lines appended
+ * `<sleuth_context>` wrapper and the `projectPath` nudge lines appended
  * after the cap is applied.
  */
 export const PROMPT_HOOK_INJECTION_MAX = 9_000;
 
 /**
  * Cap explore text for the prompt-hook injection, preserving the existing
- * "call codegraph_explore for the rest" notice when truncated.
+ * "call sleuth_explore for the rest" notice when truncated.
  */
 export function capPromptHookInjection(text: string, max = PROMPT_HOOK_INJECTION_MAX): string {
   return text.length > max
-    ? `${text.slice(0, max)}\n…(truncated; call codegraph_explore for the rest)`
+    ? `${text.slice(0, max)}\n…(truncated; call sleuth_explore for the rest)`
     : text;
 }
 
@@ -814,13 +814,13 @@ export interface FrontloadPlan {
   nudgeProjects: string[];
   /** True when the plan came from scanning DOWN into sub-projects (cwd itself
    *  is not under any index) — the monorepo case, where a follow-up
-   *  `codegraph_explore` needs an explicit `projectPath`. */
+   *  `sleuth_explore` needs an explicit `projectPath`. */
   viaSubScan: boolean;
 }
 
 /**
  * Decide what the front-load hook injects for a `prompt` issued from `cwd`,
- * shaped by where the `.codegraph/` index(es) actually are:
+ * shaped by where the `.sleuth/` index(es) actually are:
  *   1. **cwd (or an ancestor) is indexed** → front-load that project. The
  *      normal single-project / nested-file case.
  *   2. **cwd isn't indexed but looks like a workspace root** → the indexes live
@@ -874,25 +874,25 @@ export function planFrontload(cwd: string, prompt: string): FrontloadPlan {
 }
 
 /**
- * Contents of `.codegraph/.gitignore`. A single wildcard ignore keeps every
+ * Contents of `.sleuth/.gitignore`. A single wildcard ignore keeps every
  * transient file in the index dir — the database, `daemon.pid`, the socket,
  * logs, cache, and anything future versions add — out of git, without having
  * to enumerate each name (issues #788, #492, #484). Older versions wrote an
  * explicit allowlist that never listed `daemon.pid` or the socket, so those
  * runtime files were silently committed.
  */
-const GITIGNORE_CONTENT = `# CodeGraph data files — local to each machine, not for committing.
-# Ignore everything in .codegraph/ except this file itself, so transient
+const GITIGNORE_CONTENT = `# SleuthGraph data files — local to each machine, not for committing.
+# Ignore everything in .sleuth/ except this file itself, so transient
 # files (the database, daemon.pid, sockets, logs) never show up in git.
 *
 !.gitignore
 `;
 
-/** Header line that prefixes every .gitignore CodeGraph has auto-generated. */
-const GITIGNORE_MARKER = '# CodeGraph data files';
+/** Header line that prefixes every .gitignore SleuthGraph has auto-generated. */
+const GITIGNORE_MARKER = '# SleuthGraph data files';
 
 /**
- * Is `content` a stale CodeGraph-generated `.gitignore` that should be
+ * Is `content` a stale SleuthGraph-generated `.gitignore` that should be
  * regenerated in place? True when it carries our header but predates the
  * wildcard ignore (it has no bare `*` line) — i.e. one of the old explicit
  * allowlists (`*.db`, `cache/`, `.dirty`, …) that never ignored `daemon.pid`
@@ -907,8 +907,8 @@ function isStaleDefaultGitignore(content: string): boolean {
 }
 
 /**
- * Write `.codegraph/.gitignore` if it's absent, or upgrade a stale
- * CodeGraph-generated default in place; a user-customized file is left alone.
+ * Write `.sleuth/.gitignore` if it's absent, or upgrade a stale
+ * SleuthGraph-generated default in place; a user-customized file is left alone.
  * Best-effort — returns `false` only if a needed write failed.
  */
 function ensureGitignore(gitignorePath: string): boolean {
@@ -929,62 +929,62 @@ function ensureGitignore(gitignorePath: string): boolean {
 }
 
 /**
- * Create the .codegraph directory structure
- * Note: Only throws if codegraph.db already exists, not just if .codegraph/ exists.
+ * Create the .sleuth directory structure
+ * Note: Only throws if sleuth.db already exists, not just if .sleuth/ exists.
  */
 export function createDirectory(projectRoot: string): void {
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const sleuthDir = getSleuthGraphDir(projectRoot);
 
-  // Only throw if CodeGraph is actually initialized (db with a schema).
-  // .codegraph/ folder alone — or a schema-less codegraph.db left by an
+  // Only throw if SleuthGraph is actually initialized (db with a schema).
+  // .sleuth/ folder alone — or a schema-less sleuth.db left by an
   // interrupted init (#1895) — is fine: initialize() adds the schema to it.
   if (isInitialized(projectRoot)) {
-    throw new Error(`CodeGraph already initialized in ${projectRoot}`);
+    throw new Error(`SleuthGraph already initialized in ${projectRoot}`);
   }
 
   // Create main directory (if it doesn't exist)
-  fs.mkdirSync(codegraphDir, { recursive: true });
+  fs.mkdirSync(sleuthDir, { recursive: true });
 
-  // Write .gitignore inside .codegraph (create if absent, upgrade a stale
+  // Write .gitignore inside .sleuth (create if absent, upgrade a stale
   // pre-wildcard default left by an older version — issue #788).
-  ensureGitignore(path.join(codegraphDir, '.gitignore'));
+  ensureGitignore(path.join(sleuthDir, '.gitignore'));
 }
 
 /**
- * Remove the .codegraph directory
+ * Remove the .sleuth directory
  */
 export function removeDirectory(projectRoot: string): void {
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const sleuthDir = getSleuthGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
+  if (!fs.existsSync(sleuthDir)) {
     return;
   }
 
-  // Verify .codegraph is a real directory, not a symlink pointing elsewhere
-  const lstat = fs.lstatSync(codegraphDir);
+  // Verify .sleuth is a real directory, not a symlink pointing elsewhere
+  const lstat = fs.lstatSync(sleuthDir);
   if (lstat.isSymbolicLink()) {
     // Only remove the symlink itself, never follow it for recursive delete
-    fs.unlinkSync(codegraphDir);
+    fs.unlinkSync(sleuthDir);
     return;
   }
 
   if (!lstat.isDirectory()) {
     // Not a directory - remove the single file
-    fs.unlinkSync(codegraphDir);
+    fs.unlinkSync(sleuthDir);
     return;
   }
 
   // Recursively remove directory
-  fs.rmSync(codegraphDir, { recursive: true, force: true });
+  fs.rmSync(sleuthDir, { recursive: true, force: true });
 }
 
 /**
- * Get all files in the .codegraph directory
+ * Get all files in the .sleuth directory
  */
 export function listDirectoryContents(projectRoot: string): string[] {
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const sleuthDir = getSleuthGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
+  if (!fs.existsSync(sleuthDir)) {
     return [];
   }
 
@@ -996,7 +996,7 @@ export function listDirectoryContents(projectRoot: string): string[] {
     for (const entry of entries) {
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
-      // Skip symlinks to prevent following links outside .codegraph
+      // Skip symlinks to prevent following links outside .sleuth
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -1009,17 +1009,17 @@ export function listDirectoryContents(projectRoot: string): string[] {
     }
   }
 
-  walkDir(codegraphDir);
+  walkDir(sleuthDir);
   return files;
 }
 
 /**
- * Get the total size of the .codegraph directory in bytes
+ * Get the total size of the .sleuth directory in bytes
  */
 export function getDirectorySize(projectRoot: string): number {
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const sleuthDir = getSleuthGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
+  if (!fs.existsSync(sleuthDir)) {
     return 0;
   }
 
@@ -1029,7 +1029,7 @@ export function getDirectorySize(projectRoot: string): number {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
 
     for (const entry of entries) {
-      // Skip symlinks to prevent following links outside .codegraph
+      // Skip symlinks to prevent following links outside .sleuth
       if (entry.isSymbolicLink()) {
         continue;
       }
@@ -1045,19 +1045,19 @@ export function getDirectorySize(projectRoot: string): number {
     }
   }
 
-  walkDir(codegraphDir);
+  walkDir(sleuthDir);
   return totalSize;
 }
 
 /**
- * Ensure a subdirectory exists within .codegraph
+ * Ensure a subdirectory exists within .sleuth
  */
 export function ensureSubdirectory(projectRoot: string, subdirName: string): string {
   if (subdirName.includes('..') || subdirName.includes(path.sep) || subdirName.includes('/')) {
     throw new Error(`Invalid subdirectory name: ${subdirName}`);
   }
 
-  const subdirPath = path.join(getCodeGraphDir(projectRoot), subdirName);
+  const subdirPath = path.join(getSleuthGraphDir(projectRoot), subdirName);
 
   if (!fs.existsSync(subdirPath)) {
     fs.mkdirSync(subdirPath, { recursive: true });
@@ -1067,34 +1067,34 @@ export function ensureSubdirectory(projectRoot: string, subdirName: string): str
 }
 
 /**
- * Check if the .codegraph directory has valid structure
+ * Check if the .sleuth directory has valid structure
  */
 export function validateDirectory(projectRoot: string): {
   valid: boolean;
   errors: string[];
 } {
   const errors: string[] = [];
-  const codegraphDir = getCodeGraphDir(projectRoot);
+  const sleuthDir = getSleuthGraphDir(projectRoot);
 
-  if (!fs.existsSync(codegraphDir)) {
-    errors.push('CodeGraph directory does not exist');
+  if (!fs.existsSync(sleuthDir)) {
+    errors.push('SleuthGraph directory does not exist');
     return { valid: false, errors };
   }
 
-  if (!fs.statSync(codegraphDir).isDirectory()) {
-    errors.push('.codegraph exists but is not a directory');
+  if (!fs.statSync(sleuthDir).isDirectory()) {
+    errors.push('.sleuth exists but is not a directory');
     return { valid: false, errors };
   }
 
   // Auto-repair / upgrade .gitignore (non-critical file). A missing one is
   // recreated; a stale pre-wildcard default that never ignored daemon.pid is
   // regenerated in place (issue #788); a user-authored file is left alone.
-  const gitignorePath = path.join(codegraphDir, '.gitignore');
+  const gitignorePath = path.join(sleuthDir, '.gitignore');
   const existedBefore = fs.existsSync(gitignorePath);
   if (!ensureGitignore(gitignorePath) && !existedBefore) {
     // Only a missing-and-uncreatable file is surfaced; a failed in-place
     // upgrade of an existing file is non-fatal — the index still works.
-    errors.push('.gitignore missing in .codegraph directory and could not be created');
+    errors.push('.gitignore missing in .sleuth directory and could not be created');
   }
 
   return {

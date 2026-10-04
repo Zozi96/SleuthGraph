@@ -3,9 +3,9 @@
  *
  * The suite exercises code that writes to the user's GLOBAL state: the Claude
  * prompt hook in `~/.claude/settings.json`, the daemon registry under
- * `~/.codegraph/daemons`, every agent target's global config. A test that
+ * `~/.sleuth/daemons`, every agent target's global config. A test that
  * forgot to redirect the home dir wrote to the developer's real one — a
- * successful fake `codegraph upgrade` wired the prompt hook into their own
+ * successful fake `sleuth upgrade` wired the prompt hook into their own
  * Claude profile, and the daemon suites left thousands of registry records
  * behind. CI never noticed: its runners have no Claude profile to edit.
  *
@@ -28,7 +28,7 @@ import * as path from 'path';
 
 // Resolved, so a comparison against a realpath'd cwd (macOS `/var` →
 // `/private/var`) sees the same home everything else does.
-const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-test-home-')));
+const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-test-home-')));
 
 process.env.HOME = home;
 process.env.USERPROFILE = home;
@@ -54,7 +54,7 @@ for (const override of ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'COPILOT_HOME', 'HERM
 // Both spellings: GIT_CONFIG_GLOBAL for git >= 2.32, and `$HOME/.gitconfig`
 // (the same file) for older ones.
 const gitConfig = path.join(home, '.gitconfig');
-fs.writeFileSync(gitConfig, '[user]\n\tname = CodeGraph Test\n\temail = test@codegraph.invalid\n');
+fs.writeFileSync(gitConfig, '[user]\n\tname = SleuthGraph Test\n\temail = test@sleuth.invalid\n');
 process.env.GIT_CONFIG_GLOBAL = gitConfig;
 
 afterAll(() => {

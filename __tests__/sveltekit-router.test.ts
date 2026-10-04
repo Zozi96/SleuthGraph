@@ -13,7 +13,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 import { buildScreens } from '../src/ui-server/api/screens';
 import { svelteResolver } from '../src/resolution/frameworks/svelte';
@@ -56,7 +56,7 @@ describe('sveltekit: which argument carries the path', () => {
 
 describe('sveltekit: a routed app end to end', () => {
   let tmpDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   function write(rel: string, content: string): void {
     const full = path.join(tmpDir, rel);
@@ -134,7 +134,7 @@ describe('sveltekit: a routed app end to end', () => {
         '  redirect(307, url.searchParams.get("next"))\n' +
         '}\n'
     );
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
   });
 

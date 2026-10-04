@@ -15,7 +15,7 @@
  *
  * The full-repo sweep lives in scripts/kernel-parity.mjs (ripgrep/tokio/
  * rust-analyzer for the §5 gate); this suite keeps the invariant alive in
- * `npm test`. Skips when no kernel binary is staged; CODEGRAPH_KERNEL_EXPECT=1
+ * `npm test`. Skips when no kernel binary is staged; SLEUTH_KERNEL_EXPECT=1
  * turns that into a failure (kernel-scaffold.test.ts).
  */
 
@@ -51,7 +51,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel Rust extraction parity', () => {
@@ -74,14 +74,14 @@ describe.skipIf(!kernelBuilt)('kernel Rust extraction parity', () => {
   });
 
   function assertParity(filePath: string, source: string, minNodes = 3): void {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, 'rust');
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, 'rust');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -129,12 +129,12 @@ fn next() {}
 
   it('files with parse errors defer to the wasm extractor (recovery is encoding-dependent)', () => {
     const broken = 'fn f( {\n  return }} 12 (\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/broken.rs', broken, 'rust')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/broken.rs', broken, 'rust');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'file')).toBe(true);
   });
 });

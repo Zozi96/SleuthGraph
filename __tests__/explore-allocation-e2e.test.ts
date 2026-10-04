@@ -40,7 +40,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler, getExploreOutputBudget, EXPLORE_ALLOCATION } from '../src/mcp/tools';
 import { attributeSourceBytes } from '../src/mcp/explore-diagnostics';
 import type { ExploreDiagnosticReport } from '../src/mcp/explore-diagnostics';
@@ -48,11 +48,11 @@ import type { ExploreDiagnosticReport } from '../src/mcp/explore-diagnostics';
 /** The host's inline tool-result limit — above it the response is externalized. */
 const INLINE_CAP = 25000;
 
-const DEBUG_ENV = 'CODEGRAPH_EXPLORE_DEBUG';
+const DEBUG_ENV = 'SLEUTH_EXPLORE_DEBUG';
 
 interface Project {
   dir: string;
-  cg: CodeGraph;
+  cg: SleuthGraph;
   handler: ToolHandler;
 }
 
@@ -64,7 +64,7 @@ async function buildProject(prefix: string, files: Record<string, string>): Prom
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, body.trimStart());
   }
-  const cg = CodeGraph.initSync(dir);
+  const cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
   return { dir, cg, handler: new ToolHandler(cg) };
 }
@@ -84,12 +84,12 @@ function destroyProject(project?: Project): void {
 async function explore(project: Project, query: string) {
   // Outside the project root on purpose: a sidecar written INTO the indexed tree
   // is a new file the watcher can pick up mid-suite.
-  const sidecar = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-alloc-diag-')), 'report.jsonl');
+  const sidecar = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-alloc-diag-')), 'report.jsonl');
   const previous = process.env[DEBUG_ENV];
   process.env[DEBUG_ENV] = sidecar;
   let result;
   try {
-    result = await project.handler.execute('codegraph_explore', { query });
+    result = await project.handler.execute('sleuth_explore', { query });
   } finally {
     if (previous === undefined) delete process.env[DEBUG_ENV];
     else process.env[DEBUG_ENV] = previous;
@@ -245,7 +245,7 @@ import {
   let run: Awaited<ReturnType<typeof explore>>;
 
   beforeAll(async () => {
-    project = await buildProject('codegraph-alloc-selfquery-', {
+    project = await buildProject('sleuth-alloc-selfquery-', {
       [ALLOCATOR]: ALLOCATOR_SOURCE,
       [HELPER]: `
 /** Budget arithmetic the explore output allocator leans on. */
@@ -530,7 +530,7 @@ ${[
   let targetSize = 0;
 
   beforeAll(async () => {
-    project = await buildProject('codegraph-alloc-cg21-', {
+    project = await buildProject('sleuth-alloc-cg21-', {
       [TARGET]: TARGET_SOURCE,
       [RESPONSE]: RESPONSE_SOURCE,
       [APPLICATION]: `
@@ -726,7 +726,7 @@ export function reconcileLedgerEntry${n}(rows: string[], fallback: string, separ
   let run: Awaited<ReturnType<typeof explore>>;
 
   beforeAll(async () => {
-    project = await buildProject('codegraph-alloc-cg21-carry-', {
+    project = await buildProject('sleuth-alloc-cg21-carry-', {
       [SPRAWL]: `
 import { Absorber } from '../render/absorber';
 
@@ -852,7 +852,7 @@ export class InventoryLedger${n} {
   }
 }
 `;
-    project = await buildProject('codegraph-alloc-degenerate-', {
+    project = await buildProject('sleuth-alloc-degenerate-', {
       'src/ledger/one.ts': twin(1),
       'src/ledger/two.ts': twin(2),
       'src/ledger/three.ts': twin(3),
@@ -899,7 +899,7 @@ export function pickPaletteEntry(index: number): string {
   });
 
   it('returns guidance rather than an error when nothing matches', async () => {
-    // An `isError` response teaches the agent to abandon codegraph for the rest
+    // An `isError` response teaches the agent to abandon sleuth for the rest
     // of the session, so a zero-result allocation must stay success-shaped.
     const run = await explore(project, 'quantumFluxCapacitorHandshake');
     expect(run.isError).toBe(false);
@@ -933,7 +933,7 @@ export class ${name}Service {
   }
 }
 `;
-    project = await buildProject('codegraph-alloc-diffuse-', {
+    project = await buildProject('sleuth-alloc-diffuse-', {
       'src/services/auth.ts': subsystem('Auth', 'authorize'),
       'src/services/billing.ts': subsystem('Billing', 'charge'),
       'src/services/search.ts': subsystem('Search', 'query'),

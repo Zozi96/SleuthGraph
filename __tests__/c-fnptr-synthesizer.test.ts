@@ -20,7 +20,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('c-fnptr dispatch synthesizer', () => {
   let dir: string;
@@ -34,7 +34,7 @@ describe('c-fnptr dispatch synthesizer', () => {
   };
 
   const load = async () => {
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const edges: { src: string; tgt: string; via: string }[] = db
@@ -413,7 +413,7 @@ void setup(int *L) {
     // Enough files to cross the per-16-files reporting cadence several times
     // across the four file sweeps.
     for (let i = 0; i < 33; i++) write(`f${i}.c`, `void fn${i}(void) { }\n`);
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const { cFnPointerDispatchEdges } = await import('../src/resolution/c-fnptr-synthesizer');
     const fractions: number[] = [];

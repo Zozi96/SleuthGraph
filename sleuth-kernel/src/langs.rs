@@ -1,4 +1,4 @@
-//! Grammar registry: codegraph `Language` string → native tree-sitter grammar.
+//! Grammar registry: sleuth `Language` string → native tree-sitter grammar.
 //!
 //! Mirrors the wasm side's `WASM_GRAMMAR_FILES` mapping (src/extraction/
 //! grammars.ts): `tsx` and `jsx` reuse another language's grammar exactly the

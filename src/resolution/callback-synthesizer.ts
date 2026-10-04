@@ -878,7 +878,7 @@ async function goImplementsEdges(queries: QueryBuilder, onYield: MaybeYield): Pr
  * when the receiver type is in the SAME file — the owner lookup in
  * `tree-sitter.ts` is scoped to the file being parsed — so a cross-file method
  * is left orphaned from its type (it's still `contains`ed by its file, just not
- * its struct). That breaks `codegraph_node` member outlines, any
+ * its struct). That breaks `sleuth_node` member outlines, any
  * callers/callees/impact traversal that goes through the type's `contains`
  * edges, and the {@link goImplementsEdges} method-set computation (which derives
  * a struct's method set from those same edges, so it under-counts interfaces a
@@ -3960,7 +3960,7 @@ export async function synthesizeCallbackEdges(
     emit(passesDone + Math.max(0, Math.min(fraction, 1)));
   emit(0);
 
-  // Per-pass wall-clock timing to stderr, opt-in via CODEGRAPH_SYNTH_TIMINGS
+  // Per-pass wall-clock timing to stderr, opt-in via SLEUTH_SYNTH_TIMINGS
   // (=1: passes over 250ms; =all: every pass). This is the diagnostic that
   // located both the #1091/#1122 watchdog stalls and the #1212 OOM — keep it.
   const markT = { t: Date.now() };
@@ -3968,7 +3968,7 @@ export async function synthesizeCallbackEdges(
     const now = Date.now();
     const dt = now - markT.t;
     markT.t = now;
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS && (dt > 250 || process.env.CODEGRAPH_SYNTH_TIMINGS === 'all')) {
+    if (process.env.SLEUTH_SYNTH_TIMINGS && (dt > 250 || process.env.SLEUTH_SYNTH_TIMINGS === 'all')) {
       console.error(`[synth-timing] ${label}: ${dt}ms`);
     }
     passesDone++;
@@ -4027,7 +4027,7 @@ export async function synthesizeCallbackEdges(
   // thread, so a worker crash isolates to a retry instead of failing synthesis.
   const passEdges: Edge[][] = new Array<Edge[]>(SYNTH_PASSES.length).fill(NONE);
   const markPass = (label: string, dt: number): void => {
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS && (dt > 250 || process.env.CODEGRAPH_SYNTH_TIMINGS === 'all')) {
+    if (process.env.SLEUTH_SYNTH_TIMINGS && (dt > 250 || process.env.SLEUTH_SYNTH_TIMINGS === 'all')) {
       console.error(`[synth-timing] ${label}: ${dt}ms`);
     }
     passesDone++;

@@ -1,27 +1,27 @@
 #!/usr/bin/env node
 /**
- * CodeGraph CLI
+ * SleuthGraph CLI
  *
- * Command-line interface for CodeGraph code intelligence.
+ * Command-line interface for SleuthGraph code intelligence.
  *
  * Usage:
- *   codegraph                    Run interactive installer (when no args)
- *   codegraph install            Run interactive installer
- *   codegraph uninstall          Remove CodeGraph from your agents
- *   codegraph init [path]        Initialize CodeGraph in a project
- *   codegraph uninit [path]      Remove CodeGraph from a project
- *   codegraph index [path]       Index all files in the project
- *   codegraph sync [path]        Sync changes since last index
- *   codegraph status [path]      Show index status
- *   codegraph query <search>     Search for symbols
- *   codegraph files [options]    Show project file structure
- *   codegraph context <task>     Build context for a task
- *   codegraph callers <symbol>   Find what calls a function/method
- *   codegraph callees <symbol>   Find what a function/method calls
- *   codegraph impact <symbol>    Analyze what code is affected by changing a symbol
- *   codegraph affected [files]   Find test files affected by changes
- *   codegraph ui [path]          Open the browser viewer (alias: web; not released yet — needs CODEGRAPH_UI=1)
- *   codegraph upgrade [version]  Update CodeGraph to the latest release
+ *   sleuth                    Run interactive installer (when no args)
+ *   sleuth install            Run interactive installer
+ *   sleuth uninstall          Remove SleuthGraph from your agents
+ *   sleuth init [path]        Initialize SleuthGraph in a project
+ *   sleuth uninit [path]      Remove SleuthGraph from a project
+ *   sleuth index [path]       Index all files in the project
+ *   sleuth sync [path]        Sync changes since last index
+ *   sleuth status [path]      Show index status
+ *   sleuth query <search>     Search for symbols
+ *   sleuth files [options]    Show project file structure
+ *   sleuth context <task>     Build context for a task
+ *   sleuth callers <symbol>   Find what calls a function/method
+ *   sleuth callees <symbol>   Find what a function/method calls
+ *   sleuth impact <symbol>    Analyze what code is affected by changing a symbol
+ *   sleuth affected [files]   Find test files affected by changes
+ *   sleuth ui [path]          Open the browser viewer (alias: web; not released yet — needs SLEUTH_UI=1)
+ *   sleuth upgrade [version]  Update SleuthGraph to the latest release
  */
 
 // FIRST import, before anything else loads: capture process.ppid while our
@@ -31,12 +31,12 @@ import '../mcp/early-ppid';
 
 // The browser viewer is not part of a release yet (see viewer-gate). Refuse
 // `ui` / `web` — also as `help ui` or `ui --help` — before any startup work,
-// unless CODEGRAPH_UI=1 opts in.
+// unless SLEUTH_UI=1 opts in.
 import { requestedViewerCommand, viewerEnabled } from './viewer-gate';
 {
   const viewerCommand = requestedViewerCommand(process.argv.slice(2));
   if (viewerCommand && !viewerEnabled()) {
-    process.stderr.write(`error: 'codegraph ${viewerCommand}' is not in this release yet. The browser viewer is coming in an upcoming release.\n`);
+    process.stderr.write(`error: 'sleuth ${viewerCommand}' is not in this release yet. The browser viewer is coming in an upcoming release.\n`);
     process.exit(1);
   }
 }
@@ -53,7 +53,7 @@ try {
 import { Command } from 'commander';
 import * as path from 'path';
 import * as fs from 'fs';
-import { getCodeGraphDir, isInitialized, hasSchemalessDb, hasForeignDbFile, unsafeIndexRootReason, findNearestCodeGraphRoot, planFrontload, isTaskNotification, isAgentMessage, hasStructuralKeyword, extractCodeTokens, capPromptHookInjection, codeGraphDirName, DEFAULT_CODEGRAPH_DIR } from '../directory';
+import { getSleuthGraphDir, isInitialized, hasSchemalessDb, hasForeignDbFile, unsafeIndexRootReason, findNearestSleuthGraphRoot, planFrontload, isTaskNotification, isAgentMessage, hasStructuralKeyword, extractCodeTokens, capPromptHookInjection, sleuthGraphDirName, DEFAULT_SLEUTH_DIR } from '../directory';
 import { extractProseCandidates } from '../search/identifier-segments';
 import { detectWorktreeIndexMismatch, worktreeMismatchWarning } from '../sync/worktree';
 import { createShimmerProgress } from '../ui/shimmer-progress';
@@ -79,17 +79,17 @@ import { isTestPath } from '../search/query-utils';
 // (#1281). Piped/redirected stdout, NO_COLOR, or --no-color -> plain output.
 const COLORS_ENABLED = ansiColorsEnabled();
 
-// Lazy-load heavy modules (CodeGraph, runInstaller) to keep CLI startup fast.
-async function loadCodeGraph(): Promise<typeof import('../index')> {
+// Lazy-load heavy modules (SleuthGraph, runInstaller) to keep CLI startup fast.
+async function loadSleuthGraph(): Promise<typeof import('../index')> {
   try {
     return await import('../index');
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const [red, reset] = COLORS_ENABLED ? ['\x1b[31m', '\x1b[0m'] : ['', ''];
-    console.error(`${red}${getGlyphs().err}${reset} Failed to load CodeGraph modules.`);
+    console.error(`${red}${getGlyphs().err}${reset} Failed to load SleuthGraph modules.`);
     console.error(`\n  Node: ${process.version}  Platform: ${process.platform} ${process.arch}`);
     console.error(`\n  Error: ${msg}`);
-    console.error('\n  Try reinstalling with: npm install -g @colbymchenry/codegraph\n');
+    console.error('\n  Try reinstalling with: npm install -g @zozi96/sleuthgraph\n');
     process.exit(1);
   }
 }
@@ -100,7 +100,7 @@ async function loadCodeGraph(): Promise<typeof import('../index')> {
 const importESM = new Function('specifier', 'return import(specifier)') as
   (specifier: string) => Promise<typeof import('@clack/prompts')>;
 
-// Block CodeGraph on Node.js 25.x — V8's turboshaft WASM JIT has a Zone
+// Block SleuthGraph on Node.js 25.x — V8's turboshaft WASM JIT has a Zone
 // allocator bug that reliably crashes when compiling tree-sitter
 // grammars (see #54, #81, #140). The previous behaviour was a soft
 // console.warn that scrolls off-screen before the OOM crash 30 seconds
@@ -111,7 +111,7 @@ const nodeVersion = process.versions.node;
 const nodeMajor = parseInt(nodeVersion.split('.')[0] ?? '0', 10);
 if (nodeMajor >= 25) {
   process.stderr.write(buildNode25BlockBanner(nodeVersion) + '\n');
-  if (!process.env.CODEGRAPH_ALLOW_UNSAFE_NODE) {
+  if (!process.env.SLEUTH_ALLOW_UNSAFE_NODE) {
     process.exit(1);
   }
   // Override active — banner shown for visibility, continuing.
@@ -121,7 +121,7 @@ if (nodeMajor >= 25) {
 // unsupported versions. Mirrors the 25+ block above. See package.json `engines`.
 if (nodeMajor < MIN_NODE_MAJOR) {
   process.stderr.write(buildNodeTooOldBanner(nodeVersion) + '\n');
-  if (!process.env.CODEGRAPH_ALLOW_UNSAFE_NODE) {
+  if (!process.env.SLEUTH_ALLOW_UNSAFE_NODE) {
     process.exit(1);
   }
   // Override active — banner shown for visibility, continuing.
@@ -167,8 +167,8 @@ const packageJson = JSON.parse(
 // `--version` and `-V`; intercept the spellings it can't — lowercase `-v` and
 // single-dash `-version` — before any parsing. (commander's version short flag
 // is the capital `-V`, and its parser rejects a multi-character single-dash
-// flag.) The bare `codegraph version` subcommand is registered further down so
-// the affordance also shows up in `codegraph --help`.
+// flag.) The bare `sleuth version` subcommand is registered further down so
+// the affordance also shows up in `sleuth --help`.
 const firstArg = process.argv[2];
 if (firstArg === '-v' || firstArg === '-version') {
   console.log(packageJson.version);
@@ -223,7 +223,7 @@ const chalk = {
 };
 
 program
-  .name('codegraph')
+  .name('sleuth')
   .description('Code intelligence and knowledge graph for any codebase')
   .version(packageJson.version)
   // Parsed manually before commander runs (any argv position works); declared
@@ -243,7 +243,7 @@ const TELEMETRY_FLUSH_COMMANDS = new Set(['init', 'uninit', 'index', 'sync', 'up
 program.hook('preAction', (_thisCommand, actionCommand) => {
   try {
     // The detached daemon re-invokes `serve --mcp` internally — not a user action.
-    if (process.env.CODEGRAPH_DAEMON_INTERNAL) return;
+    if (process.env.SLEUTH_DAEMON_INTERNAL) return;
     const name = actionCommand.name();
     if (name === 'telemetry') return; // managing telemetry is not usage
     getTelemetry().recordUsage('cli_command', name, true);
@@ -259,19 +259,19 @@ program.hook('preAction', (_thisCommand, actionCommand) => {
 
 /**
  * Resolve project path from argument or current directory
- * Walks up parent directories to find nearest initialized CodeGraph project
- * (must have .codegraph/codegraph.db, not just .codegraph/lessons.db)
+ * Walks up parent directories to find nearest initialized SleuthGraph project
+ * (must have .sleuth/sleuth.db, not just .sleuth/lessons.db)
  */
 function resolveProjectPath(pathArg?: string): string {
   const absolutePath = path.resolve(pathArg || process.cwd());
 
-  // If exact path is initialized (has codegraph.db), use it
+  // If exact path is initialized (has sleuth.db), use it
   if (isInitialized(absolutePath)) {
     return absolutePath;
   }
 
-  // Walk up to find nearest parent with CodeGraph initialized
-  // Note: findNearestCodeGraphRoot finds any .codegraph folder, but we need one with codegraph.db
+  // Walk up to find nearest parent with SleuthGraph initialized
+  // Note: findNearestSleuthGraphRoot finds any .sleuth folder, but we need one with sleuth.db
   let current = absolutePath;
   const root = path.parse(current).root;
 
@@ -467,7 +467,7 @@ function printIndexResult(clack: typeof import('@clack/prompts'), result: IndexR
   } else if (hasErrors) {
     clack.log.error(`Indexing failed ${getGlyphs().dash} all ${formatNumber(result.filesErrored)} files had errors`);
   } else if (result.filesSkippedUnsupported) {
-    // A project CodeGraph has no grammar for used to be indistinguishable from
+    // A project SleuthGraph has no grammar for used to be indistinguishable from
     // an empty one: same message, same `complete` state, same exit 0. Say which
     // files were there and that the graph is empty on purpose, so nobody — and
     // no agent trusting the graph — reads silence as "this code doesn't exist"
@@ -476,10 +476,10 @@ function printIndexResult(clack: typeof import('@clack/prompts'), result: IndexR
       .map(e => `${e.ext} (${formatNumber(e.count)})`)
       .join(', ');
     clack.log.warn(
-      `No supported source files found ${getGlyphs().dash} ${formatNumber(result.filesSkippedUnsupported)} file(s) present, none in a language CodeGraph indexes`
+      `No supported source files found ${getGlyphs().dash} ${formatNumber(result.filesSkippedUnsupported)} file(s) present, none in a language SleuthGraph indexes`
       + (top ? `: ${top}` : '')
     );
-    clack.log.info('CodeGraph is inactive for this workspace — searches will return nothing. Use your own file tools here.');
+    clack.log.info('SleuthGraph is inactive for this workspace — searches will return nothing. Use your own file tools here.');
   } else {
     clack.log.warn('No files found to index');
   }
@@ -509,7 +509,7 @@ function printIndexResult(clack: typeof import('@clack/prompts'), result: IndexR
 
     if (projectPath) {
       writeErrorLog(projectPath, result.errors);
-      clack.log.info('See .codegraph/errors.log for details');
+      clack.log.info('See .sleuth/errors.log for details');
     }
 
     if (result.filesIndexed > 0) {
@@ -520,9 +520,9 @@ function printIndexResult(clack: typeof import('@clack/prompts'), result: IndexR
     // carries the per-file detail behind the one-line summary above.
     if (result.errors.some((e) => e.code === 'salvaged_stripped')) {
       writeErrorLog(projectPath, result.errors);
-      clack.log.info('See .codegraph/errors.log for details');
+      clack.log.info('See .sleuth/errors.log for details');
     } else {
-      const logPath = path.join(getCodeGraphDir(projectPath), 'errors.log');
+      const logPath = path.join(getSleuthGraphDir(projectPath), 'errors.log');
       if (fs.existsSync(logPath)) {
         fs.unlinkSync(logPath);
       }
@@ -536,7 +536,7 @@ function printIndexResult(clack: typeof import('@clack/prompts'), result: IndexR
  * gitignores its child repos" layout (#1156), where `init` at the parent
  * correctly indexes ~nothing while `init` inside each child works — name those
  * repos and offer to index them. An interactive terminal gets a yes/no prompt
- * that writes `includeIgnored` to codegraph.json and re-indexes; a
+ * that writes `includeIgnored` to sleuth.json and re-indexes; a
  * non-interactive run just prints the one-line opt-in snippet. The caller gates
  * this on `nodesCreated === 0`, so a project that DID index real content is
  * never nagged about the gitignored reference clones it deliberately keeps out
@@ -607,10 +607,10 @@ async function offerIndexIgnoredRepos(
 }
 
 /**
- * Write detailed error log to .codegraph/errors.log
+ * Write detailed error log to .sleuth/errors.log
  */
 function writeErrorLog(projectPath: string, errors: Array<{ message: string; filePath?: string; severity: string; code?: string }>): void {
-  const cgDir = getCodeGraphDir(projectPath);
+  const cgDir = getSleuthGraphDir(projectPath);
   if (!fs.existsSync(cgDir)) return;
 
   const logPath = path.join(cgDir, 'errors.log');
@@ -634,7 +634,7 @@ function writeErrorLog(projectPath: string, errors: Array<{ message: string; fil
   }
 
   const lines: string[] = [
-    `CodeGraph Error Log - ${new Date().toISOString()}`,
+    `SleuthGraph Error Log - ${new Date().toISOString()}`,
     `${errorsByFile.size} files with errors`,
     '',
   ];
@@ -670,8 +670,8 @@ async function recordIndexTelemetry(
 // =============================================================================
 
 /**
- * The `init` flow — shared by `codegraph init` and `codegraph install --init`
- * (#1578): refuse an unsafe root, create `.codegraph/`, build the initial
+ * The `init` flow — shared by `sleuth init` and `sleuth install --init`
+ * (#1578): refuse an unsafe root, create `.sleuth/`, build the initial
  * index under supervision, then the post-index offers. `yes` makes every
  * offer non-interactive (defaults only), so a container / CI bootstrap never
  * blocks on a prompt. An unsafe root sets `process.exitCode = 1` and returns
@@ -683,7 +683,7 @@ async function runInit(
 ): Promise<void> {
   const clack = await importESM('@clack/prompts');
 
-  clack.intro('Initializing CodeGraph');
+  clack.intro('Initializing SleuthGraph');
 
   try {
     // Refuse to index your home directory / a filesystem root — it pulls in
@@ -700,7 +700,7 @@ async function runInit(
 
     if (isInitialized(projectPath)) {
       clack.log.warn(`Already initialized in ${projectPath}`);
-      clack.log.info('Use "codegraph index" to re-index or "codegraph sync" to update');
+      clack.log.info('Use "sleuth index" to re-index or "sleuth sync" to update');
       try {
         const { offerWatchFallback } = await import('../installer');
         await offerWatchFallback(clack, projectPath, { yes: options.yes });
@@ -710,26 +710,26 @@ async function runInit(
     }
 
     if (hasForeignDbFile(projectPath)) {
-      const dbFile = path.join(getCodeGraphDir(projectPath), 'codegraph.db');
+      const dbFile = path.join(getSleuthGraphDir(projectPath), 'sleuth.db');
       clack.log.error(`${dbFile} is not a SQLite database, so it cannot be rebuilt in place.`);
-      clack.log.info('Move or delete that file, then run "codegraph init" again.');
+      clack.log.info('Move or delete that file, then run "sleuth init" again.');
       clack.outro('');
       process.exitCode = 1;
       return;
     }
     if (hasSchemalessDb(projectPath)) {
-      clack.log.warn(`Found a codegraph.db without the codegraph schema in ${getCodeGraphDir(projectPath)} (left by an interrupted init?) — rebuilding it.`);
+      clack.log.warn(`Found a sleuth.db without the sleuth schema in ${getSleuthGraphDir(projectPath)} (left by an interrupted init?) — rebuilding it.`);
     }
-    const { default: CodeGraph, getDatabasePath } = await loadCodeGraph();
-    const cg = await CodeGraph.init(projectPath, { index: false });
+    const { default: SleuthGraph, getDatabasePath } = await loadSleuthGraph();
+    const cg = await SleuthGraph.init(projectPath, { index: false });
     clack.log.success(`Initialized in ${projectPath}`);
     // A fresh index on a Windows drive under WSL gets its own directory (#995).
     // It isn't the documented name, so say where it went and why.
-    const dataDir = path.basename(getCodeGraphDir(projectPath));
-    if (dataDir !== codeGraphDirName()) {
+    const dataDir = path.basename(getSleuthGraphDir(projectPath));
+    if (dataDir !== sleuthGraphDirName()) {
       clack.log.info(
         `The index is in ${dataDir}/: this project is on a Windows drive, so WSL keeps its own index ` +
-        `rather than share ${DEFAULT_CODEGRAPH_DIR}/ with CodeGraph on Windows. Set CODEGRAPH_DIR to choose the name yourself.`
+        `rather than share ${DEFAULT_SLEUTH_DIR}/ with SleuthGraph on Windows. Set SLEUTH_DIR to choose the name yourself.`
       );
     }
 
@@ -784,11 +784,11 @@ async function runInit(
 }
 
 /**
- * codegraph init [path]
+ * sleuth init [path]
  */
 program
   .command('init [path]')
-  .description('Initialize CodeGraph in a project directory and build the initial index')
+  .description('Initialize SleuthGraph in a project directory and build the initial index')
   .option('-i, --index', 'Deprecated: indexing now runs by default; flag accepted for backward compatibility')
   .option('-f, --force', 'Initialize even if the path looks like your home directory or a filesystem root')
   .option('-v, --verbose', 'Show detailed worker lifecycle and memory info')
@@ -798,18 +798,18 @@ program
   });
 
 /**
- * codegraph uninit [path]
+ * sleuth uninit [path]
  */
 program
   .command('uninit [path]')
-  .description('Remove CodeGraph from a project (deletes .codegraph/ directory)')
+  .description('Remove SleuthGraph from a project (deletes .sleuth/ directory)')
   .option('-f, --force', 'Skip confirmation prompt')
   .action(async (pathArg: string | undefined, options: { force?: boolean }) => {
     const projectPath = resolveProjectPath(pathArg);
 
     try {
       if (!isInitialized(projectPath)) {
-        warn(`CodeGraph is not initialized in ${projectPath}`);
+        warn(`SleuthGraph is not initialized in ${projectPath}`);
         return;
       }
 
@@ -819,7 +819,7 @@ program
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         const answer = await new Promise<string>((resolve) => {
           rl.question(
-            chalk.yellow(`${getGlyphs().warn} This will permanently delete all CodeGraph data. Continue? (y/N) `),
+            chalk.yellow(`${getGlyphs().warn} This will permanently delete all SleuthGraph data. Continue? (y/N) `),
             resolve
           );
         });
@@ -831,8 +831,8 @@ program
         }
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = CodeGraph.openSync(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = SleuthGraph.openSync(projectPath);
       cg.uninitialize();
 
       // Clean up any git sync hooks we installed (no-op if none / not a repo).
@@ -844,7 +844,7 @@ program
         }
       } catch { /* non-fatal */ }
 
-      success(`Removed CodeGraph from ${projectPath}`);
+      success(`Removed SleuthGraph from ${projectPath}`);
 
       // Churn signal — and flush now, since after an uninit there may be no
       // "next run" to deliver it.
@@ -859,7 +859,7 @@ program
   });
 
 /**
- * codegraph index [path]
+ * sleuth index [path]
  */
 program
   .command('index [path]')
@@ -870,10 +870,10 @@ program
   .action(async (pathArg: string | undefined, options: { force?: boolean; quiet?: boolean; verbose?: boolean }) => {
     // An EXPLICIT path names the project to rebuild — it is never a hint to go
     // looking for one. resolveProjectPath walks up to the nearest initialized
-    // ancestor, which is right for `codegraph query` run from a subdirectory,
+    // ancestor, which is right for `sleuth query` run from a subdirectory,
     // but for a full re-index it silently rebuilt the parent's graph under a
     // normal "Done" when <path> had no index of its own (#1524). Only a bare
-    // `codegraph index` (cwd) may resolve upward.
+    // `sleuth index` (cwd) may resolve upward.
     const projectPath = pathArg ? path.resolve(pathArg) : resolveProjectPath();
 
     try {
@@ -886,12 +886,12 @@ program
       }
 
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`SleuthGraph not initialized in ${projectPath}`);
         const ancestor = pathArg ? resolveProjectPath(pathArg) : projectPath;
         if (ancestor !== projectPath) {
-          info(`The nearest initialized project is ${ancestor} — pass that path to rebuild it, or run "codegraph init" in ${projectPath} to index it on its own.`);
+          info(`The nearest initialized project is ${ancestor} — pass that path to rebuild it, or run "sleuth init" in ${projectPath} to index it on its own.`);
         } else {
-          info('Run "codegraph init" first');
+          info('Run "sleuth init" first');
         }
         process.exit(1);
       }
@@ -905,7 +905,7 @@ program
         const { stopDaemonAt } = await import('../mcp/daemon-registry');
         const daemonStop = await stopDaemonAt(fs.realpathSync(projectPath), { preserveUnverified: true });
         if (daemonStop.outcome === 'unverified' || daemonStop.outcome === 'still-running') {
-          throw new Error('Could not verify that the active CodeGraph daemon has stopped. Run `codegraph daemon stop` to stop it, then retry `codegraph index`.');
+          throw new Error('Could not verify that the active SleuthGraph daemon has stopped. Run `sleuth daemon stop` to stop it, then retry `sleuth index`.');
         }
 
         // Keep the writer slot through recreation AND indexing. A reconnecting
@@ -913,9 +913,9 @@ program
         const writer = tryAcquireWriterLock(projectPath, 'rebuild');
         if (writer.kind === 'taken') throw new Error(writerLockHeldMessage(writer.existing, writer.pidPath));
         try {
-          const { default: CodeGraph, getDatabasePath } = await loadCodeGraph();
+          const { default: SleuthGraph, getDatabasePath } = await loadSleuthGraph();
           // `index` is a FULL re-index — identical to a fresh `init`. RECREATE the
-          // database from scratch (discard .codegraph/codegraph.db + its WAL) rather
+          // database from scratch (discard .sleuth/sleuth.db + its WAL) rather
           // than opening the old graph and DELETE-ing every row. The clear-then-index
           // approach reported "0 nodes" without the clear (#874); the recreate keeps
           // that fixed AND avoids the failure mode where, on a large or pre-fix
@@ -923,7 +923,7 @@ program
           // enough to trip the liveness watchdog before scanning even began (#1067).
           // recreate() hands back a fresh, empty instance — no clear() needed. For
           // fast incremental updates use `sync`.
-          const cg = await CodeGraph.recreate(projectPath);
+          const cg = await SleuthGraph.recreate(projectPath);
 
           // Supervise the indexer: self-terminate if orphaned (parent shim killed)
           // or if the main thread wedges — neither was guarded on this path (#999).
@@ -989,7 +989,7 @@ program
   });
 
 /**
- * codegraph sync [path]
+ * sleuth sync [path]
  */
 program
   .command('sync [path]')
@@ -1001,13 +1001,13 @@ program
     try {
       if (!isInitialized(projectPath)) {
         if (!options.quiet) {
-          error(`CodeGraph not initialized in ${projectPath}`);
+          error(`SleuthGraph not initialized in ${projectPath}`);
         }
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
 
       try {
         if (options.quiet) {
@@ -1016,7 +1016,7 @@ program
         }
 
         const clack = await importESM('@clack/prompts');
-        clack.intro('Syncing CodeGraph');
+        clack.intro('Syncing SleuthGraph');
 
         process.stdout.write(`${colors.dim}${getGlyphs().rail}${colors.reset}\n`);
         const progress = createShimmerProgress();
@@ -1057,7 +1057,7 @@ program
   });
 
 /**
- * codegraph status [path]
+ * sleuth status [path]
  */
 program
   .command('status [path]')
@@ -1078,20 +1078,20 @@ program
             initialized: false,
             version: packageJson.version,
             projectPath,
-            indexPath: getCodeGraphDir(projectPath),
+            indexPath: getSleuthGraphDir(projectPath),
             lastIndexed: null,
           }));
           return;
         }
-        console.log(chalk.bold('\nCodeGraph Status\n'));
+        console.log(chalk.bold('\nSleuthGraph Status\n'));
         info(`Project: ${projectPath}`);
         warn('Not initialized');
-        info('Run "codegraph init" to initialize');
+        info('Run "sleuth init" to initialize');
         return;
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
       const stats = cg.getStats();
       const changes = cg.getChangedFiles();
       const backend = cg.getBackend();
@@ -1111,7 +1111,7 @@ program
           initialized: true,
           version: packageJson.version,
           projectPath,
-          indexPath: getCodeGraphDir(projectPath),
+          indexPath: getSleuthGraphDir(projectPath),
           lastIndexed: lastIndexedMs != null ? new Date(lastIndexedMs).toISOString() : null,
           fileCount: stats.fileCount,
           nodeCount: stats.nodeCount,
@@ -1149,7 +1149,7 @@ program
         return;
       }
 
-      console.log(chalk.bold('\nCodeGraph Status\n'));
+      console.log(chalk.bold('\nSleuthGraph Status\n'));
 
       // Project info
       console.log(chalk.cyan('Project:'), projectPath);
@@ -1157,14 +1157,14 @@ program
         warn(worktreeMismatchWarning(worktreeMismatch));
       }
       if (indexState === 'indexing') {
-        warn('The last index run never finished (killed mid-index?) — the index is truncated. Re-run "codegraph index".');
+        warn('The last index run never finished (killed mid-index?) — the index is truncated. Re-run "sleuth index".');
       } else if (indexState === 'partial') {
-        warn('The last index run silently dropped files — the index is partial. Re-run "codegraph index".');
+        warn('The last index run silently dropped files — the index is partial. Re-run "sleuth index".');
       } else if (indexState === 'failed') {
-        warn('The last index run failed — results may be incomplete. Re-run "codegraph index".');
+        warn('The last index run failed — results may be incomplete. Re-run "sleuth index".');
       }
       if (pendingRefs > 0) {
-        warn(`${formatNumber(pendingRefs)} references from an interrupted run are awaiting resolution — some callers/impact edges are missing. Run "codegraph sync" to resolve them.`);
+        warn(`${formatNumber(pendingRefs)} references from an interrupted run are awaiting resolution — some callers/impact edges are missing. Run "sleuth sync" to resolve them.`);
       }
       console.log();
 
@@ -1184,7 +1184,7 @@ program
         const walLabel = `${(stats.walSizeBytes / 1024 / 1024).toFixed(2)} MB`;
         console.log(`  WAL Size:  ${oversized ? chalk.yellow(walLabel) : walLabel}`);
         if (oversized) {
-          warn('The write-ahead log is larger than the database — killed sessions left it behind. It is reclaimed automatically on open; if it persists across runs, another live CodeGraph process is holding it.');
+          warn('The write-ahead log is larger than the database — killed sessions left it behind. It is reclaimed automatically on open; if it persists across runs, another live SleuthGraph process is holding it.');
         }
       }
       // Surface the active SQLite backend (node:sqlite — Node's built-in real
@@ -1234,7 +1234,7 @@ program
         if (changes.removed.length > 0) {
           console.log(`  Removed:   ${changes.removed.length} files`);
         }
-        info('Run "codegraph sync" to update the index');
+        info('Run "sleuth sync" to update the index');
       } else {
         success('Index is up to date');
       }
@@ -1245,7 +1245,7 @@ program
       if (reindexRecommended) {
         const builtWith = buildInfo.version ? `v${buildInfo.version.replace(/^v/, '')}` : 'an earlier version';
         warn(`Index was built by ${builtWith}; re-index to pick up this engine's improvements.`);
-        info('Run "codegraph index" (full rebuild) or "codegraph sync"');
+        info('Run "sleuth index" (full rebuild) or "sleuth sync"');
         console.log();
       }
 
@@ -1257,7 +1257,7 @@ program
   });
 
 /**
- * codegraph query <search>
+ * sleuth query <search>
  */
 program
   .command('query <search>')
@@ -1271,12 +1271,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`SleuthGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
 
       const limit = parseInt(options.limit || '10', 10);
       const rawResults = cg.searchNodes(search, {
@@ -1339,9 +1339,9 @@ program
   });
 
 /**
- * codegraph explore <query...>
+ * sleuth explore <query...>
  *
- * The CLI face of the MCP codegraph_explore tool — same handler, same
+ * The CLI face of the MCP sleuth_explore tool — same handler, same
  * output (source of the relevant symbols grouped by file + the call path
  * among them). Exists so agents WITHOUT the MCP tools — Task-tool
  * subagents (which don't inherit MCP tools, #704) and non-MCP harnesses —
@@ -1349,7 +1349,7 @@ program
  */
 program
   .command('explore <query...>')
-  .description('Explore an area: relevant symbols\' source + call paths in one shot (same output as the codegraph_explore MCP tool)')
+  .description('Explore an area: relevant symbols\' source + call paths in one shot (same output as the sleuth_explore MCP tool)')
   .option('-p, --path <path>', 'Project path')
   .option('--max-files <number>', 'Maximum number of files to include source from')
   .action(async (queryParts: string[], options: { path?: string; maxFiles?: string }) => {
@@ -1357,18 +1357,18 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph isn't available here — no .codegraph/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable CodeGraph with 'codegraph init'.)`);
+        error(`SleuthGraph isn't available here — no .sleuth/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable SleuthGraph with 'sleuth init'.)`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
       const { ToolHandler } = await import('../mcp/tools');
       const handler = new ToolHandler(cg);
 
       const args: Record<string, unknown> = { query: queryParts.join(' ') };
       if (options.maxFiles) args.maxFiles = parseInt(options.maxFiles, 10);
-      const result = await handler.execute('codegraph_explore', args);
+      const result = await handler.execute('sleuth_explore', args);
 
       console.log(result.content[0]?.text ?? '');
       cg.destroy();
@@ -1380,13 +1380,13 @@ program
   });
 
 /**
- * codegraph context <task...>
+ * sleuth context <task...>
  *
  * The CLI face of the public `buildContext` API (ContextBuilder): FTS entry
  * points + graph expansion + code blocks, formatted as markdown or JSON.
  * Advertised in the usage header since the first release but never actually
  * registered (#1611); external integrations (e.g. Memorix) invoke it as
- * `codegraph context --path <root> --format json --max-nodes 8 --no-code <task>`.
+ * `sleuth context --path <root> --format json --max-nodes 8 --no-code <task>`.
  */
 program
   .command('context <task...>')
@@ -1414,12 +1414,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`SleuthGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
 
       const result = await cg.buildContext(taskParts.join(' '), {
         format,
@@ -1439,13 +1439,13 @@ program
   });
 
 /**
- * codegraph prompt-hook  (hidden)
+ * sleuth prompt-hook  (hidden)
  *
  * A Claude Code `UserPromptSubmit` hook entry point. Reads `{prompt, cwd}` JSON
- * on stdin; for a structural/flow/impact prompt it runs `codegraph_explore` on
+ * on stdin; for a structural/flow/impact prompt it runs `sleuth_explore` on
  * the indexed project and prints the result to stdout, which Claude injects into
  * the agent's context — so the agent's reflex grep/read has nothing left to find
- * and reliably uses CodeGraph (the adoption problem). Installed by the installer
+ * and reliably uses SleuthGraph (the adoption problem). Installed by the installer
  * into Claude's settings.json (opt-in, default-yes).
  *
  * LOAD-BEARING: this must NEVER break the user's prompt. Every failure path —
@@ -1454,12 +1454,12 @@ program
  */
 program
   .command('prompt-hook', { hidden: true })
-  .description('Claude UserPromptSubmit hook: inject CodeGraph context for structural prompts (reads {prompt,cwd} JSON on stdin)')
+  .description('Claude UserPromptSubmit hook: inject SleuthGraph context for structural prompts (reads {prompt,cwd} JSON on stdin)')
   .action(async () => {
     try {
       // Kill-switch: lets a user disable the nudge without uninstalling /
       // editing settings.json (CI, low-power machines, personal preference).
-      if (process.env.CODEGRAPH_NO_PROMPT_HOOK === '1' || process.env.CODEGRAPH_PROMPT_HOOK === '0') return;
+      if (process.env.SLEUTH_NO_PROMPT_HOOK === '1' || process.env.SLEUTH_PROMPT_HOOK === '0') return;
       if (process.stdin.isTTY) return; // invoked by hand, no piped payload
 
       const raw = await new Promise<string>((resolve) => {
@@ -1514,14 +1514,14 @@ program
       if (!plan.exploreRoot && plan.nudgeProjects.length === 0) { gate('noop-no-index'); return; } // nothing reachable — the agent's normal tools apply
 
       // A "pass projectPath" line for indexed sub-projects we did NOT front-load.
-      // Follow-up codegraph_explore calls against a sub-project (cwd isn't its
+      // Follow-up sleuth_explore calls against a sub-project (cwd isn't its
       // index root) need an explicit projectPath, so spell it out.
       const nudge = (projects: string[], lead: string): string =>
         `${lead}\n${projects.map((p) => `  - projectPath: "${p}"`).join('\n')}\n`;
 
       if (plan.exploreRoot) {
-        const { default: CodeGraph } = await loadCodeGraph();
-        const cg = await CodeGraph.open(plan.exploreRoot);
+        const { default: SleuthGraph } = await loadSleuthGraph();
+        const cg = await SleuthGraph.open(plan.exploreRoot);
         try {
           const others = plan.nudgeProjects.length
             ? `\n${nudge(plan.nudgeProjects, 'Other indexed projects in this workspace — pass projectPath to query them:')}`
@@ -1535,7 +1535,7 @@ program
           if (keyworded || tokenVerified) {
             const { ToolHandler } = await import('../mcp/tools');
             const handler = new ToolHandler(cg);
-            const result = await handler.execute('codegraph_explore', { query: prompt });
+            const result = await handler.execute('sleuth_explore', { query: prompt });
             const text = result.content[0]?.text ?? '';
             if (!result.isError && text.trim()) {
               // Cap the injection so a large-repo explore can't flood the prompt.
@@ -1546,10 +1546,10 @@ program
               const body = capPromptHookInjection(text);
               // For a front-loaded SUB-project, a follow-up explore needs its path.
               const more = plan.viaSubScan
-                ? `call codegraph_explore with projectPath: "${plan.exploreRoot}" for more`
-                : 'call codegraph_explore for more';
+                ? `call sleuth_explore with projectPath: "${plan.exploreRoot}" for more`
+                : 'call sleuth_explore for more';
               process.stdout.write(
-                `<codegraph_context note="Structural context from CodeGraph for this prompt — treat returned source as already read; ${more}.">\n${body}${others}\n</codegraph_context>\n`,
+                `<sleuth_context note="Structural context from SleuthGraph for this prompt — treat returned source as already read; ${more}.">\n${body}${others}\n</sleuth_context>\n`,
               );
               gate(keyworded ? 'high-keyword' : 'high-token');
             } else {
@@ -1584,11 +1584,11 @@ program
           const exampleQuery = related.slice(0, 3).map((m) => m.name).join(' ');
           const projectHint = plan.viaSubScan ? ` with projectPath: "${plan.exploreRoot}"` : '';
           process.stdout.write(
-            `<codegraph_context note="CodeGraph found indexed symbols matching this prompt — query the graph before searching files.">\n` +
-            `This project's CodeGraph index contains symbols matching this request:\n${lines}\n` +
-            `Call codegraph_explore ONCE${projectHint} with the relevant names in one query (e.g. "${exampleQuery}") ` +
+            `<sleuth_context note="SleuthGraph found indexed symbols matching this prompt — query the graph before searching files.">\n` +
+            `This project's SleuthGraph index contains symbols matching this request:\n${lines}\n` +
+            `Call sleuth_explore ONCE${projectHint} with the relevant names in one query (e.g. "${exampleQuery}") ` +
             `to get their source, call paths, and blast radius — cheaper and more complete than Read/Grep.\n${others}` +
-            `</codegraph_context>\n`,
+            `</sleuth_context>\n`,
           );
           gate('medium-segment');
         } finally {
@@ -1598,9 +1598,9 @@ program
         // Several indexed sub-projects, none a clear match — don't guess; tell
         // the agent they exist and how to query one.
         process.stdout.write(
-          `<codegraph_context note="CodeGraph is available for this workspace's indexed sub-projects — query one by passing projectPath to codegraph_explore.">\n` +
-          nudge(plan.nudgeProjects, "This workspace's CodeGraph indexes live in sub-projects. To use CodeGraph, call codegraph_explore with the projectPath of the relevant one:") +
-          `</codegraph_context>\n`,
+          `<sleuth_context note="SleuthGraph is available for this workspace's indexed sub-projects — query one by passing projectPath to sleuth_explore.">\n` +
+          nudge(plan.nudgeProjects, "This workspace's SleuthGraph indexes live in sub-projects. To use SleuthGraph, call sleuth_explore with the projectPath of the relevant one:") +
+          `</sleuth_context>\n`,
         );
         gate('nudge-projects');
       }
@@ -1610,18 +1610,18 @@ program
   });
 
 /**
- * codegraph node [name]
+ * sleuth node [name]
  *
- * The CLI face of the MCP codegraph_node tool: one symbol's source +
+ * The CLI face of the MCP sleuth_node tool: one symbol's source +
  * caller/callee trail, or a whole file with line numbers + dependents
  * (Read-parity). Same subagent/non-MCP rationale as `explore`.
  *
  * `name` is OPTIONAL because `--file` (file-read mode) carries no symbol —
- * a required `<name>` made `codegraph node -f <file>` unreachable (#1044).
+ * a required `<name>` made `sleuth node -f <file>` unreachable (#1044).
  */
 program
   .command('node [name]')
-  .description('One symbol\'s source + caller/callee trail, or read a file with line numbers + dependents (same output as the codegraph_node MCP tool)')
+  .description('One symbol\'s source + caller/callee trail, or read a file with line numbers + dependents (same output as the sleuth_node MCP tool)')
   .option('-p, --path <path>', 'Project path')
   .option('-f, --file <file>', 'Treat as file mode (or disambiguate a symbol to this file)')
   .option('--offset <number>', 'File mode: 1-based start line')
@@ -1629,10 +1629,10 @@ program
   .option('--symbols-only', 'File mode: just the symbol map + dependents')
   .action(async (name: string | undefined, options: { path?: string; file?: string; offset?: string; limit?: string; symbolsOnly?: boolean }) => {
     // Need a symbol (positional) OR a file (--file / a path-like positional).
-    // With [name] optional, a bare `codegraph node` reaches here with neither
+    // With [name] optional, a bare `sleuth node` reaches here with neither
     // and must be told what to pass, rather than crashing downstream.
     if (!name && !options.file) {
-      error("Pass a symbol name (e.g. 'codegraph node parseToken') or a file (e.g. 'codegraph node -f src/auth.ts', or 'codegraph node src/auth.ts').");
+      error("Pass a symbol name (e.g. 'sleuth node parseToken') or a file (e.g. 'sleuth node -f src/auth.ts', or 'sleuth node src/auth.ts').");
       process.exit(1);
     }
 
@@ -1640,12 +1640,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph isn't available here — no .codegraph/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable CodeGraph with 'codegraph init'.)`);
+        error(`SleuthGraph isn't available here — no .sleuth/ index exists in ${projectPath}. If you are an AI agent: continue with your usual tools; indexing is the user's decision, do not run it yourself. (The project owner can enable SleuthGraph with 'sleuth init'.)`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
       const { ToolHandler } = await import('../mcp/tools');
       const handler = new ToolHandler(cg);
 
@@ -1675,7 +1675,7 @@ program
       if (options.limit) args.limit = parseInt(options.limit, 10);
       if (options.symbolsOnly) args.symbolsOnly = true;
 
-      const result = await handler.execute('codegraph_node', args);
+      const result = await handler.execute('sleuth_node', args);
 
       console.log(result.content[0]?.text ?? '');
       cg.destroy();
@@ -1687,7 +1687,7 @@ program
   });
 
 /**
- * codegraph files [path]
+ * sleuth files [path]
  */
 program
   .command('files')
@@ -1712,16 +1712,16 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`SleuthGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
       let files = cg.getFiles();
 
       if (files.length === 0) {
-        info('No files indexed. Run "codegraph index" first.');
+        info('No files indexed. Run "sleuth index" first.');
         cg.destroy();
         return;
       }
@@ -1813,9 +1813,9 @@ program
 
 /**
  * Normalize a user-supplied file path to the project-relative, forward-slash
- * form CodeGraph stores in the index. Accepts an absolute path, a `./`-prefixed
+ * form SleuthGraph stores in the index. Accepts an absolute path, a `./`-prefixed
  * path, or Windows back-slashes; an empty string when the input is blank. Used
- * by `codegraph affected` so `./src/x.ts`, `/abs/repo/src/x.ts`, and
+ * by `sleuth affected` so `./src/x.ts`, `/abs/repo/src/x.ts`, and
  * `src/x.ts` all match the same indexed file. (#825)
  */
 function normalizeIndexPath(filePath: string, projectPath: string): string {
@@ -1911,21 +1911,21 @@ function printFileTree(
 }
 
 /**
- * codegraph daemon — interactive manager for the background daemons. Arrow keys
+ * sleuth daemon — interactive manager for the background daemons. Arrow keys
  * to pick one (the current project's daemon floats to the top, auto-selected),
  * enter to stop it. Falls back to a plain list when output isn't a TTY.
  */
 program
   .command('daemon')
   .aliases(['daemons'])
-  .description('Manage running CodeGraph background daemons — pick one and press enter to stop it')
+  .description('Manage running SleuthGraph background daemons — pick one and press enter to stop it')
   .action(async () => {
     const { listVerifiedDaemons, stopDaemonAt, stopAllDaemons } = await import('../mcp/daemon-registry');
     const { runDaemonPicker } = await import('../mcp/daemon-manager');
 
     const daemons = await listVerifiedDaemons();
     if (daemons.length === 0) {
-      info('No CodeGraph daemons running.');
+      info('No SleuthGraph daemons running.');
       return;
     }
 
@@ -1940,11 +1940,11 @@ program
 
     // The current project's daemon floats to the top and is pre-selected.
     let cwdRoot: string | null = null;
-    const found = findNearestCodeGraphRoot(process.cwd());
+    const found = findNearestSleuthGraphRoot(process.cwd());
     if (found) { try { cwdRoot = fs.realpathSync(found); } catch { cwdRoot = found; } }
 
     const clack = await importESM('@clack/prompts');
-    clack.intro('CodeGraph daemons');
+    clack.intro('SleuthGraph daemons');
     await runDaemonPicker({
       list: listVerifiedDaemons,
       stop: stopDaemonAt,
@@ -1967,28 +1967,28 @@ program
  * command that fixes it, and never print a stack trace.
  */
 function printNoIndexGuidance(projectPath: string): void {
-  error(`No CodeGraph index found for ${projectPath}`);
+  error(`No SleuthGraph index found for ${projectPath}`);
   console.error('');
   // getGlyphs() (not a literal em dash): a legacy Windows console decodes raw
   // UTF-8 with its OEM codepage and renders one as mojibake (#168).
   console.error(`  The viewer reads an index that already exists ${getGlyphs().dash} it never creates one.`);
   console.error('  To index this project:');
   console.error('');
-  console.error(`    ${chalk.cyan('codegraph init')}`);
+  console.error(`    ${chalk.cyan('sleuth init')}`);
   console.error('');
   console.error('  Already indexed somewhere else? Point the viewer at it:');
   console.error('');
-  console.error(`    ${chalk.cyan('codegraph ui /path/to/indexed/project')}`);
+  console.error(`    ${chalk.cyan('sleuth ui /path/to/indexed/project')}`);
   console.error('');
 }
 
 /**
- * codegraph ui [path]  (alias: web)
+ * sleuth ui [path]  (alias: web)
  *
  * The browser reader: serves the built viewer (`dist/viewer/`) over loopback
  * and opens it. It opens the index for reading and never writes to it, never
  * indexes, and never changes a line of the project's code. The single thing it
- * writes is a trail the reader saved, as JSON under `.codegraph/ui/trails/`;
+ * writes is a trail the reader saved, as JSON under `.sleuth/ui/trails/`;
  * `--read-only` turns even that off.
  *
  * Deliberately absent from TELEMETRY_FLUSH_COMMANDS above: the command's own
@@ -1999,7 +1999,7 @@ function printNoIndexGuidance(projectPath: string): void {
 program
   .command('ui [path]', { hidden: !viewerEnabled() })
   .alias('web')
-  .description('Open the CodeGraph viewer in your browser — read your indexed project as a graph')
+  .description('Open the SleuthGraph viewer in your browser — read your indexed project as a graph')
   .option('--port <number>', `Port to listen on (default: ${DEFAULT_UI_PORT}, or the next free one)`)
   .option('--no-open', 'Print the URL instead of opening a browser')
   .option('--read-only', 'Refuse every write — saved trails can be opened but not saved or deleted')
@@ -2007,11 +2007,11 @@ program
     'after',
     `
 Examples:
-  $ codegraph ui                    Read the project you're standing in
-  $ codegraph ui ~/code/my-app      Read a specific indexed project
-  $ codegraph ui --port 8080        Use one specific port (fails if it's taken)
-  $ codegraph ui --no-open          Just print the URL (headless boxes, SSH)
-  $ codegraph web                   Same command under its alias
+  $ sleuth ui                    Read the project you're standing in
+  $ sleuth ui ~/code/my-app      Read a specific indexed project
+  $ sleuth ui --port 8080        Use one specific port (fails if it's taken)
+  $ sleuth ui --no-open          Just print the URL (headless boxes, SSH)
+  $ sleuth web                   Same command under its alias
 
 Pick a symbol and you see who calls it on the left, its source in the middle,
 and what it calls on the right at the height of the line that calls it. Search
@@ -2031,7 +2031,7 @@ within about a third of a second, and whatever is on screen re-reads the graph
 when something re-indexes it. It watches for that; it never polls.
 
 Save a walk you want to keep: name the trail and it is written to
-.codegraph/ui/trails/ (already gitignored) as plain JSON, listed on the empty
+.sleuth/ui/trails/ (already gitignored) as plain JSON, listed on the empty
 screen, and reopened at the symbol you left. Hops are remembered by name rather
 than by position, so a saved trail survives re-indexing and says which hop moved
 when one does. Pass --read-only to refuse every write.
@@ -2064,7 +2064,7 @@ ${BROWSER_ENV}=none to never open one.
     const projectPath = resolveProjectPath(pathArg);
 
     // Sensitive-directory refusal before anything opens: the same guard the MCP
-    // entry points use, so `codegraph ui /etc` is turned away here rather than
+    // entry points use, so `sleuth ui /etc` is turned away here rather than
     // becoming a browsable view of the system.
     const { validateProjectPath } = await import('../utils');
     const rootError = validateProjectPath(projectPath);
@@ -2111,7 +2111,7 @@ ${BROWSER_ENV}=none to never open one.
     }
 
     console.log('');
-    console.log(chalk.bold('CodeGraph viewer'));
+    console.log(chalk.bold('SleuthGraph viewer'));
     console.log('');
     console.log(`  ${chalk.dim('Reading')}  ${projectPath}`);
     console.log(`  ${chalk.dim('URL')}      ${chalk.cyan(handle.url)}`);
@@ -2148,7 +2148,7 @@ ${BROWSER_ENV}=none to never open one.
   });
 
 /**
- * codegraph serve
+ * sleuth serve
  */
 program
   // Hidden from `--help`: this is the stdio entry point an AI agent launches
@@ -2157,7 +2157,7 @@ program
   // invoked — hiding only removes it from the listing. See the interactive-TTY
   // guard below, which explains this to anyone who runs it by hand.
   .command('serve', { hidden: true })
-  .description('Start CodeGraph as an MCP server for AI assistants')
+  .description('Start SleuthGraph as an MCP server for AI assistants')
   .option('-p, --path <path>', 'Project path (optional for MCP mode, uses rootUri from client)')
   .option('--mcp', 'Run as MCP server (stdio transport)')
   .option('--no-watch', 'Disable the file watcher (no auto-sync; useful on slow filesystems like WSL2 /mnt drives)')
@@ -2167,7 +2167,7 @@ program
     // Commander sets watch=false when --no-watch is passed. Route it through
     // the same env-var chokepoint the watcher and MCP server already honor.
     if (options.watch === false) {
-      process.env.CODEGRAPH_NO_WATCH = '1';
+      process.env.SLEUTH_NO_WATCH = '1';
     }
 
     try {
@@ -2178,13 +2178,13 @@ program
         // stdin is an interactive TTY, explain instead of hanging. The agent's
         // pipe and the detached daemon both have a non-TTY stdin, so this only
         // ever fires for a person who typed it.
-        if (process.stdin.isTTY && !process.env.CODEGRAPH_DAEMON_INTERNAL) {
-          console.error(chalk.bold('\nCodeGraph MCP server\n'));
+        if (process.stdin.isTTY && !process.env.SLEUTH_DAEMON_INTERNAL) {
+          console.error(chalk.bold('\nSleuthGraph MCP server\n'));
           console.error("This is the MCP server your AI agent (Claude Code, Cursor, Codex, opencode, …)");
           console.error("starts automatically — you don't run it yourself.");
-          console.error(`\nIt's already wired up by ${chalk.cyan('codegraph install')}. To check on things:`);
-          console.error(`  ${chalk.cyan('codegraph status')}   ${chalk.dim('— is this project indexed and healthy?')}`);
-          console.error(`  ${chalk.cyan('codegraph daemon')}   ${chalk.dim('— list or stop background MCP servers')}`);
+          console.error(`\nIt's already wired up by ${chalk.cyan('sleuth install')}. To check on things:`);
+          console.error(`  ${chalk.cyan('sleuth status')}   ${chalk.dim('— is this project indexed and healthy?')}`);
+          console.error(`  ${chalk.cyan('sleuth daemon')}   ${chalk.dim('— list or stop background MCP servers')}`);
           console.error(chalk.dim('\n(Running it directly only does something when an MCP client drives it over stdin.)'));
           return;
         }
@@ -2196,28 +2196,28 @@ program
       } else {
         // Default: show info about MCP mode.
         // Use stderr so stdout stays clean for any piped/stdio usage.
-        console.error(chalk.bold('\nCodeGraph MCP Server\n'));
+        console.error(chalk.bold('\nSleuthGraph MCP Server\n'));
         console.error(chalk.blue(getGlyphs().info) + ' Use --mcp flag to start the MCP server');
         console.error('\nTo use with Claude Code, add to your MCP configuration:');
         console.error(chalk.dim(`
 {
   "mcpServers": {
-    "codegraph": {
-      "command": "codegraph",
+    "sleuth": {
+      "command": "sleuth",
       "args": ["serve", "--mcp"]
     }
   }
 }
 `));
         console.error('Available tools:');
-        console.error(chalk.cyan('  codegraph_explore') + '   - Primary: source of the relevant symbols for any question');
-        console.error(chalk.cyan('  codegraph_search') + '    - Search for code symbols');
-        console.error(chalk.cyan('  codegraph_callers') + '   - Find callers of a symbol');
-        console.error(chalk.cyan('  codegraph_callees') + '   - Find what a symbol calls');
-        console.error(chalk.cyan('  codegraph_impact') + '    - Analyze impact of changes');
-        console.error(chalk.cyan('  codegraph_node') + '      - Get symbol details');
-        console.error(chalk.cyan('  codegraph_files') + '     - Get project file structure');
-        console.error(chalk.cyan('  codegraph_status') + '    - Get index status');
+        console.error(chalk.cyan('  sleuth_explore') + '   - Primary: source of the relevant symbols for any question');
+        console.error(chalk.cyan('  sleuth_search') + '    - Search for code symbols');
+        console.error(chalk.cyan('  sleuth_callers') + '   - Find callers of a symbol');
+        console.error(chalk.cyan('  sleuth_callees') + '   - Find what a symbol calls');
+        console.error(chalk.cyan('  sleuth_impact') + '    - Analyze impact of changes');
+        console.error(chalk.cyan('  sleuth_node') + '      - Get symbol details');
+        console.error(chalk.cyan('  sleuth_files') + '     - Get project file structure');
+        console.error(chalk.cyan('  sleuth_status') + '    - Get index status');
       }
     } catch (err) {
       error(`Failed to start server: ${err instanceof Error ? err.message : String(err)}`);
@@ -2226,7 +2226,7 @@ program
   });
 
 /**
- * codegraph unlock [path]
+ * sleuth unlock [path]
  */
 program
   .command('unlock [path]')
@@ -2236,11 +2236,11 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`SleuthGraph not initialized in ${projectPath}`);
         return;
       }
 
-      const lockPath = path.join(getCodeGraphDir(projectPath), 'codegraph.lock');
+      const lockPath = path.join(getSleuthGraphDir(projectPath), 'sleuth.lock');
       let removed = false;
       if (fs.existsSync(lockPath)) {
         fs.unlinkSync(lockPath);
@@ -2277,12 +2277,12 @@ for (const direction of ['callers', 'callees'] as const) {
 
       try {
         if (!isInitialized(projectPath)) {
-          error(`CodeGraph not initialized in ${projectPath}`);
+          error(`SleuthGraph not initialized in ${projectPath}`);
           process.exit(1);
         }
 
-        const { default: CodeGraph } = await loadCodeGraph();
-        const cg = await CodeGraph.open(projectPath);
+        const { default: SleuthGraph } = await loadSleuthGraph();
+        const cg = await SleuthGraph.open(projectPath);
         try {
           const limit = parseInt(options.limit || '20', 10);
           const { nodes: targets } = lookupSymbolNodes(cg, symbol);
@@ -2387,7 +2387,7 @@ for (const direction of ['callers', 'callees'] as const) {
 }
 
 /**
- * codegraph impact <symbol> — one blast radius per distinct definition.
+ * sleuth impact <symbol> — one blast radius per distinct definition.
  */
 program
   .command('impact <symbol>')
@@ -2401,12 +2401,12 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`SleuthGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
       try {
         const depth = Math.min(Math.max(parseInt(options.depth || '2', 10), 1), 10);
         const { nodes: targets } = lookupSymbolNodes(cg, symbol);
@@ -2497,14 +2497,14 @@ program
   });
 
 /**
- * codegraph affected [files...]
+ * sleuth affected [files...]
  *
  * Find test files affected by the given source files.
  * Traces dependency edges transitively to find test files that depend on changed code.
  *
  * Usage:
- *   git diff --name-only | codegraph affected --stdin
- *   codegraph affected src/lib/components/Editor.svelte src/routes/+page.svelte
+ *   git diff --name-only | sleuth affected --stdin
+ *   sleuth affected src/lib/components/Editor.svelte src/routes/+page.svelte
  */
 program
   .command('affected [files...]')
@@ -2520,7 +2520,7 @@ program
 
     try {
       if (!isInitialized(projectPath)) {
-        error(`CodeGraph not initialized in ${projectPath}`);
+        error(`SleuthGraph not initialized in ${projectPath}`);
         process.exit(1);
       }
 
@@ -2546,8 +2546,8 @@ program
         process.exit(0);
       }
 
-      const { default: CodeGraph } = await loadCodeGraph();
-      const cg = await CodeGraph.open(projectPath);
+      const { default: SleuthGraph } = await loadSleuthGraph();
+      const cg = await SleuthGraph.open(projectPath);
       const maxDepth = parseInt(options.depth || '5', 10);
 
       // Custom filter pattern
@@ -2638,18 +2638,18 @@ program
   });
 
 /**
- * codegraph install
+ * sleuth install
  */
 program
   .command('install')
-  .description('Install codegraph MCP server into one or more agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, GitHub Copilot)')
+  .description('Install sleuth MCP server into one or more agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, GitHub Copilot)')
   .option('-t, --target <ids>', 'Target agent(s): comma-separated ids, or "auto"|"all"|"none". Default: prompt')
   .option('-l, --location <where>', 'Install location: "global" or "local". Default: prompt')
   .option('-y, --yes', 'Non-interactive: defaults to --location=global --target=auto, auto-allow on')
-  .option('-i, --init', 'After wiring agents, also run `codegraph init` in the current directory — builds this project’s index, so install + index is one command (combine with --yes for an unattended bootstrap)')
+  .option('-i, --init', 'After wiring agents, also run `sleuth init` in the current directory — builds this project’s index, so install + index is one command (combine with --yes for an unattended bootstrap)')
   .option('--no-permissions', 'Skip writing the auto-allow permissions list (Claude Code only)')
   .option('--print-config <id>', 'Print MCP config snippet for the named agent and exit (no file writes)')
-  .option('--refresh', 'Rewrite what previous installs configured, for already-configured agents only (never adds new ones). Run automatically by `codegraph upgrade`')
+  .option('--refresh', 'Rewrite what previous installs configured, for already-configured agents only (never adds new ones). Run automatically by `sleuth upgrade`')
   .action(async (opts: {
     target?: string;
     location?: string;
@@ -2738,7 +2738,7 @@ program
     // surprise index of $HOME is the thing we refuse) — an explicit flag is
     // the user choosing. Runs after a successful install, including the
     // `--target none` / nothing-detected case (the installer returns normally
-    // there), and shares every guard with `codegraph init`: an unsafe root
+    // there), and shares every guard with `sleuth init`: an unsafe root
     // is refused (exit 1, no implied --force), an already-initialized
     // project just says so. `--yes` flows through so no offer prompts.
     if (opts.init) {
@@ -2747,20 +2747,20 @@ program
   });
 
 /**
- * codegraph uninstall
+ * sleuth uninstall
  *
- * Inverse of `install`. Removes the codegraph MCP server entry,
+ * Inverse of `install`. Removes the sleuth MCP server entry,
  * instructions block, and permissions from every agent (or a
  * `--target` subset). Prompts global-vs-local when not given. Does NOT
- * delete the `.codegraph/` index — that's `codegraph uninit`.
+ * delete the `.sleuth/` index — that's `sleuth uninit`.
  */
 program
   .command('uninstall')
-  .description('Remove codegraph from your agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, GitHub Copilot)')
+  .description('Remove sleuth from your agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, GitHub Copilot)')
   .option('-t, --target <ids>', 'Target agent(s): comma-separated ids, or "all". Default: all')
   .option('-l, --location <where>', 'Uninstall location: "global" or "local". Default: prompt')
   .option('-y, --yes', 'Non-interactive: defaults to --location=global --target=all')
-  .option('--keep-cli', 'Remove agent configs only — leave the codegraph CLI installed')
+  .option('--keep-cli', 'Remove agent configs only — leave the sleuth CLI installed')
   .action(async (opts: {
     target?: string;
     location?: string;
@@ -2787,7 +2787,7 @@ program
   });
 
 /**
- * codegraph telemetry [on|off|status]
+ * sleuth telemetry [on|off|status]
  */
 program
   .command('telemetry [action]')
@@ -2803,15 +2803,15 @@ program
   });
 
 /**
- * codegraph upgrade [version]
+ * sleuth upgrade [version]
  *
- * Self-update, however CodeGraph was installed (bundle via install.sh/.ps1,
+ * Self-update, however SleuthGraph was installed (bundle via install.sh/.ps1,
  * npm-global, npx, or a source checkout). See ../upgrade for the detection and
  * per-method upgrade logic.
  */
 program
   .command('upgrade [version]')
-  .description('Update CodeGraph to the latest release (or a specific version)')
+  .description('Update SleuthGraph to the latest release (or a specific version)')
   .option('--check', 'Check whether an update is available without installing')
   .option('-f, --force', 'Reinstall even if already on the target version')
   .action(async (versionArg: string | undefined, options: { check?: boolean; force?: boolean }) => {
@@ -2821,7 +2821,7 @@ program
       platform: process.platform,
       cwd: process.cwd(),
     });
-    const pin = versionArg || process.env.CODEGRAPH_VERSION || undefined;
+    const pin = versionArg || process.env.SLEUTH_VERSION || undefined;
     const code = await up.runUpgrade(
       { version: pin, check: options.check, force: options.force },
       {
@@ -2842,16 +2842,16 @@ program
   });
 
 /**
- * codegraph version
+ * sleuth version
  *
  * The bare-noun form of `--version`. commander already provides `--version`
  * and `-V`, and the `-v` / `-version` spellings are intercepted before parse
- * (see top of main). This subcommand makes `codegraph version` work and lists
- * the version affordance in `codegraph --help`.
+ * (see top of main). This subcommand makes `sleuth version` work and lists
+ * the version affordance in `sleuth --help`.
  */
 program
   .command('version')
-  .description('Print the installed CodeGraph version (also: -v, --version)')
+  .description('Print the installed SleuthGraph version (also: -v, --version)')
   .action(() => {
     console.log(packageJson.version);
   });

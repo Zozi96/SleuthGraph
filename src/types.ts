@@ -1,5 +1,5 @@
 /**
- * CodeGraph Type Definitions
+ * SleuthGraph Type Definitions
  *
  * Core types for the semantic knowledge graph system.
  */
@@ -473,7 +473,7 @@ export interface SearchResult {
 /**
  * A symbol whose name-segments match prose words from a prompt — the
  * graph-derived signal behind the front-load hook's medium tier
- * (CodeGraph.getSegmentMatches). Always verified to exist in `nodes` at the
+ * (SleuthGraph.getSegmentMatches). Always verified to exist in `nodes` at the
  * time it is returned.
  */
 export interface SegmentMatch {
@@ -692,7 +692,7 @@ export interface FindRelevantContextOptions {
 
   /**
    * Extra symbol names to merge in as exact-name search candidates, at a
-   * dampened score. Fed by the segment-vocabulary supplement (CodeGraph.
+   * dampened score. Fed by the segment-vocabulary supplement (SleuthGraph.
    * findRelevantContext): word-level query terms can't reach camelCase names
    * through FTS — `pinFeedIfNearBottom` is one FTS token — so names whose
    * SEGMENTS the query's words name are seeded here instead.

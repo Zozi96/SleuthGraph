@@ -37,7 +37,7 @@ function canon(result: ExtractionResult) {
 
 const kernelBuilt = fs.existsSync(path.join(__dirname, '..', 'sleuth-kernel', 'prebuilds',
   `${process.platform}-${process.arch}`, 'sleuth-kernel.node'));
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('collision-only node identity parity (#1349)', () => {
@@ -59,11 +59,11 @@ describe.skipIf(!kernelBuilt)('collision-only node identity parity (#1349)', () 
 
   it.each(fixtures)('%s keeps distinct same-line symbols and UTF-16 identity suffixes', (language, source) => {
     const file = `fixture.${language}`;
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const native = tryKernelExtract(file, source, language);
     expect(native, 'must exercise the native walker, not fallback').not.toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const wasm = extractFromSource(file, source, language);
     expect(canon(native!)).toEqual(canon(wasm));
     const xs = wasm.nodes.filter((n) => n.name === 'x');

@@ -20,7 +20,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('CFML component-path inheritance resolution (#1152)', () => {
   let dir: string;
@@ -34,7 +34,7 @@ describe('CFML component-path inheritance resolution (#1152)', () => {
   };
 
   const load = async () => {
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const edges: { src: string; srcFile: string; tgt: string; tgtFile: string; kind: string }[] = db

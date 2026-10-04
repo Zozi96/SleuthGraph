@@ -9,7 +9,7 @@
  *   passed by polling would be testing the wrong thing entirely.
  * - `/api/source?ondrift=current` serves a drifted file's CURRENT bytes rather
  *   than nothing, flagged `showing: 'current'` — the parity with
- *   `codegraph_node`'s behaviour on a file that changed after its last sync.
+ *   `sleuth_node`'s behaviour on a file that changed after its last sync.
  *
  * Every test that rewrites a fixture file restores it, because the fixture is
  * indexed once for the whole suite.
@@ -20,7 +20,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { createGraphApi, startUiServer, type GraphApi, type UiServerHandle } from '../src/ui-server';
 import { HEARTBEAT_MS, MAX_EVENT_FILES } from '../src/ui-server/api/events';
 
@@ -171,7 +171,7 @@ function fixture(rel: string): string {
 }
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-events-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-events-'));
   projectRoot = path.join(tempDir, 'project');
   fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
   fs.writeFileSync(fixture('src/greet.ts'), ORIGINAL);
@@ -180,7 +180,7 @@ beforeAll(async () => {
     `import { greet } from './greet';\n\nexport const hi = greet('there');\n`
   );
 
-  const cg = CodeGraph.initSync(projectRoot, {
+  const cg = SleuthGraph.initSync(projectRoot, {
     config: { include: ['src/**/*.ts'], exclude: [] },
   });
   await cg.indexAll();
@@ -308,9 +308,9 @@ describe('GET /api/events', () => {
       await new Promise((r) => setTimeout(r, 300));
 
       // Another process re-indexes — exactly what a daemon's watcher or a
-      // `codegraph sync` does while the viewer is open.
+      // `sleuth sync` does while the viewer is open.
       fs.writeFileSync(fixture('src/greet.ts'), `${ORIGINAL}\nexport const SYNCED = 2;\n`);
-      const writer = CodeGraph.openSync(projectRoot);
+      const writer = SleuthGraph.openSync(projectRoot);
       await writer.sync();
       writer.close();
 
@@ -325,7 +325,7 @@ describe('GET /api/events', () => {
       expect(search.results.items.some((r: any) => r.name === 'SYNCED')).toBe(true);
     } finally {
       fs.writeFileSync(fixture('src/greet.ts'), ORIGINAL);
-      const writer = CodeGraph.openSync(projectRoot);
+      const writer = SleuthGraph.openSync(projectRoot);
       await writer.sync();
       writer.close();
       stream.close();
@@ -346,7 +346,7 @@ describe('GET /api/events', () => {
     fs.writeFileSync(fixture('src/greet.ts'), `// one
 // two
 ${ORIGINAL}`);
-    const writer = CodeGraph.openSync(projectRoot);
+    const writer = SleuthGraph.openSync(projectRoot);
     await writer.sync();
     writer.close();
 
@@ -362,7 +362,7 @@ ${ORIGINAL}`);
       expect(moved.counts.callees).toBeGreaterThan(0);
     } finally {
       fs.writeFileSync(fixture('src/greet.ts'), ORIGINAL);
-      const restore = CodeGraph.openSync(projectRoot);
+      const restore = SleuthGraph.openSync(projectRoot);
       await restore.sync();
       restore.close();
     }

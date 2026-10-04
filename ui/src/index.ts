@@ -1,24 +1,24 @@
 /**
- * `@colbymchenry/codegraph-ui` — the CodeGraph reader as Svelte components.
+ * `@zozi96/sleuthgraph-ui` — the SleuthGraph reader as Svelte components.
  *
- * The same Symbol view, Flow strip and Map that `codegraph ui` serves, behind
+ * The same Symbol view, Flow strip and Map that `sleuth ui` serves, behind
  * one seam: a {@link GraphAdapter}. The CLI's viewer runs them on
  * {@link createHttpAdapter} (the read-only JSON API over loopback); a host that
- * already holds the index — CodeGraph Pro, which opens it in-process — installs
+ * already holds the index — SleuthGraph Pro, which opens it in-process — installs
  * its own adapter and renders the identical components over its own reads.
  * Nothing is forked, so the two can never draw different answers from the same
  * graph.
  *
  * ```svelte
  * <script>
- *   import { CodegraphUi, SymbolView, FlowStrip, ArchitectureMap }
- *     from '@colbymchenry/codegraph-ui';
- *   import '@colbymchenry/codegraph-ui/theme.css';
+ *   import { SleuthgraphUi, SymbolView, FlowStrip, ArchitectureMap }
+ *     from '@zozi96/sleuthgraph-ui';
+ *   import '@zozi96/sleuthgraph-ui/theme.css';
  * </script>
  *
- * <CodegraphUi adapter={myAdapter} nav={myNavigation}>
+ * <SleuthgraphUi adapter={myAdapter} nav={myNavigation}>
  *   <SymbolView id={symbolId} line={null} />
- * </CodegraphUi>
+ * </SleuthgraphUi>
  * ```
  *
  * Three things a host has to know, all of them in the docs and repeated here
@@ -29,7 +29,7 @@
  *    any variable on a narrower selector.
  * 2. **The adapter is module-level, not context.** The pure model modules are
  *    plain TypeScript and cannot read a component's context, so one page reads
- *    one project. `<CodegraphUi>` installs it during initialisation.
+ *    one project. `<SleuthgraphUi>` installs it during initialisation.
  * 3. **Geometry is not themable.** 34px rail rows, 300/320px rails, the 20px
  *    code line: the Symbol view measures these against each other to put a
  *    callee row beside the line that calls it. Colour and type are yours.
@@ -37,7 +37,7 @@
 
 /* ------------------------------------------------------------ the seams -- */
 
-export { default as CodegraphUi } from './components/CodegraphUi.svelte';
+export { default as SleuthgraphUi } from './components/SleuthgraphUi.svelte';
 
 export {
   ApiFailure,

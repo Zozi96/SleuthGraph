@@ -5,7 +5,7 @@
 //! iterative, so a pathologically nested file — clang's
 //! `parser_overflow.c` nests 16,384 `{`, fuzzer corpora go deeper — parses
 //! fine and then overflows the WALKER's native stack. A native overflow is
-//! uncatchable: the parse worker is a thread of the `codegraph` process, so
+//! uncatchable: the parse worker is a thread of the `sleuth` process, so
 //! the SIGSEGV takes the whole indexer down with no message, no partial
 //! index and no per-file fallback. Worker threads get Node's 4 MiB default
 //! stack; the main thread's 8 MiB only moves the cliff (100k levels still

@@ -25,7 +25,7 @@
  *
  * The full-repo sweeps live in scripts/kernel-parity.mjs (shelf/bloc/flutter
  * with --max-deferral 0.3); this suite keeps the invariant alive in
- * `npm test`. Skips when no kernel binary is staged; CODEGRAPH_KERNEL_EXPECT=1
+ * `npm test`. Skips when no kernel binary is staged; SLEUTH_KERNEL_EXPECT=1
  * turns that into a failure.
  */
 
@@ -61,7 +61,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel Dart extraction parity', () => {
@@ -84,14 +84,14 @@ describe.skipIf(!kernelBuilt)('kernel Dart extraction parity', () => {
   });
 
   function assertParity(filePath: string, source: string, minNodes = 2): ExtractionResult {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, 'dart');
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, 'dart');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -139,13 +139,13 @@ describe.skipIf(!kernelBuilt)('kernel Dart extraction parity', () => {
 
   it('generated files extract but skip fn-ref and value-ref flushes', () => {
     const src = fs.readFileSync(path.join(FIXTURE_DIR, 'TortureVrefDart.dart'), 'utf8');
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract('lib/model.g.dart', src, 'dart');
     expect(viaKernel).not.toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('lib/model.g.dart', src, 'dart');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
     expect(k.nodes).toEqual(w.nodes);
@@ -160,19 +160,19 @@ describe.skipIf(!kernelBuilt)('kernel Dart extraction parity', () => {
 
   it('empty object patterns defer (the dominant dart-3 error class)', () => {
     const broken = 'int f(Object x) => switch (x) { Init() => 1, _ => 0 };\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('lib/pat.dart', broken, 'dart')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('lib/pat.dart', broken, 'dart');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'file')).toBe(true);
   });
 
   it('unnamed `library;` defers', () => {
     const broken = '/// Doc.\nlibrary;\n\nvoid f() {}\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('lib/lib.dart', broken, 'dart')).toBeNull();
   });
 });

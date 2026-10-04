@@ -12,7 +12,7 @@
    *
    * `onpick` replaces what following a row DOES. Left unset, a row walks the
    * graph through the installed navigation driver — which is the right default
-   * both for `codegraph ui` and for a host that installed one.
+   * both for `sleuth ui` and for a host that installed one.
    */
   import PalettePanel from './PalettePanel.svelte';
   import { palette } from '../lib/palette.svelte';

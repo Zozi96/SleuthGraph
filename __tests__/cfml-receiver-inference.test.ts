@@ -20,7 +20,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('CFML receiver-type inference', () => {
   let dir: string;
@@ -34,7 +34,7 @@ describe('CFML receiver-type inference', () => {
   };
 
   const load = async () => {
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const calls: { src: string; tgt: string; tgtQn: string }[] = db

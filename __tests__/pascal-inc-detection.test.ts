@@ -7,13 +7,13 @@
  * reads the file: a PHP open tag keeps it PHP, Pascal-shaped content makes it
  * Pascal, and anything else keeps the old PHP routing so C / assembly /
  * template `.inc` files are not handed to the Pascal grammar. An explicit
- * `codegraph.json` mapping for `.inc` still wins.
+ * `sleuth.json` mapping for `.inc` still wins.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { detectLanguage } from '../src/extraction/grammars';
 import { preloadLanguagesForFiles } from '../src/extraction';
 import { clearProjectConfigCache } from '../src/project-config';
@@ -113,7 +113,7 @@ describe('.inc language detection (#2279)', () => {
       expect(detectLanguage('defs.inc', '')).toBe('php');
     });
 
-    it('lets an explicit codegraph.json mapping for .inc win', () => {
+    it('lets an explicit sleuth.json mapping for .inc win', () => {
       expect(detectLanguage('defs.inc', DIRECTIVES, { '.inc': 'php' })).toBe('php');
       expect(detectLanguage('defs.inc', '#define X 1\n', { '.inc': 'cpp' })).toBe('cpp');
       expect(detectLanguage('page.inc', '<?php echo 1;', { '.inc': 'pascal' })).toBe('pascal');
@@ -146,8 +146,8 @@ describe('.inc language detection (#2279)', () => {
       fs.mkdirSync(path.dirname(p), { recursive: true });
       fs.writeFileSync(p, body);
     };
-    const languageOf = (cg: CodeGraph, rel: string) => cg.getFiles().find((f) => f.path === rel)?.language;
-    const symbolsIn = (cg: CodeGraph, rel: string) =>
+    const languageOf = (cg: SleuthGraph, rel: string) => cg.getFiles().find((f) => f.path === rel)?.language;
+    const symbolsIn = (cg: SleuthGraph, rel: string) =>
       cg.getNodesInFile(rel).filter((n) => n.kind !== 'file').map((n) => `${n.kind}:${n.name}:${n.language}`).sort();
 
     // Runs first, before anything in this file has loaded the Pascal grammar
@@ -155,7 +155,7 @@ describe('.inc language detection (#2279)', () => {
     it('indexes a tree of Pascal includes with no .pas file', async () => {
       write('inc/defs.inc', DIRECTIVES);
       write('inc/routines.inc', ROUTINES);
-      const cg = await CodeGraph.init(dir, { index: true });
+      const cg = await SleuthGraph.init(dir, { index: true });
       try {
         expect(languageOf(cg, 'inc/defs.inc')).toBe('pascal');
         expect(languageOf(cg, 'inc/routines.inc')).toBe('pascal');
@@ -172,7 +172,7 @@ describe('.inc language detection (#2279)', () => {
       write('routines.inc', ROUTINES);
       write('drupal/mymodule.inc', '<?php\n\nfunction mymodule_helper() {\n  return 1;\n}\n');
       write('native/table.inc', '#define X 1\n#define Y 2\n');
-      const cg = await CodeGraph.init(dir, { index: true });
+      const cg = await SleuthGraph.init(dir, { index: true });
       try {
         expect(languageOf(cg, 'defs.inc')).toBe('pascal');
         expect(languageOf(cg, 'routines.inc')).toBe('pascal');
@@ -198,10 +198,10 @@ describe('.inc language detection (#2279)', () => {
       }
     });
 
-    it('honors a codegraph.json .inc mapping through index and sync', async () => {
-      write('codegraph.json', JSON.stringify({ extensions: { '.inc': 'php' } }));
+    it('honors a sleuth.json .inc mapping through index and sync', async () => {
+      write('sleuth.json', JSON.stringify({ extensions: { '.inc': 'php' } }));
       write('defs.inc', DIRECTIVES);
-      const cg = await CodeGraph.init(dir, { index: true });
+      const cg = await SleuthGraph.init(dir, { index: true });
       try {
         expect(languageOf(cg, 'defs.inc')).toBe('php');
         write('defs.inc', DIRECTIVES + '{$DEFINE MORE}\n');

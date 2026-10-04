@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { oversizeStamp, hashContent } from '../src/extraction';
 import { hasDriftedOnDisk, readFileShape } from '../src/ui-server/api/source';
 import { ToolHandler } from '../src/mcp/tools';
@@ -20,11 +20,11 @@ describe('oversize files are stat-gated, never read (#1910)', () => {
   const big = (bytes: number, fill = 0x41) => Buffer.alloc(bytes, fill);
 
   it('indexes the neighbours, records the oversize file as skipped with a size-stamp hash, and does not decode it', async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-oversize-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-oversize-'));
     fs.writeFileSync(path.join(dir, 'app.ts'), 'export function alpha() { return beta(); }\nexport function beta() { return 1; }\n');
     // 1 MB + 1: over the limit; invalid UTF-8 (0xFF) so any decode would be visible as replacement chars.
     fs.writeFileSync(path.join(dir, 'blob.ts'), big(1024 * 1024 + 1, 0xff));
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       expect(cg.getNodesByKind('function').map(n => n.name).sort()).toEqual(['alpha', 'beta']);
       const rec = cg.getFiles().find(f => f.path === 'blob.ts');
@@ -54,7 +54,7 @@ describe('oversize files are stat-gated, never read (#1910)', () => {
   });
 
   it('a 400 MB sparse fixture indexes in well under a second and without growing the heap by its size', async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-oversize-big-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-oversize-big-'));
     fs.writeFileSync(path.join(dir, 'ok.ts'), 'export const one = 1;\n');
     // Sparse: occupies no disk, but stat() reports 400 MB — a read would decode all of it.
     const fd = fs.openSync(path.join(dir, 'huge.ts'), 'w');
@@ -62,13 +62,13 @@ describe('oversize files are stat-gated, never read (#1910)', () => {
     fs.closeSync(fd);
     // Warm the engine on a sibling project first, so the grammar and worker
     // start-up cost is not mistaken for the file being read.
-    const warm = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-oversize-warm-'));
+    const warm = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-oversize-warm-'));
     fs.writeFileSync(path.join(warm, 'w.ts'), 'export const w = 1;\n');
-    (await CodeGraph.init(warm, { index: true })).close();
+    (await SleuthGraph.init(warm, { index: true })).close();
     fs.rmSync(warm, { recursive: true, force: true });
     const before = process.memoryUsage().rss;
     const t0 = Date.now();
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       expect(Date.now() - t0).toBeLessThan(5000);
       // Reading 400 MB would show as at least that much RSS; the stamp shows as none.
@@ -86,7 +86,7 @@ describe('an unchanged file over the size limit is not reported as drifted (#191
   afterEach(() => { if (dir) fs.rmSync(dir, { recursive: true, force: true }); });
 
   it('reads as current in the viewer and in MCP until its size changes', async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-oversize-drift-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-oversize-drift-'));
     fs.writeFileSync(path.join(dir, 'app.ts'), 'export function alpha() { return 1; }\n');
     // 1.4 MB of ordinary text: over the index limit, under the viewer's 8 MB read cap.
     // Each line differs: Windows Defender's script scan of a freshly written `.js`
@@ -100,7 +100,7 @@ describe('an unchanged file over the size limit is not reported as drifted (#191
       size += lines[i]!.length;
     }
     fs.writeFileSync(path.join(dir, 'big.js'), lines.join(''));
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       const record = cg.getFiles().find((f) => f.path === 'big.js')!;
       expect(record).toBeDefined();

@@ -53,7 +53,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { afterAll } from 'vitest';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { loadAllGrammars } from '../src/extraction/grammars';
 import { buildSteps } from '../src/ui-server/api/steps';
 import { classifyEffect, responseStatus, implicitResponseStatus } from '../src/ui-server/api/effects';
@@ -63,7 +63,7 @@ afterAll(() => {
   for (const p of projects.splice(0)) fs.rmSync(p, { recursive: true, force: true });
 });
 
-async function project(files: Record<string, string>): Promise<{ cg: CodeGraph; root: string }> {
+async function project(files: Record<string, string>): Promise<{ cg: SleuthGraph; root: string }> {
   await loadAllGrammars();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-steps-replies-'));
   projects.push(root);
@@ -71,11 +71,11 @@ async function project(files: Record<string, string>): Promise<{ cg: CodeGraph; 
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return { cg: await CodeGraph.init(root, { index: true }), root };
+  return { cg: await SleuthGraph.init(root, { index: true }), root };
 }
 
 /** Each reply the route's picture draws, as `status · text · when`. */
-async function replies(cg: CodeGraph, root: string, routeName: string): Promise<string[]> {
+async function replies(cg: SleuthGraph, root: string, routeName: string): Promise<string[]> {
   const route = cg.getNodesByKind('route').find((n) => n.name === routeName);
   if (!route) throw new Error(`no route ${routeName}: ${cg.getNodesByKind('route').map((n) => n.name).join(', ')}`);
   const payload = await buildSteps(cg, root, new URLSearchParams({ anchor: route.id }));

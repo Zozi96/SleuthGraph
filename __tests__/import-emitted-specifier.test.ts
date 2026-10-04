@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { resolveImportPath } from '../src/resolution/import-resolver';
 import type { ResolutionContext } from '../src/resolution';
 
@@ -73,10 +73,10 @@ describe('emitted-extension import specifiers (`./x.js` naming `x.ts`)', () => {
 
 describe('end to end: a wrapper method calling the same-named import it wraps', () => {
   let tempDir: string;
-  let cg: CodeGraph | null = null;
+  let cg: SleuthGraph | null = null;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-emitted-spec-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-emitted-spec-'));
   });
 
   afterEach(() => {
@@ -107,7 +107,7 @@ describe('end to end: a wrapper method calling the same-named import it wraps', 
         '',
       ].join('\n')
     );
-    cg = await CodeGraph.init(tempDir, { index: true });
+    cg = await SleuthGraph.init(tempDir, { index: true });
     cg.resolveReferences();
 
     const method = cg.getNodesByKind('method').find((n) => n.name === 'renderDockStyles');

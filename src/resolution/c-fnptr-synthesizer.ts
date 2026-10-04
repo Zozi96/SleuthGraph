@@ -441,12 +441,12 @@ export async function cFnPointerDispatchEdges(
   const files = ctx.getAllFiles().filter((f) => C_CPP_EXT.test(f));
   if (files.length === 0) return [];
 
-  // CODEGRAPH_SYNTH_TIMINGS sub-attribution: this pass is 86% of kernel-scale
+  // SLEUTH_SYNTH_TIMINGS sub-attribution: this pass is 86% of kernel-scale
   // synthesis (306s, §7a.2/§7a.3) — per-stage walls + read/strip accounting
   // name which stage and which cost class owns it. Post-refactor mapping:
   // A = extraction sweep, B = struct-layout linking, C = registration,
   // D = propagation, E = dispatch.
-  const prof = process.env.CODEGRAPH_SYNTH_TIMINGS
+  const prof = process.env.SLEUTH_SYNTH_TIMINGS
     ? { A: 0, B: 0, C: 0, D: 0, E: 0, readMs: 0, readN: 0, stripMs: 0, stripN: 0, nodesMs: 0, nodesN: 0 }
     : null;
 
@@ -638,10 +638,10 @@ export async function cFnPointerDispatchEdges(
   //     facts. Include-path resolution stays here (it needs the filesystem).
   //   • JS: the original sweep, kept verbatim — the fallback for platforms
   //     without a kernel binary, older binaries (feature detection), the
-  //     CODEGRAPH_KERNEL=0 kill switch, and CODEGRAPH_KERNEL_CFNPTR=0 (this
+  //     SLEUTH_KERNEL=0 kill switch, and SLEUTH_KERNEL_CFNPTR=0 (this
   //     scanner's own switch).
   const kernel =
-    process.env.CODEGRAPH_KERNEL === '0' || process.env.CODEGRAPH_KERNEL_CFNPTR === '0'
+    process.env.SLEUTH_KERNEL === '0' || process.env.SLEUTH_KERNEL_CFNPTR === '0'
       ? null
       : getKernel();
   const nativeSweep =

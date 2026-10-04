@@ -1,5 +1,5 @@
 /**
- * Score-proportional byte allocation for codegraph_explore (CG-12 / #1500).
+ * Score-proportional byte allocation for sleuth_explore (CG-12 / #1500).
  *
  * `allocateExploreBudget` decides, before anything renders, how many chars of
  * source each ranked file may spend. Its contract is what stops the explore

@@ -43,7 +43,7 @@ function runChild(script: string, args: string[]) {
   return spawnSync(process.execPath, [...WASM_RUNTIME_FLAGS, '-e', script, DIST, ...args], {
     encoding: 'utf8',
     timeout: DEADLINE_MS,
-    env: { ...process.env, CODEGRAPH_TELEMETRY: '0' },
+    env: { ...process.env, SLEUTH_TELEMETRY: '0' },
   });
 }
 
@@ -87,7 +87,7 @@ const { extractFromSource } = require(path.join(process.argv[1], 'extraction/ind
     let root: string;
 
     beforeEach(() => {
-      root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cobol-seq-period-'));
+      root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cobol-seq-period-'));
     });
 
     afterEach(() => {
@@ -98,8 +98,8 @@ const { extractFromSource } = require(path.join(process.argv[1], 'extraction/ind
       fs.writeFileSync(path.join(root, 'hangy.cob'), HANGY);
       const script = `
 const path = require('path');
-const { default: CodeGraph } = require(path.join(process.argv[1], 'index.js'));
-const cg = CodeGraph.initSync(process.argv[2]);
+const { default: SleuthGraph } = require(path.join(process.argv[1], 'index.js'));
+const cg = SleuthGraph.initSync(process.argv[2]);
 cg.indexAll().then((result) => {
   const nodes = cg.getNodesInFile('hangy.cob').map((n) => n.kind + ':' + n.name);
   process.stdout.write(JSON.stringify({ errored: result.filesErrored, indexed: result.filesIndexed, nodes }));

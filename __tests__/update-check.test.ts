@@ -1,7 +1,7 @@
 /**
  * Background update-availability check (#1243).
  *
- * The MCP config launches the local `codegraph` binary, so a server left
+ * The MCP config launches the local `sleuth` binary, so a server left
  * running drifts behind releases silently. `src/upgrade/update-check.ts` gives
  * it visibility: a cached, fail-silent check against the latest release,
  * surfaced as a one-line notice. These tests pin the contract: TTL/backoff
@@ -32,7 +32,7 @@ describe('update check (#1243)', () => {
   const T0 = 1_750_000_000_000;
 
   beforeEach(() => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-upcheck-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-upcheck-'));
     resetUpdateNoticeMemo();
   });
 
@@ -55,7 +55,7 @@ describe('update check (#1243)', () => {
       expect(notice).toBe(formatUpdateNotice('v1.4.0', 'v1.5.0'));
       expect(notice).toContain('v1.5.0');
       expect(notice).toContain('v1.4.0');
-      expect(notice).toContain('codegraph upgrade');
+      expect(notice).toContain('sleuth upgrade');
     });
 
     it('is null when already on the latest version', async () => {
@@ -153,7 +153,7 @@ describe('update check (#1243)', () => {
 
   describe('opt-out', () => {
     it.each([
-      ['CODEGRAPH_NO_UPDATE_CHECK', '1'],
+      ['SLEUTH_NO_UPDATE_CHECK', '1'],
       ['DO_NOT_TRACK', '1'],
       ['DO_NOT_TRACK', 'true'],
     ])('%s=%s disables the network call AND the notice', async (key, val) => {
@@ -204,7 +204,7 @@ describe('update check (#1243)', () => {
       const out = initializeInstructions('BASE', formatUpdateNotice('1.4.0', 'v1.5.0'));
       expect(out.startsWith('BASE\n\n')).toBe(true);
       expect(out).toContain('v1.5.0');
-      expect(out).toContain('codegraph upgrade');
+      expect(out).toContain('sleuth upgrade');
       expect(out).toContain('do not run the upgrade yourself');
     });
   });
@@ -215,11 +215,11 @@ describe('update check (#1243)', () => {
       checkForUpdateInBackground(deps(), (l) => lines.push(l));
       await new Promise((r) => setTimeout(r, 20));
       expect(lines).toHaveLength(1);
-      expect(lines[0]).toMatch(/^\[CodeGraph\] .*v1\.5\.0.*\n$/);
+      expect(lines[0]).toMatch(/^\[SleuthGraph\] .*v1\.5\.0.*\n$/);
 
       // Up-to-date case in its own cache dir (the first call above just wrote
       // a fresh "v1.5.0 available" cache into `dir`, which would win otherwise).
-      const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-upcheck2-'));
+      const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-upcheck2-'));
       try {
         const quiet: string[] = [];
         checkForUpdateInBackground(deps({ dir: dir2, resolveLatest: async () => 'v1.4.0' }), (l) => quiet.push(l));
