@@ -31,7 +31,7 @@ function shell(script: string, args: string[] = [], extraEnv: NodeJS.ProcessEnv 
 function stage(osfam = windows ? 'win32' : process.platform) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth bundle space '));
   roots.push(root);
-  const bundle = path.join(root, `sleuth-${osfam}-x64`);
+  const bundle = path.join(root, `sleuthgraph-${osfam}-x64`);
   fs.mkdirSync(path.join(bundle, 'bin'), { recursive: true });
   fs.mkdirSync(path.join(bundle, 'lib/dist/bin'), { recursive: true });
   const convert = windows ? '$(cygpath -u "$1")' : '$1';

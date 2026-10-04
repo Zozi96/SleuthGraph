@@ -318,7 +318,9 @@ function isLegacySleuthgraphHookCommand(command: unknown): boolean {
   if (typeof command !== 'string') return false;
   return (
     command.includes('sleuth mark-dirty') ||
-    command.includes('sleuth sync-if-dirty')
+    command.includes('sleuthgraph mark-dirty') ||
+    command.includes('sleuth sync-if-dirty') ||
+    command.includes('sleuthgraph sync-if-dirty')
   );
 }
 
@@ -339,7 +341,7 @@ const PROMPT_HOOK_COMMAND = process.platform === 'win32'
  * the other platform's form across a sync). Matched by substring so an
  * `npx @zozi96/sleuthgraph prompt-hook` form is recognized too.
  */
-const PROMPT_HOOK_FORMS = ['sleuth prompt-hook', 'sleuth.cmd prompt-hook'];
+const PROMPT_HOOK_FORMS = ['sleuth prompt-hook', 'sleuth.cmd prompt-hook', 'sleuthgraph prompt-hook'];
 function isPromptHookCommand(command: unknown): boolean {
   return typeof command === 'string' && PROMPT_HOOK_FORMS.some((f) => command.includes(f));
 }

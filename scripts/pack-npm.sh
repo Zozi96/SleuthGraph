@@ -3,7 +3,7 @@
 # Assemble the npm thin-installer packages from built bundles (esbuild pattern).
 #
 # Produces, under release/npm/:
-#   sleuth-<target>/   one per built bundle — the vendored Node + app, tagged
+#   sleuthgraph-<target>/   one per built bundle — the vendored Node + app, tagged
 #                         with os/cpu so npm installs only the matching one.
 #   main/                 the @zozi96/sleuthgraph shim package: a tiny bin
 #                         that execs the matching platform bundle, with every
@@ -13,7 +13,7 @@
 # repo's package.json — the dev/from-source path keeps working; the *published*
 # main package's shape is generated here.
 #
-# Prereq: run build-bundle.sh for each target first (release/sleuth-*.tar.gz).
+# Prereq: run build-bundle.sh for each target first (release/sleuthgraph-*.tar.gz).
 # Usage:  scripts/pack-npm.sh [version]    (default: version from package.json)
 set -euo pipefail
 
@@ -27,17 +27,17 @@ rm -rf "$NPM"
 mkdir -p "$NPM/main"
 
 shopt -s nullglob
-archives=("$REL"/sleuth-*.tar.gz "$REL"/sleuth-*.zip)
+archives=("$REL"/sleuthgraph-*.tar.gz "$REL"/sleuthgraph-*.zip)
 [ ${#archives[@]} -gt 0 ] || { echo "[pack-npm] no bundles in $REL — run build-bundle.sh first" >&2; exit 1; }
 
 targets=()
 for archive in "${archives[@]}"; do
   fname="$(basename "$archive")"
   case "$fname" in
-    *.tar.gz) base="${fname%.tar.gz}" ;;   # sleuth-<target>
+    *.tar.gz) base="${fname%.tar.gz}" ;;   # sleuthgraph-<target>
     *.zip)    base="${fname%.zip}" ;;
   esac
-  target="${base#sleuth-}"             # <target>, e.g. darwin-arm64 / win32-x64
+  target="${base#sleuthgraph-}"             # <target>, e.g. darwin-arm64 / win32-x64
   os="${target%-*}"                       # darwin | linux | win32
   arch="${target##*-}"                    # arm64 | x64
   pkgdir="$NPM/$base"
@@ -63,7 +63,7 @@ for archive in "${archives[@]}"; do
     node -e '
       const fs=require("fs");
       fs.writeFileSync(process.argv[1], JSON.stringify({
-        name: `${process.env.SCOPE}/sleuth-${process.env.TARGET}`,
+        name: `${process.env.SCOPE}/sleuthgraph-${process.env.TARGET}`,
         version: process.env.VERSION,
         description: `SleuthGraph self-contained bundle for ${process.env.TARGET}`,
         os: [process.env.OSV], cpu: [process.env.ARCHV],
@@ -104,9 +104,9 @@ VERSION="$VERSION" SCOPE="$SCOPE" TARGETS="${targets[*]}" \
     const fs=require("fs");
     const opt={};
     for (const t of process.env.TARGETS.split(/\s+/).filter(Boolean))
-      opt[`${process.env.SCOPE}/sleuth-${t}`]=process.env.VERSION;
+      opt[`${process.env.SCOPE}/sleuthgraph-${t}`]=process.env.VERSION;
     fs.writeFileSync(process.argv[1], JSON.stringify({
-      name: `${process.env.SCOPE}/sleuth`,
+      name: `${process.env.SCOPE}/sleuthgraph`,
       version: process.env.VERSION,
       description: "Local-first code intelligence for AI agents (MCP). Self-contained — bundles its own runtime.",
       bin: { sleuth: "npm-shim.js" },
@@ -123,14 +123,14 @@ VERSION="$VERSION" SCOPE="$SCOPE" TARGETS="${targets[*]}" \
     }, null, 2) + "\n");
   ' "$NPM/main/package.json"
 
-echo "[pack-npm] ${SCOPE}/sleuth@${VERSION} (${#targets[@]} platform packages in optionalDependencies)"
+echo "[pack-npm] ${SCOPE}/sleuthgraph@${VERSION} (${#targets[@]} platform packages in optionalDependencies)"
 echo "[pack-npm] output: $NPM"
 
 # ---------------------------------------------------------------------------
 # @zozi96/sleuthgraph-ui — the viewer's components as a Svelte library.
 #
 # Staged into release/npm-ui/, NOT release/npm/: the workflow publishes
-# `release/npm/sleuth-*` by glob, and a directory named sleuthgraph-ui in
+# `release/npm/sleuthgraph-*` by glob, and a directory named sleuthgraph-ui in
 # there would be swept into that loop the moment it existed.
 #
 # OFF by default. The package is prepared, versioned with the engine and

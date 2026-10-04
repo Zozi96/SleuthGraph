@@ -215,11 +215,11 @@ describe('version helpers', () => {
 
   it('buildWindowsUpgradeScript targets the right asset per arch', () => {
     const arm = buildWindowsUpgradeScript('C:\\cg\\current', 'v1.2.3', 'arm64');
-    expect(arm).toContain('releases/download/v1.2.3/sleuth-win32-arm64.zip');
+    expect(arm).toContain('releases/download/v1.2.3/sleuthgraph-win32-arm64.zip');
     expect(arm).toContain("$dest='C:\\cg\\current'");
-    expect(arm).toContain("Join-Path $stage 'sleuth-win32-arm64'");
+    expect(arm).toContain("Join-Path $stage 'sleuthgraph-win32-arm64'");
     const x64 = buildWindowsUpgradeScript('C:\\cg\\current', 'v1.2.3', 'x64');
-    expect(x64).toContain('sleuth-win32-x64.zip');
+    expect(x64).toContain('sleuthgraph-win32-x64.zip');
   });
 });
 
@@ -445,7 +445,7 @@ describe('runUpgrade', () => {
     expect(calls.runs[0].cmd).toBe('powershell.exe');
     const decoded = decodeEncodedCommand(calls.runs[0].args);
     // Downloads the right asset and swaps it in with the shared rename-aside function.
-    expect(decoded).toContain('releases/download/v0.9.9/sleuth-win32-');
+    expect(decoded).toContain('releases/download/v0.9.9/sleuthgraph-win32-');
     expect(decoded).toContain(WINDOWS_SWAP_FUNCTION);
     expect(decoded).toMatch(/^\s*Install-SleuthGraphFiles .* \$dest$/m);
   });

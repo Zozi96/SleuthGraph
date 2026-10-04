@@ -16,8 +16,8 @@
 #     node-version:  e.g. v24.16.0 (default below; pin for reproducible builds)
 #
 # Output:
-#   unix:    release/sleuth-<target>.tar.gz   (launcher: bin/sleuth)
-#   windows: release/sleuth-<target>.zip      (launchers: bin/sleuth + .cmd)
+#   unix:    release/sleuthgraph-<target>.tar.gz   (launcher: bin/sleuth)
+#   windows: release/sleuthgraph-<target>.zip      (launchers: bin/sleuth + .cmd)
 set -euo pipefail
 
 TARGET="${1:?usage: build-bundle.sh <target> [node-version]}"

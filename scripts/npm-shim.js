@@ -122,7 +122,7 @@ async function selfHealBundle() {
     fail('the network fallback is disabled (SLEUTH_NO_DOWNLOAD is set).');
   }
 
-  var asset = 'sleuth-' + target + (isWindows ? '.zip' : '.tar.gz');
+  var asset = 'sleuthgraph-' + target + (isWindows ? '.zip' : '.tar.gz');
   var base = process.env.SLEUTH_DOWNLOAD_BASE || ('https://github.com/' + REPO + '/releases/download');
   var url = base + '/v' + version + '/' + asset;
 
@@ -132,7 +132,7 @@ async function selfHealBundle() {
   );
 
   // Stage inside bundlesDir so the final rename is on the same filesystem (atomic,
-  // no EXDEV across tmpfs). Strip the archive's top-level sleuth-<target>/ dir.
+  // no EXDEV across tmpfs). Strip the archive's top-level sleuthgraph-<target>/ dir.
   fs.mkdirSync(bundlesDir, { recursive: true });
   var stage = fs.mkdtempSync(path.join(bundlesDir, '.dl-'));
   try {
