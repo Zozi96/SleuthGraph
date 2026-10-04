@@ -2,6 +2,8 @@
 
 # SleuthGraph
 
+<sub>Basado en CodeGraph de Colby McHenry, licencia MIT — [upstream](https://github.com/colbymchenry/codegraph)</sub>
+
 Already installed? Run `sleuth upgrade`
 
 ### Supercharge Claude Code, Cursor, Codex, OpenCode, Hermes Agent, Gemini, Antigravity, Kiro, and GitHub Copilot with Semantic Code Intelligence
