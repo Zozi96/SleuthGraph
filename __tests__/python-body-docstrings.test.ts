@@ -30,8 +30,8 @@ function docstrings(code: string): Map<string, string | undefined> {
 // Git may check out the fixture as CRLF. Start from LF so the CRLF variant
 // adds exactly one carriage return per newline on either platform.
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures/kernel-parity/docstrings.py'), 'utf8').replace(/\r\n/g, '\n');
-const kernelBuilt = fs.existsSync(path.join(__dirname, '../codegraph-kernel/prebuilds',
-  `${process.platform}-${process.arch}`, 'codegraph-kernel.node'));
+const kernelBuilt = fs.existsSync(path.join(__dirname, '../sleuth-kernel/prebuilds',
+  `${process.platform}-${process.arch}`, 'sleuth-kernel.node'));
 
 describe.each(['native', 'wasm'].filter((backend) => backend === 'wasm' || kernelBuilt))(
   'Python body docstrings (%s)', (backend) => {

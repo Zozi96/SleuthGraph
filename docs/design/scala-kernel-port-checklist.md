@@ -47,7 +47,7 @@ child list, not "the" field (§Extractor config, §Extension).
 > node type or field removed; new ones: capture checking, XML literals,
 > `uses_clause`, `early_defs`, …). Wasm = the release asset, sha256
 > `37d7fe5a91ca98941dc05493b0c05a0df0f36df5035890fa00b02497c68aaac3`; C sources
-> from the tag's `src/` (shas in `codegraph-kernel/build.rs`). The record below
+> from the tag's `src/` (shas in `sleuth-kernel/build.rs`). The record below
 > describes the original port.
 
 - **Production wasm**: `src/extraction/wasm/tree-sitter-scala.wasm`, sha256
@@ -67,7 +67,7 @@ child list, not "the" field (§Extractor config, §Extension).
   a future-bump candidate, NOT this port. Full record:
   `../scratchpad/batch4-grammar-probe.md`.
 - **Vendored-C route (kotlin mechanism, second use)** — copy from the
-  `0aca5d0a6f` clone into `codegraph-kernel/grammars/scala/` (shas recorded in
+  `0aca5d0a6f` clone into `sleuth-kernel/grammars/scala/` (shas recorded in
   a comment; survey record `grammar-shas.txt`):
   - `src/parser.c`  `bc3c3c794f19461d99d04de6c31d57fa3e41243509b9ab023a9b88ed3273d102` (34,970,232 bytes — 35 MB, the biggest grammar in the tree; expect a slow `cc` step)
   - `src/scanner.c` `e4ba242568ee3493015598997bf60f613802616eade62717c21109287ef64752` (17,731 bytes — a REAL external scanner: significant-indentation + interpolation; it handles `\r` explicitly, scanner.c:476)
@@ -151,7 +151,7 @@ All classes are grammar-inherent and identical across arms by construction
    for `conf/routes`/`*.routes` files (isPlayRoutesFile, grammars.ts:222-228)
    which are NOT scala files (extensionless → no-grammar path) — the cost of
    detection is only the decode, not wrong output.
-3. **One walker module** (`codegraph-kernel/src/scala.rs`), registered in
+3. **One walker module** (`sleuth-kernel/src/scala.rs`), registered in
    langs.rs; per-file `has_error()` → `defer:`. **kotlin.rs is the closest
    crib** (visitNode-hook property branch, classify-by-node-type, re-encode
    gate, JVM import shapes) but scala diverges in TEN places, each detailed

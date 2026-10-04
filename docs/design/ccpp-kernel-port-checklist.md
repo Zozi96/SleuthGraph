@@ -1,7 +1,7 @@
 # C/C++ kernel port (R7a) — the bug-for-bug checklist
 
 **Status: COMPLETE — walker SHIPPED + gates PASSED, c/cpp DEFAULT-ROUTED
-(2026-07-17).** Walker: `codegraph-kernel/src/ccpp/mod.rs` (one dual-language
+(2026-07-17).** Walker: `sleuth-kernel/src/ccpp/mod.rs` (one dual-language
 module, every branch below mirrored; its header comment lists the quirks).
 Grammars: tree-sitter-c v0.24.2 (`b780e47`, parser.c `f2883ff9…`) +
 tree-sitter-cpp v0.23.4 (`f41e1a0`, parser.c `2a35a43b…`, scanner.c
@@ -129,7 +129,7 @@ walker mirrors, with file:line anchors (as of `705e501`). Read WITH
    those files come along as blanked cpp. The preParse hoist MUST pass
    `filePath` (the extension gates Metal-attribute blanking) and the CUDA
    content gate rides for free. Their suite tests are the parity insurance.
-3. **One walker module, dual language** (`codegraph-kernel/src/ccpp/`), flagged
+3. **One walker module, dual language** (`sleuth-kernel/src/ccpp/`), flagged
    c vs cpp like `tsjs/` flags its four dialects. Grammars: tree-sitter-c +
    tree-sitter-cpp crates, wasm vendored from the SAME tags (sha-matched
    parser.c + scanner, ts-cli 0.25.10). Upgrade the production wasm FIRST and

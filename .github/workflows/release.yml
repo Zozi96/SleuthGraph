@@ -61,11 +61,11 @@ jobs:
           for t in ${{ matrix.targets }}; do
             bash scripts/build-kernel.sh --target "$t"
           done
-          ls -R codegraph-kernel/prebuilds
+          ls -R sleuth-kernel/prebuilds
       - uses: actions/upload-artifact@v4
         with:
           name: kernel-${{ matrix.runner }}
-          path: codegraph-kernel/prebuilds/
+          path: sleuth-kernel/prebuilds/
           if-no-files-found: error
 
   release:
@@ -169,7 +169,7 @@ jobs:
 
       - name: Download kernel prebuilds
         # All legs are required (see the kernel job), so every target's
-        # <target>/codegraph-kernel.node must be present in release/kernel/.
+        # <target>/sleuth-kernel.node must be present in release/kernel/.
         uses: actions/download-artifact@v4
         with:
           pattern: kernel-*
@@ -185,9 +185,9 @@ jobs:
         # missing binary into a FAILURE, and a missing prebuild fails outright
         # — the matrix is required, so absence here means a wiring bug.
         run: |
-          if [ -f release/kernel/linux-x64/codegraph-kernel.node ]; then
-            mkdir -p codegraph-kernel/prebuilds/linux-x64
-            cp release/kernel/linux-x64/codegraph-kernel.node codegraph-kernel/prebuilds/linux-x64/
+          if [ -f release/kernel/linux-x64/sleuth-kernel.node ]; then
+            mkdir -p sleuth-kernel/prebuilds/linux-x64
+            cp release/kernel/linux-x64/sleuth-kernel.node sleuth-kernel/prebuilds/linux-x64/
             CODEGRAPH_KERNEL_EXPECT=1 npx vitest run __tests__/kernel-*.test.ts
           else
             echo "::error::linux-x64 kernel prebuild missing despite required matrix"

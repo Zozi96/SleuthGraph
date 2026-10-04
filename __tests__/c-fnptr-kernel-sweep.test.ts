@@ -2,7 +2,7 @@
  * cFnPtr native extraction sweep — differential gate (task #5 step 2).
  *
  * The synthesizer's extraction sweep has two implementations: the JS regex
- * sweep and the kernel's `cfnptrScanFiles` (codegraph-kernel/src/cfnptr.rs).
+ * sweep and the kernel's `cfnptrScanFiles` (sleuth-kernel/src/cfnptr.rs).
  * They must be record-identical, which this suite pins end-to-end: the same
  * adversarial project is indexed twice — CODEGRAPH_KERNEL_CFNPTR toggled —
  * and the synthesized fn-pointer-dispatch edges must match EXACTLY, including

@@ -23,10 +23,10 @@ import { initGrammars, loadGrammarsForLanguages } from '../src/extraction/gramma
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 

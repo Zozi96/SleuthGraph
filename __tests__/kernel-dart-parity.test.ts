@@ -2,7 +2,7 @@
  * Kernel↔wasm Dart extraction parity (R7b batch 4 of the kernel migration —
  * the final R7b language).
  *
- * Asserts the native walker (codegraph-kernel/src/dart.rs) produces the SAME
+ * Asserts the native walker (sleuth-kernel/src/dart.rs) produces the SAME
  * ExtractionResult as the wasm TreeSitterExtractor — nodes, edges, and
  * unresolved refs compared as canonicalized multisets — over the checked-in
  * fixtures (torture.dart: the master inventory — imports incl. deferred
@@ -40,10 +40,10 @@ import type { ExtractionResult } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 

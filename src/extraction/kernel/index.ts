@@ -244,7 +244,7 @@ export function tryKernelExtractRaw(
     if (!warned.has(language)) {
       warned.add(language);
       process.stderr.write(
-        `[codegraph-kernel] ${language} extraction failed (${message}) — falling back to the wasm path\n`
+        `[sleuth-kernel] ${language} extraction failed (${message}) — falling back to the wasm path\n`
       );
     }
     return null;
@@ -313,7 +313,7 @@ export function tryKernelExtract(
     if (!warned.has(language)) {
       warned.add(language);
       process.stderr.write(
-        `[codegraph-kernel] ${language} extraction failed (${message}) — falling back to the wasm path\n`
+        `[sleuth-kernel] ${language} extraction failed (${message}) — falling back to the wasm path\n`
       );
     }
     return null;

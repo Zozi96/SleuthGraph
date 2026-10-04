@@ -1,4 +1,4 @@
-//! codegraph-kernel — native extraction kernel (napi-rs).
+//! sleuth-kernel — native extraction kernel (napi-rs).
 //!
 //! Replaces ONLY the parse+extract walk inside the parse workers, behind the
 //! existing `ExtractionResult` contract. Input `(filePath, content, language)`

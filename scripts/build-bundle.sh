@@ -78,20 +78,20 @@ echo "[bundle] installing production dependencies"
 rm -f "$STAGE/lib/package-lock.json"
 
 # 3b. Native extraction kernel (optional). Included when a prebuilt .node for
-#     the target exists — release/kernel/<target>/codegraph-kernel.node (the
+#     the target exists — release/kernel/<target>/sleuth-kernel.node (the
 #     release workflow's prebuild artifacts) or the locally staged
-#     codegraph-kernel/prebuilds/<target>/ (scripts/build-kernel.sh). Absent →
+#     sleuth-kernel/prebuilds/<target>/ (scripts/build-kernel.sh). Absent →
 #     the bundle simply runs the wasm extraction path; the kernel is a
 #     per-language speedup, never a requirement (see
 #     docs/design/rust-kernel-migration-plan.md).
 KERNEL_NODE=""
-for candidate in "$ROOT/release/kernel/${TARGET}/codegraph-kernel.node" \
-                 "$ROOT/codegraph-kernel/prebuilds/${TARGET}/codegraph-kernel.node"; do
+for candidate in "$ROOT/release/kernel/${TARGET}/sleuth-kernel.node" \
+                 "$ROOT/sleuth-kernel/prebuilds/${TARGET}/sleuth-kernel.node"; do
   if [ -f "$candidate" ]; then KERNEL_NODE="$candidate"; break; fi
 done
 if [ -n "$KERNEL_NODE" ]; then
   mkdir -p "$STAGE/lib/kernel"
-  cp "$KERNEL_NODE" "$STAGE/lib/kernel/codegraph-kernel.node"
+  cp "$KERNEL_NODE" "$STAGE/lib/kernel/sleuth-kernel.node"
   echo "[bundle] native kernel included ($KERNEL_NODE)"
 else
   echo "[bundle] no native kernel for ${TARGET} — bundle uses the wasm extraction path"

@@ -1,7 +1,7 @@
 # tree-sitter-kotlin.wasm — provenance & rebuild
 
 `src/extraction/wasm/tree-sitter-kotlin.wasm` and the kernel's vendored C
-(`codegraph-kernel/grammars/kotlin/`) are both built from
+(`sleuth-kernel/grammars/kotlin/`) are both built from
 [fwcd/tree-sitter-kotlin](https://github.com/fwcd/tree-sitter-kotlin) (MIT)
 tag `0.3.8` (commit `e1a2d5ad1f61f5740677183cd4125bb071cd2f30`), from the
 tag's checked-in `src/parser.c` — never `tree-sitter generate` — with the
@@ -40,7 +40,7 @@ git apply /path/to/codegraph/docs/grammars/tree-sitter-kotlin.patch
 #   {"grammars":[{"name":"kotlin","scope":"source.kotlin","path":".",
 #     "file-types":["kt","kts"]}],"metadata":{"version":"0.3.8","license":"MIT"}}
 npx -y tree-sitter-cli@0.25.10 build --wasm -o tree-sitter-kotlin.wasm .
-cp src/scanner.c /path/to/codegraph/codegraph-kernel/grammars/kotlin/scanner.c
+cp src/scanner.c /path/to/codegraph/sleuth-kernel/grammars/kotlin/scanner.c
 ```
 
 Built without the patch, the same command reproduces the upstream wasm above

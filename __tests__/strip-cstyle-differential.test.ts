@@ -115,7 +115,7 @@ describe('stripCStyle segment-builder vs split-based oracle', () => {
   });
 });
 
-// The native kernel's C stripper (codegraph-kernel/src/cfnptr.rs) blanks per
+// The native kernel's C stripper (sleuth-kernel/src/cfnptr.rs) blanks per
 // UTF-16 code unit precisely so its output is string-identical to the TS
 // stripper — the cFnPtr extraction sweep's scanners then run over the same
 // character stream on both paths. Pinned here against the same fixtures and

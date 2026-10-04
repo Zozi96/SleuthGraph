@@ -11,7 +11,7 @@
  * the 8 MiB main thread only moved the cliff (100k levels still died).
  *
  * The kernel now guards its recursion against the calling thread's real stack
- * bounds (codegraph-kernel/src/stack.rs) and turns an imminent overflow into
+ * bounds (sleuth-kernel/src/stack.rs) and turns an imminent overflow into
  * its `defer:` routing signal, so the file takes the wasm path — whose walker
  * catches its own JS `RangeError` per file and stores a partial result with a
  * `parse_error`. These tests pin that contract on every default-routed
@@ -36,10 +36,10 @@ import type { Language } from '../src/types';
 const REPO = path.resolve(__dirname, '..');
 const KERNEL_PATH = path.join(
   REPO,
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 const expectKernel = process.env.CODEGRAPH_KERNEL_EXPECT === '1';

@@ -2,7 +2,7 @@
  * Kernel↔wasm Lua + Luau extraction parity (R7b batch 4 of the kernel
  * migration).
  *
- * Asserts the native walker (codegraph-kernel/src/lua.rs — one module, two
+ * Asserts the native walker (sleuth-kernel/src/lua.rs — one module, two
  * dialects) produces the SAME ExtractionResult as the wasm
  * TreeSitterExtractor — nodes, edges, and unresolved refs compared as
  * canonicalized multisets — over the checked-in torture fixtures
@@ -38,10 +38,10 @@ import type { ExtractionResult, Language } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 

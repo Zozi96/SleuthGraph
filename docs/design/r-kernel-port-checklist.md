@@ -65,7 +65,7 @@ extracted; out of scope.)
 - **Crate usability (kotlin-lesson check): USABLE.** `[dependencies]` is
   `tree-sitter-language = "0.1"` only (`tree-sitter` 0.24.7 is a DEV-dep,
   `cc` 1.1.22 a build-dep) — no pin conflict with the kernel's tree-sitter
-  0.25. Port route: **`tree-sitter-r = "=1.2.0"` in codegraph-kernel's
+  0.25. Port route: **`tree-sitter-r = "=1.2.0"` in sleuth-kernel's
   Cargo.toml** (csharp-style), `langs.rs` `"r" => tree_sitter_r::LANGUAGE`,
   `LANGUAGES` 15→16.
 - **v1.3.0 exists and is NOT this batch** (future accuracy PR only):
@@ -112,7 +112,7 @@ extracted; out of scope.)
    `frameworks/*.ts` lists r in `languages:` → parse-worker's
    framework-force-to-decoded-path never fires for R. All parity repos ride
    the raw path.
-3. **One walker module** (suggest `codegraph-kernel/src/rlang.rs` — `r.rs`
+3. **One walker module** (suggest `sleuth-kernel/src/rlang.rs` — `r.rs`
    works too; no crate-name collision since the dep is `tree-sitter-r`),
    registered in langs.rs; per-file `has_error()` → `defer:` like every
    walker. **No existing walker is a close crib** — the nearest are the

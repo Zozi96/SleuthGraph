@@ -1,7 +1,7 @@
 /**
  * Kernel↔wasm C/C++ extraction parity (R7a of the kernel migration).
  *
- * Asserts the native walker (codegraph-kernel/src/ccpp/) produces the SAME
+ * Asserts the native walker (sleuth-kernel/src/ccpp/) produces the SAME
  * ExtractionResult as the wasm TreeSitterExtractor — nodes, edges, and
  * unresolved refs compared as canonicalized multisets — over:
  *   - the checked-in torture fixtures (torture.c / torture.cpp / torture.hpp:
@@ -32,10 +32,10 @@ import type { ExtractionResult, Language } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 

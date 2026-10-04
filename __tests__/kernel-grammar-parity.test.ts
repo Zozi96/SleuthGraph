@@ -27,10 +27,10 @@ import type { Language } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 

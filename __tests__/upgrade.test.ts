@@ -303,8 +303,8 @@ describe('windows bundle swap script (#2185)', () => {
     const aside = new RegExp(m![1]!, 'i'); // PowerShell -match is case-insensitive
     // The pre-fix upgrade left node.exe.old-<32-hex guid>; this one uses 8 hex.
     expect(aside.test('node.exe.old-0123456789abcdef0123456789ABCDEF')).toBe(true);
-    expect(aside.test('codegraph-kernel.node.old-deadbeef')).toBe(true);
-    for (const shipped of ['node.exe', 'codegraph-kernel.node', 'old-deadbeef.js', 'x.old-1234567', 'a.old-deadbeef.js']) {
+    expect(aside.test('sleuth-kernel.node.old-deadbeef')).toBe(true);
+    for (const shipped of ['node.exe', 'sleuth-kernel.node', 'old-deadbeef.js', 'x.old-1234567', 'a.old-deadbeef.js']) {
       expect(aside.test(shipped), shipped).toBe(false);
     }
     // No file a bundle actually ships looks like a leftover.

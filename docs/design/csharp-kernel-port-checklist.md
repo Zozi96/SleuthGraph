@@ -1,6 +1,6 @@
 # C# kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/csharp.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/csharp.rs`,
 all gates passed (parity sweeps 0-diff on serilog 211/216 / Newtonsoft.Json
 914/945 / jellyfin 2104/2105 — every deferral matching §arch-6's predictions;
 full-init dump gates byte-identical ×3; kernel-csharp-parity suite + grammar
@@ -41,11 +41,11 @@ grammar bump is needed; grammar prep is a Cargo pin + parity-test entry only.
     (`$"""… {Interp(u)} …"""`), raw string literals, and verbatim strings all
     parse clean.
 - **Cargo plan:** add `tree-sitter-c-sharp = "=0.23.5"` to
-  `codegraph-kernel/Cargo.toml` following the exact-pin comment block (the
+  `sleuth-kernel/Cargo.toml` following the exact-pin comment block (the
   `=0.24.2` c/rust rows); crate symbol is **`tree_sitter_c_sharp::LANGUAGE`**
   (a `LanguageFn`, `.into()` like the other 0.23-era crates); register
   `"csharp" => Some(tree_sitter_c_sharp::LANGUAGE.into())` in
-  `codegraph-kernel/src/langs.rs` + add `"csharp"` to `LANGUAGES`. The crate's
+  `sleuth-kernel/src/langs.rs` + add `"csharp"` to `LANGUAGES`. The crate's
   build.rs compiles parser.c **and scanner.c** (both in the tarball) — no extra
   work. `__tests__/kernel-grammar-parity.test.ts` (id-by-id ABI + node-kind +
   field-table compare) is the real gate and needs a csharp row; **no wasm
@@ -80,7 +80,7 @@ grammar bump is needed; grammar prep is a Cargo pin + parity-test entry only.
    raw-path perf number on an ASP.NET repo and conclude the port is broken.
 3. **The framework extractor itself needs NO port** — regex over raw source
    (§Frameworks below), runs in extractFromSource:6736-6758 after either arm.
-4. **One walker module** (suggest `codegraph-kernel/src/csharp.rs`), registered
+4. **One walker module** (suggest `sleuth-kernel/src/csharp.rs`), registered
    in langs.rs; per-file `has_error()` → `defer:` like every walker. **java.rs
    is the skeleton** (§java.rs mapping below) — same namespace-node concept,
    same field/constant split, same static-member/value-ref/fn-ref chassis.

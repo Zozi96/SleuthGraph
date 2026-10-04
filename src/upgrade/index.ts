@@ -572,7 +572,7 @@ function upgradeUnixBundle(
  *
  * Why file-by-file renames (#2185): every open agent session runs a CodeGraph
  * MCP server from `current\`, which keeps `node.exe` and the native kernel
- * (`lib\kernel\codegraph-kernel.node`) locked. Windows refuses to overwrite or
+ * (`lib\kernel\sleuth-kernel.node`) locked. Windows refuses to overwrite or
  * delete a running exe or a loaded DLL but does let it be renamed. The old
  * upgrade renamed only `node.exe` and then `Copy-Item`ed over the rest, so the
  * locked kernel failed the copy halfway — leaving no `node.exe` and a mix of

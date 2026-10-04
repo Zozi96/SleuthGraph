@@ -1,6 +1,6 @@
 # Swift kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/swift.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/swift.rs`,
 all gates passed (bump validated standalone with the diff classified per the
 error-union rule + ripple pairing + two gate-found categories 7/8 below;
 parity sweeps 0-diff Alamofire 89/98 / vapor 224/247 / swift-nio 407/554 at
@@ -98,7 +98,7 @@ grammars.ts:105), a 2023/24-era **ABI-13** build of npm tree-sitter-swift
 - **Staging plan:** vendor to `src/extraction/wasm/tree-sitter-swift.wasm`;
   add `'swift'` to `VENDORED_WASM_LANGS` (grammars.ts:291) with an R7b
   comment noting the crate-tarball provenance (NOT tag-sha-matched — state
-  why); pin `tree-sitter-swift = "=0.7.3"` in codegraph-kernel/Cargo.toml
+  why); pin `tree-sitter-swift = "=0.7.3"` in sleuth-kernel/Cargo.toml
   (crate + wasm move TOGETHER); add `'swift'` to `GRAMMAR_LANGUAGES` in
   `__tests__/kernel-grammar-parity.test.ts:39`; kernel symbol
   `tree_sitter_swift::LANGUAGE` in langs.rs `grammar_for` + the `LANGUAGES`
@@ -242,7 +242,7 @@ compared set is the ~73–91% that parse clean.
    torture/Alamofire runs has filePath undefined). **The v2 REF_FLAG_FILE_PATH
    wire slot (buffers.rs:125 / layout.ts:98) stays UNUSED for swift** — flag
    0 on every ref, like rust/csharp.
-5. **One walker module** (suggest `codegraph-kernel/src/swift.rs`), registered
+5. **One walker module** (suggest `sleuth-kernel/src/swift.rs`), registered
    in langs.rs (`grammar_for` → `tree_sitter_swift::LANGUAGE.into()`,
    `LANGUAGES` += "swift"). Skeleton cribs: **java.rs** for the class-like
    scope stack + static-member refs + decorators; **ruby.rs/php.rs** for

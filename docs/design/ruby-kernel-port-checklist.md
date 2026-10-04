@@ -1,6 +1,6 @@
 # Ruby kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/ruby.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/ruby.rs`,
 all gates passed (grammar bump validated standalone — sinatra/jekyll dumps
 byte-identical old-vs-new, rails exactly the one classified `&.!=` hunk;
 parity sweeps 0-diff sinatra 147/147 / jekyll 164/164 / rails 3452/3452 with
@@ -55,7 +55,7 @@ era). The bump:
   wasm to `src/extraction/wasm/tree-sitter-ruby.wasm`; add `'ruby'` to
   `VENDORED_WASM_LANGS` (grammars.ts:291) with an R7b comment following the
   rust pattern (tag + sha-matched note); pin `tree-sitter-ruby = "=0.23.1"` in
-  codegraph-kernel/Cargo.toml under the exact-pin comment block (`=` like
+  sleuth-kernel/Cargo.toml under the exact-pin comment block (`=` like
   c/cpp/rust — crate + wasm move together or kernel-grammar-parity fails);
   kernel symbol `tree_sitter_ruby::LANGUAGE` in langs.rs when the walker
   lands. Full suite green + the standalone bump gate (§Gates) before walker
@@ -124,7 +124,7 @@ era). The bump:
    (ruby.ts:109-190), runs identically after either arm inside
    `extractFromSource` (tree-sitter.ts:6736-6758), merging `route` nodes +
    `controller#action` refs. §Frameworks pins its input contract.
-4. **One walker module** (suggest `codegraph-kernel/src/rubylang.rs` or
+4. **One walker module** (suggest `sleuth-kernel/src/rubylang.rs` or
    `ruby.rs` — no crate-language collision this time, `ruby.rs` is fine),
    registered in langs.rs (`LANGUAGES` + `grammar_for` +
    `tree_sitter_ruby::LANGUAGE`); per-file `has_error()` → `defer:` like every

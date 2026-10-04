@@ -1,7 +1,7 @@
 # Kotlin kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/kotlin.rs`
-+ the vendored-grammar-C build (codegraph-kernel/grammars/kotlin via build.rs
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/kotlin.rs`
++ the vendored-grammar-C build (sleuth-kernel/grammars/kotlin via build.rs
 cc — the mechanism's first use), all gates passed (bump dumps byte-identical
 old-vs-new ×3 as predicted; parity sweeps 0-diff okio 299/322 / okhttp
 531/580 / kotlinx.coroutines 1031/1082 with exactly the predicted 23/49/51
@@ -31,7 +31,7 @@ kernel** (it pins `tree-sitter >= 0.21, < 0.23`; the kernel links 0.25), and
 the successor crate `tree-sitter-kotlin-ng` is a **different grammar** (8
 fields vs 0, 289 vs 357 symbols, renamed kinds — would break every kotlin.ts
 branch). The port must take the **vendored-grammar-C route**: compile the
-sha-matched 0.3.8 `parser.c`+`scanner.c` inside `codegraph-kernel` via
+sha-matched 0.3.8 `parser.c`+`scanner.c` inside `sleuth-kernel` via
 build.rs — the FIRST language to exercise the mechanism the §4 tracker
 prescribes for vendored grammars (§Grammar prep). (2) **Both-arm parse-error
 incidence is 4.7–8.5%** on the gate repos (fun-interface misparses, phantom
@@ -104,8 +104,8 @@ the fwcd lineage; production wasm sha256 `b5cb00c8…`, 4,052,705 bytes, ABI 14)
   grammar C into the kernel** (the §4 tracker's prescription for
   vendored-grammar languages — kotlin is the first to need it):
   - copy the tag's `src/parser.c`, `src/scanner.c`, and `src/tree_sitter/*.h`
-    to `codegraph-kernel/grammars/kotlin/` (shas above, recorded in a comment);
-  - `codegraph-kernel/build.rs`: `cc::Build` compiling both C files with the
+    to `sleuth-kernel/grammars/kotlin/` (shas above, recorded in a comment);
+  - `sleuth-kernel/build.rs`: `cc::Build` compiling both C files with the
     crate's own flag set (`-Wno-unused-parameter`,
     `-Wno-unused-but-set-variable`, `-Wno-trigraphs`; msvc `-utf-8` — crib
     the tarball's `bindings/rust/build.rs`);
@@ -125,7 +125,7 @@ the fwcd lineage; production wasm sha256 `b5cb00c8…`, 4,052,705 bytes, ABI 14)
 - **Staging plan (bump PR, before any walker exists):** vendor the wasm to
   `src/extraction/wasm/tree-sitter-kotlin.wasm`; `VENDORED_WASM_LANGS +=
   'kotlin'` (grammars.ts:291) with an R7b comment (tag + sha-matched note +
-  "crate unusable — kernel compiles vendored C, see codegraph-kernel/grammars/
+  "crate unusable — kernel compiles vendored C, see sleuth-kernel/grammars/
   kotlin"); the kernel C vendor + build.rs + langs.rs + grammar-parity row can
   land WITH the bump (they're inert until a walker exists) or with the walker —
   but wasm + C must be same-tag from day one. `copy-assets` already globs
@@ -188,7 +188,7 @@ the fwcd lineage; production wasm sha256 `b5cb00c8…`, 4,052,705 bytes, ABI 14)
 3. **The framework extractors themselves need NO port** — regex over raw
    source, run in extractFromSource:6736-6758 after either arm. §Frameworks
    pins their input contracts.
-4. **One walker module** (suggest `codegraph-kernel/src/kotlin.rs`; no crate
+4. **One walker module** (suggest `sleuth-kernel/src/kotlin.rs`; no crate
    collision since there is no kotlin crate dep), registered in langs.rs;
    per-file `has_error()` → `defer:` like every walker. **java.rs is the
    closest crib** (JVM package→namespace node via `extractFilePackage`,

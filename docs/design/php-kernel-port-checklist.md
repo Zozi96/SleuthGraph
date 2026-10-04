@@ -1,6 +1,6 @@
 # PHP kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/php.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/php.rs`,
 all gates passed (grammar bump validated standalone with the diff enumerated +
 classified — see §Grammar-bump deltas incl. the bump-gate-found category 4 and
 the ripple-proof note; parity sweeps 0-diff monolog 217/217 /
@@ -63,10 +63,10 @@ a 2023-era **ABI-14** build of npm tree-sitter-php ^0.22 (sha256 `55bb617b…`,
   scratchpad `svy-php/tree-sitter-php.wasm`.)
 - **Staging plan:** vendor to `src/extraction/wasm/tree-sitter-php.wasm`, add
   `'php'` to `VENDORED_WASM_LANGS` (grammars.ts:291), pin
-  `tree-sitter-php = "=0.24.2"` in codegraph-kernel/Cargo.toml (crate + wasm
+  `tree-sitter-php = "=0.24.2"` in sleuth-kernel/Cargo.toml (crate + wasm
   move TOGETHER), add `'php'` to `GRAMMAR_LANGUAGES` in
   `__tests__/kernel-grammar-parity.test.ts:39` and to `grammar_for` in
-  `codegraph-kernel/src/langs.rs` (+ the `LANGUAGES` const). MIT license, same
+  `sleuth-kernel/src/langs.rs` (+ the `LANGUAGES` const). MIT license, same
   family as the other vendored grammars. `copy-assets` already globs
   `src/extraction/wasm/*.wasm`.
 - **Bump lands FIRST with the full suite green and the old-vs-new full-init
@@ -207,7 +207,7 @@ per-file.
    run in extractFromSource:6736-6758 after either arm) — but they pin parts of
    the walker's output contract (§Frameworks): drupal reconstructs extraction
    node IDs with `generateNodeId(filePath,'function',name,line)`.
-4. **One walker module** (suggest `codegraph-kernel/src/php.rs`), registered in
+4. **One walker module** (suggest `sleuth-kernel/src/php.rs`), registered in
    `langs.rs` (`grammar_for` → `tree_sitter_php::LANGUAGE_PHP.into()`,
    `LANGUAGES` const += "php"); per-file `has_error()` → `defer:` like every
    walker. Skeleton mapping: **java.rs is the closest crib** (class-like scope

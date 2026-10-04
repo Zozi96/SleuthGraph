@@ -5,6 +5,6 @@ dist
 .kommandr
 docs
 assets
-codegraph-kernel/target
-codegraph-kernel/prebuilds
+sleuth-kernel/target
+sleuth-kernel/prebuilds
 release

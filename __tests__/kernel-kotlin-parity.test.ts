@@ -1,7 +1,7 @@
 /**
  * Kernel↔wasm Kotlin extraction parity (R7b of the kernel migration).
  *
- * Asserts the native walker (codegraph-kernel/src/kotlin.rs — grammar
+ * Asserts the native walker (sleuth-kernel/src/kotlin.rs — grammar
  * compiled from the vendored fwcd 0.3.8 C sources, the arc's first
  * vendored-grammar-C language) produces the SAME ExtractionResult as the
  * wasm TreeSitterExtractor over the checked-in torture fixture (torture.kt:
@@ -38,10 +38,10 @@ import type { ExtractionResult } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 

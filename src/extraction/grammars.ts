@@ -336,7 +336,7 @@ export async function initGrammars(): Promise<void> {
  * TypeScript/TSX/JavaScript (+jsx, which shares the javascript grammar): the
  * tree-sitter-wasms builds are 2023-era (^0.20.x); we vendor wasm built from
  * the SAME grammar revisions the native extraction kernel compiles
- * (codegraph-kernel/Cargo.toml), so the kernel path and the wasm fallback
+ * (sleuth-kernel/Cargo.toml), so the kernel path and the wasm fallback
  * parse identically and per-language routing stays graph-neutral:
  *   - tree-sitter/tree-sitter-typescript v0.23.2 (f975a62) → typescript + tsx
  *   - tree-sitter/tree-sitter-javascript v0.25.0 (44c892e) → javascript + jsx
@@ -389,7 +389,7 @@ const VENDORED_WASM_LANGS: ReadonlySet<GrammarLanguage> = new Set([
   // gate repos) — a reproducibility re-vendor, ABI stays 14. The crates.io
   // crate is UNUSABLE by the kernel (pins tree-sitter <0.23) and
   // tree-sitter-kotlin-ng is a different grammar — the kernel compiles the
-  // same vendored C sources instead (codegraph-kernel/grammars/kotlin).
+  // same vendored C sources instead (sleuth-kernel/grammars/kotlin).
   // Both carry docs/grammars/tree-sitter-kotlin.patch (scanner: no automatic
   // semicolon before a same-line `e` word, e.g. an `eq` infix call).
   'kotlin',
@@ -398,7 +398,7 @@ const VENDORED_WASM_LANGS: ReadonlySet<GrammarLanguage> = new Set([
   // tree-sitter-dart master@d4d8f3e337d8). tree-sitter-wasms' dart dep is an
   // UNPINNED github ref, so a routine tree-sitter-wasms update would have
   // silently changed dart's grammar — vendoring kills that hazard. The
-  // kernel compiles the same-commit vendored C (codegraph-kernel/grammars/
+  // kernel compiles the same-commit vendored C (sleuth-kernel/grammars/
   // dart); crates.io tree-sitter-dart is a different-lineage fork (rejected).
   'dart',
 ]);

@@ -236,7 +236,7 @@ export class ParseWorkerPool {
       // only moves the cliff a deeply nested file falls off (#1581 — the
       // 8 MiB main thread still dies at 100k levels). The native kernel
       // guards its own recursion against THIS thread's real stack bounds
-      // (codegraph-kernel/src/stack.rs) and defers such a file to the wasm
+      // (sleuth-kernel/src/stack.rs) and defers such a file to the wasm
       // path, which catches its JS RangeError per file.
       this.createWorker = () => new Worker(scriptPath);
     } else {

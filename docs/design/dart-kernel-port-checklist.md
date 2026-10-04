@@ -62,7 +62,7 @@ change dart's grammar, which is exactly the hazard this vendor kills.
   `src/extraction/wasm/tree-sitter-dart.wasm` + `VENDORED_WASM_LANGS +=
   'dart'` (R7b comment: commit sha + "wasm is the byte-copied
   tree-sitter-wasms 0.1.13 artifact; kernel compiles the same-commit vendored
-  C — codegraph-kernel/grammars/dart"). No rebuild, no `tree-sitter
+  C — sleuth-kernel/grammars/dart"). No rebuild, no `tree-sitter
   generate` — the shipped bytes ARE the reference. `copy-assets` already
   globs `src/extraction/wasm/*.wasm`. MIT license.
 - **External scanner: YES** — `src/scanner.c` PRESENT at the pinned commit.
@@ -83,7 +83,7 @@ change dart's grammar, which is exactly the hazard this vendor kills.
   not revisit unless the TS side migrates grammars.
 - **Kernel side — vendored-grammar-C (the kotlin #1382 mechanism, second
   use):** copy the three-file set above (parser.c, scanner.c, tree_sitter/*.h)
-  to `codegraph-kernel/grammars/dart/`; extend `codegraph-kernel/build.rs`'s
+  to `sleuth-kernel/grammars/dart/`; extend `sleuth-kernel/build.rs`'s
   cc::Build to compile both C files with the grammar's own flags (its
   checked-in `bindings/rust/build.rs` uses `-Wno-unused-parameter`,
   `-Wno-unused-but-set-variable`, `-Wno-trigraphs`, msvc `-utf-8` — same set
@@ -155,7 +155,7 @@ change dart's grammar, which is exactly the hazard this vendor kills.
    ride the raw buffers path. All three gate repos are expected raw-path —
    verify at sweep time; a mixed Vue+dart repo is the decoded-path smoke
    check.
-3. **One walker module** (suggest `codegraph-kernel/src/dart.rs`), registered
+3. **One walker module** (suggest `sleuth-kernel/src/dart.rs`), registered
    in langs.rs; per-file `has_error()` → `defer:`. Cribs: **kotlin.rs** for
    the visitNode-hook-consumed constants + hook/scan interplay; **java.rs**
    for the class-like scope stack, static-member refs, decorators, and

@@ -3,7 +3,7 @@
 ("rust-lang" in the filename to avoid confusion with the kernel's own
 implementation language.)
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/rustlang.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/rustlang.rs`,
 all gates below passed (parity sweeps 0-diff on ripgrep/tokio/rust-analyzer,
 dump gates byte-identical ×3, DEFAULT_ROUTED += rust). This doc remains the
 quirk reference for the walker. Survey basis: every TS-side branch a
@@ -41,7 +41,7 @@ proof.
    TS (see §Frameworks below) and runs identically after either arm inside
    `extractFromSource` (tree-sitter.ts:6736-6758). Only the tree-sitter-walk
    emissions below move to Rust.
-4. **One walker module** (suggest `codegraph-kernel/src/rustlang.rs` — "rust"
+4. **One walker module** (suggest `sleuth-kernel/src/rustlang.rs` — "rust"
    alone collides with the crate language), registered in `langs.rs`; per-file
    `has_error()` → `defer:` like every walker.
 5. **`.rs` → `rust`** at detectLanguage (grammars.ts:78), no content sniffing,

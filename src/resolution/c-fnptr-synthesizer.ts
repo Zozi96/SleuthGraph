@@ -632,7 +632,7 @@ export async function cFnPointerDispatchEdges(
   //
   // Two implementations, record-identical by the differential suite:
   //   • native (task #5 step 2): the kernel's `cfnptrScanFiles` strips and
-  //     scans a BATCH of files per NAPI call (codegraph-kernel/src/cfnptr.rs —
+  //     scans a BATCH of files per NAPI call (sleuth-kernel/src/cfnptr.rs —
   //     hand-rolled byte machines replicating the JS regex semantics), and the
   //     TS side only reads files, ships batches, and interns the returned
   //     facts. Include-path resolution stays here (it needs the filesystem).

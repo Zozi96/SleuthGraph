@@ -35,8 +35,8 @@ function canon(result: ExtractionResult) {
   };
 }
 
-const kernelBuilt = fs.existsSync(path.join(__dirname, '..', 'codegraph-kernel', 'prebuilds',
-  `${process.platform}-${process.arch}`, 'codegraph-kernel.node'));
+const kernelBuilt = fs.existsSync(path.join(__dirname, '..', 'sleuth-kernel', 'prebuilds',
+  `${process.platform}-${process.arch}`, 'sleuth-kernel.node'));
 const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
