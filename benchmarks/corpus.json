@@ -1,0 +1,34 @@
+[
+  {
+    "name": "excalidraw",
+    "repo": "https://github.com/excalidraw/excalidraw.git",
+    "language": "TypeScript",
+    "size": "medium",
+    "files": 643,
+    "question": "How does updating an element re-render the canvas on screen?"
+  },
+  {
+    "name": "gin",
+    "repo": "https://github.com/gin-gonic/gin.git",
+    "language": "Go",
+    "size": "small",
+    "files": 70,
+    "question": "How does gin route requests through its middleware chain?"
+  },
+  {
+    "name": "flask",
+    "repo": "https://github.com/pallets/flask.git",
+    "language": "Python",
+    "size": "small",
+    "files": 45,
+    "question": "How does a request flow through Flask's routing to a view function?"
+  },
+  {
+    "name": "clap",
+    "repo": "https://github.com/clap-rs/clap.git",
+    "language": "Rust",
+    "size": "medium",
+    "files": 250,
+    "question": "How does clap parse argv into a typed ArgMatches struct?"
+  }
+]
