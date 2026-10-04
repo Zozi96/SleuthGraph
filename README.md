@@ -737,9 +737,7 @@ CodeGraph collects **anonymous usage statistics** — which tools and commands g
 used, which languages get indexed — to guide where language and agent support
 work goes. **Never** any code, paths, file or symbol names, queries, or IP
 addresses; usage is aggregated locally into daily totals before anything is
-sent, and the ingest endpoint is [public code in this repo](telemetry-worker/)
-that enforces the documented field list. The installer asks up front; turn it
-off any time:
+sent. The installer asks up front; turn it off any time:
 
 ```bash
 codegraph telemetry off    # or: CODEGRAPH_TELEMETRY=0, or DO_NOT_TRACK=1
