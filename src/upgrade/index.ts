@@ -308,13 +308,6 @@ export interface UpgradeDeps {
    * recorder (#2275: tests that reached the real one rewrote the developer's).
    */
   wirePromptHook: () => Promise<boolean>;
-  /**
-   * Offer the one-time CodeGraph Pro beta opt-in after a successful update
-   * (see installer/beta-signup — self-gating: TTY only, and silent forever
-   * once any install/upgrade ask was answered). Optional so unit tests and
-   * embedded callers stay prompt-free; never fatal to the upgrade.
-   */
-  offerBetaSignup?: () => Promise<void>;
 }
 
 // Colors off when piped / NO_COLOR / --no-color (#1281).
@@ -433,15 +426,6 @@ export async function runUpgrade(opts: UpgradeOptions, deps: UpgradeDeps): Promi
       }
     } else {
       deps.log(c.dim('Skipped refreshing agent instructions/config — run `codegraph install --refresh` once the PATH is fixed.'));
-    }
-    // Reached only after a real binary update (check/up-to-date/npx/source
-    // all returned earlier) — the one place the upgrade path may offer the
-    // beta opt-in. The hook self-gates on TTY + the stored once-per-machine
-    // choice, so an already-answered user never sees it again.
-    try {
-      await deps.offerBetaSignup?.();
-    } catch {
-      /* a marketing question must never fail the upgrade */
     }
   }
   return code;

@@ -70,8 +70,6 @@ tmux-web/
 
 assets/__pycache__/
 
-assets/generate-waitlist.py
-
 .kommandr/
 
 # Local scratch tests (never commit)
