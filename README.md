@@ -382,11 +382,11 @@ npx @zozi96/sleuthgraph
 ```
 
 The installer will:
-- Ask which agent(s) to configure — auto-detects installed ones from: **Claude Code**, **Cursor**, **Codex CLI**, **opencode**, **Hermes Agent**, **Gemini CLI**, **Antigravity IDE**, **Kiro**, **GitHub Copilot** (VS Code, Copilot CLI, JetBrains IDEs)
+- Ask which agent(s) to configure — auto-detects installed ones from: **Claude Code**, **Cursor**, **Codex CLI**, **opencode**, **Hermes Agent**, **Gemini CLI**, **Antigravity IDE**, **Kiro**, **Devin CLI**, **GitHub Copilot** (VS Code, Copilot CLI, JetBrains IDEs)
 - Prompt to install `sleuth` on your PATH (so agents can launch the MCP server)
 - Ask whether configs apply to all your projects or just this one
 - Write each chosen agent's MCP server config, plus a small marker-fenced SleuthGraph section in the agent's instructions file (`CLAUDE.md` / `AGENTS.md` / `GEMINI.md`) — that's how subagents and non-MCP agents learn the `sleuth explore` command, since the MCP server's own guidance only reaches the main agent. Removed cleanly by `sleuth uninstall`.
-- Set up auto-allow permissions when Claude Code is one of the targets
+- Set up auto-allow permissions when an agent that supports them (Claude Code, Devin CLI) is one of the targets
 
 The installer **wires up your agents only — it does not index your code.** After it finishes, build each project's graph yourself with `sleuth init` (step 3). One global `sleuth install` covers every project; you run `sleuth init` once per project.
 
@@ -413,7 +413,7 @@ sleuth install --print-config copilot-vscode      # same, for Copilot in VS Code
 
 ### 2. Restart Your Agent
 
-Restart your agent (Claude Code / Cursor / Codex CLI / opencode / Hermes Agent / Gemini CLI / Antigravity IDE / Kiro / VS Code, the Copilot CLI, or your JetBrains IDE for GitHub Copilot) for the MCP server to load.
+Restart your agent (Claude Code / Cursor / Codex CLI / opencode / Hermes Agent / Gemini CLI / Antigravity IDE / Kiro / Devin CLI / VS Code, the Copilot CLI, or your JetBrains IDE for GitHub Copilot) for the MCP server to load.
 
 ### 3. Initialize Projects
 
@@ -784,6 +784,7 @@ is written):
 - **Gemini CLI**
 - **Antigravity IDE**
 - **Kiro**
+- **Devin CLI**
 - **GitHub Copilot** — Copilot Chat in VS Code (`copilot-vscode`), the Copilot CLI (`copilot-cli`), and the Copilot plugin in JetBrains IDEs (`copilot-jetbrains`)
 
 ## Supported Languages

@@ -3,8 +3,8 @@
  *
  * Multi-target: writes MCP server config + instructions for the
  * agents the user picks (Claude Code, Cursor, Codex CLI, opencode,
- * Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, and GitHub
- * Copilot in VS Code / the Copilot CLI / JetBrains IDEs).
+ * Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, Devin CLI, and
+ * GitHub Copilot in VS Code / the Copilot CLI / JetBrains IDEs).
  * Defaults to the Claude-only behavior for backwards compatibility
  * when no targets are explicitly chosen and nothing else is detected.
  *
@@ -160,16 +160,17 @@ export async function runInstallerWithOptions(opts: RunInstallerOptions): Promis
     }
   }
 
-  // Step 4: auto-allow permissions (only meaningful for Claude;
-  // skipped silently by other targets).
+  // Step 4: auto-allow permissions (only meaningful for the agents
+  // with a permissions surface — Claude Code, Devin CLI; skipped
+  // silently by other targets).
   let autoAllow: boolean;
   if (opts.autoAllow !== undefined) {
     autoAllow = opts.autoAllow;
   } else if (useDefaults) {
     autoAllow = true;
-  } else if (targets.some((t) => t.id === 'claude')) {
+  } else if (targets.some((t) => t.id === 'claude' || t.id === 'devin')) {
     const ans = await clack.confirm({
-      message: 'Auto-allow SleuthGraph commands? (Skips permission prompts in Claude Code)',
+      message: 'Auto-allow SleuthGraph commands? (Skips permission prompts in agents that support it — Claude Code, Devin CLI)',
       initialValue: true,
     });
     if (clack.isCancel(ans)) {
@@ -181,21 +182,21 @@ export async function runInstallerWithOptions(opts: RunInstallerOptions): Promis
     autoAllow = false;
   }
 
-  // Step 4¾: front-load prompt hook (Claude Code only). A UserPromptSubmit hook
-  // that runs `sleuth prompt-hook` — it injects sleuth_explore context on
-  // structural ("how / where / trace / impact") prompts so the agent reliably
-  // reaches for the graph instead of grepping. Opt-in, default-yes. Only Claude
-  // Code has UserPromptSubmit, so it's offered only when Claude is a target;
-  // other targets ignore the option. `undefined` (no Claude / not asked) leaves
-  // any existing hook untouched.
+  // Step 4¾: front-load prompt hook (agents with UserPromptSubmit —
+  // Claude Code and Devin CLI). A hook that runs `sleuth prompt-hook` —
+  // it injects sleuth_explore context on structural ("how / where /
+  // trace / impact") prompts so the agent reliably reaches for the
+  // graph instead of grepping. Opt-in, default-yes. Offered only when
+  // a hook-capable agent is a target; other targets ignore the option.
+  // `undefined` (not asked) leaves any existing hook untouched.
   let promptHook: boolean | undefined;
-  if (targets.some((t) => t.id === 'claude')) {
+  if (targets.some((t) => t.id === 'claude' || t.id === 'devin')) {
     if (useDefaults) {
       promptHook = true; // --yes → on
     } else {
       const ans = await clack.confirm({
         message:
-          'Front-load SleuthGraph on “how / where / trace” prompts? Auto-injects structural context so answers need fewer steps (adds a moment to those prompts; Claude Code only).',
+          'Front-load SleuthGraph on “how / where / trace” prompts? Auto-injects structural context so answers need fewer steps (adds a moment to those prompts; Claude Code / Devin CLI only).',
         initialValue: true,
       });
       if (clack.isCancel(ans)) {
@@ -434,8 +435,8 @@ export async function runUninstaller(opts: RunUninstallerOptions): Promise<void>
     const sel = await clack.select({
       message: 'Remove SleuthGraph from all your projects, or just this one?',
       options: [
-        { value: 'global' as const, label: 'All projects (global)', hint: '~/.claude, ~/.cursor, ~/.codex, ~/.config/opencode, ~/.hermes, ~/.gemini, ~/.kiro, ~/.copilot, ~/.config/github-copilot' },
-        { value: 'local'  as const, label: 'Just this project (local)', hint: './.claude, ./.cursor, ./.vscode, ./opencode.jsonc, ./.gemini, ./.kiro' },
+        { value: 'global' as const, label: 'All projects (global)', hint: '~/.claude, ~/.cursor, ~/.codex, ~/.config/opencode, ~/.hermes, ~/.gemini, ~/.kiro, ~/.copilot, ~/.config/github-copilot, ~/.config/devin' },
+        { value: 'local'  as const, label: 'Just this project (local)', hint: './.claude, ./.cursor, ./.vscode, ./opencode.jsonc, ./.gemini, ./.kiro, ./.devin' },
       ],
       initialValue: 'global' as const,
     });

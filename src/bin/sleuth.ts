@@ -2642,12 +2642,12 @@ program
  */
 program
   .command('install')
-  .description('Install sleuth MCP server into one or more agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, GitHub Copilot)')
+  .description('Install sleuth MCP server into one or more agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, Devin CLI, GitHub Copilot)')
   .option('-t, --target <ids>', 'Target agent(s): comma-separated ids, or "auto"|"all"|"none". Default: prompt')
   .option('-l, --location <where>', 'Install location: "global" or "local". Default: prompt')
   .option('-y, --yes', 'Non-interactive: defaults to --location=global --target=auto, auto-allow on')
   .option('-i, --init', 'After wiring agents, also run `sleuth init` in the current directory — builds this project’s index, so install + index is one command (combine with --yes for an unattended bootstrap)')
-  .option('--no-permissions', 'Skip writing the auto-allow permissions list (Claude Code only)')
+  .option('--no-permissions', 'Skip writing the auto-allow permissions list (agents that support it: Claude Code, Devin CLI)')
   .option('--print-config <id>', 'Print MCP config snippet for the named agent and exit (no file writes)')
   .option('--refresh', 'Rewrite what previous installs configured, for already-configured agents only (never adds new ones). Run automatically by `sleuth upgrade`')
   .action(async (opts: {
@@ -2756,7 +2756,7 @@ program
  */
 program
   .command('uninstall')
-  .description('Remove sleuth from your agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, GitHub Copilot)')
+  .description('Remove sleuth from your agents (Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro, Devin CLI, GitHub Copilot)')
   .option('-t, --target <ids>', 'Target agent(s): comma-separated ids, or "all". Default: all')
   .option('-l, --location <where>', 'Uninstall location: "global" or "local". Default: prompt')
   .option('-y, --yes', 'Non-interactive: defaults to --location=global --target=all')

@@ -3065,3 +3065,147 @@ describe('Antigravity macOS command persistence (#1443)', () => {
     expect(installCommand()).toBe('sleuth');
   });
 });
+
+describe('Installer targets — Devin CLI', () => {
+  let tmpHome: string;
+  let tmpCwd: string;
+  let origCwd: string;
+  let homeRestore: { restore: () => void };
+
+  beforeEach(() => {
+    tmpHome = mkTmpDir('home');
+    tmpCwd = mkTmpDir('cwd');
+    origCwd = process.cwd();
+    process.chdir(tmpCwd);
+    homeRestore = setHome(tmpHome);
+  });
+
+  afterEach(() => {
+    homeRestore.restore();
+    process.chdir(origCwd);
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpCwd, { recursive: true, force: true });
+  });
+
+  const devinDir = () => path.join(tmpHome, '.config', 'devin');
+  const mcpConfigFile = () => path.join(devinDir(), 'mcp_config.json');
+  const configJsonFile = () => path.join(devinDir(), 'config.json');
+
+  it('global install writes ~/.config/devin/mcp_config.json with command/args and no `type` key', () => {
+    const devin = getTarget('devin')!;
+    const result = devin.install('global', { autoAllow: false });
+    expect(result.files.some((f) => f.path === mcpConfigFile())).toBe(true);
+
+    const cfg = JSON.parse(fs.readFileSync(mcpConfigFile(), 'utf-8'));
+    // Devin's stdio schema is command/args/env/disabled — NO `type`.
+    expect(cfg.mcpServers.sleuth).toEqual({ command: 'sleuth', args: ['serve', '--mcp'] });
+    expect('type' in cfg.mcpServers.sleuth).toBe(false);
+  });
+
+  it('local install writes ./.devin/mcp_config.json and the project-root ./AGENTS.md block', () => {
+    const devin = getTarget('devin')!;
+    const result = devin.install('local', { autoAllow: false });
+    const paths = result.files.map((f) => f.path.replace(/\\/g, '/'));
+    expect(paths.some((p) => p.endsWith('/.devin/mcp_config.json'))).toBe(true);
+    // AGENTS.md sits at the project root, NOT under .devin/ — same
+    // layout codex uses.
+    expect(paths.some((p) => p.endsWith('/AGENTS.md') && !p.includes('/.devin/'))).toBe(true);
+    expect(fs.readFileSync(path.join(process.cwd(), 'AGENTS.md'), 'utf-8')).toContain('sleuth explore');
+
+    const cfg = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), '.devin', 'mcp_config.json'), 'utf-8'),
+    );
+    expect(cfg.mcpServers.sleuth).toBeDefined();
+    // Global config untouched by a local install.
+    expect(fs.existsSync(mcpConfigFile())).toBe(false);
+  });
+
+  it('autoAllow writes permissions.allow mcp__sleuth__* into config.json', () => {
+    const devin = getTarget('devin')!;
+    devin.install('global', { autoAllow: true });
+    const cfg = JSON.parse(fs.readFileSync(configJsonFile(), 'utf-8'));
+    expect(cfg.permissions.allow).toContain('mcp__sleuth__*');
+  });
+
+  it('promptHook round-trips: true writes hooks.UserPromptSubmit, re-run is unchanged, false removes it', () => {
+    const devin = getTarget('devin')!;
+
+    devin.install('global', { autoAllow: false, promptHook: true });
+    let cfg = JSON.parse(fs.readFileSync(configJsonFile(), 'utf-8'));
+    const groups = cfg.hooks.UserPromptSubmit;
+    expect(
+      groups.some((g: any) =>
+        Array.isArray(g.hooks) &&
+        g.hooks.some((h: any) => typeof h?.command === 'string' && h.command.includes('prompt-hook')),
+      ),
+    ).toBe(true);
+
+    // Idempotent re-run reports the file unchanged.
+    const second = devin.install('global', { autoAllow: false, promptHook: true });
+    expect(second.files.find((f) => f.path === configJsonFile())?.action).toBe('unchanged');
+
+    // Opt-out strips it again.
+    const third = devin.install('global', { autoAllow: false, promptHook: false });
+    expect(third.files.find((f) => f.path === configJsonFile())?.action).toBe('removed');
+    cfg = JSON.parse(fs.readFileSync(configJsonFile(), 'utf-8'));
+    expect(cfg.hooks).toBeUndefined();
+  });
+
+  it('detects a legacy config.json mcpServers.sleuth as configured and migrates it out on install', () => {
+    const devin = getTarget('devin')!;
+    fs.mkdirSync(devinDir(), { recursive: true });
+    fs.writeFileSync(
+      configJsonFile(),
+      JSON.stringify(
+        { mcpServers: { sleuth: { command: 'sleuth', args: ['serve', '--mcp'] } }, theme: 'dark' },
+        null, 2,
+      ) + '\n',
+    );
+
+    expect(devin.detect('global').alreadyConfigured).toBe(true);
+
+    const result = devin.install('global', { autoAllow: false });
+    expect(result.files.find((f) => f.path === configJsonFile())?.action).toBe('removed');
+
+    // config.json loses the mcpServers key but keeps sibling settings…
+    const cfg = JSON.parse(fs.readFileSync(configJsonFile(), 'utf-8'));
+    expect(cfg.mcpServers).toBeUndefined();
+    expect(cfg.theme).toBe('dark');
+    // …and mcp_config.json gains the entry.
+    const mcp = JSON.parse(fs.readFileSync(mcpConfigFile(), 'utf-8'));
+    expect(mcp.mcpServers.sleuth).toEqual({ command: 'sleuth', args: ['serve', '--mcp'] });
+  });
+
+  it('uninstall strips a legacy config.json mcpServers.sleuth too', () => {
+    const devin = getTarget('devin')!;
+    fs.mkdirSync(devinDir(), { recursive: true });
+    fs.writeFileSync(
+      configJsonFile(),
+      JSON.stringify({ mcpServers: { sleuth: { command: 'sleuth' } } }, null, 2) + '\n',
+    );
+    expect(devin.detect('global').alreadyConfigured).toBe(true);
+
+    devin.uninstall('global');
+
+    expect(devin.detect('global').alreadyConfigured).toBe(false);
+    // Removal emptied the file entirely — it is deleted, not left as {}.
+    expect(fs.existsSync(configJsonFile())).toBe(false);
+  });
+
+  it('uninstall reverses install: mcp entry, permissions, hook, and AGENTS.md', () => {
+    const devin = getTarget('devin')!;
+    devin.install('global', { autoAllow: true, promptHook: true });
+    expect(devin.detect('global').alreadyConfigured).toBe(true);
+
+    devin.uninstall('global');
+
+    expect(devin.detect('global').alreadyConfigured).toBe(false);
+    const mcp = JSON.parse(fs.readFileSync(mcpConfigFile(), 'utf-8'));
+    expect(mcp.mcpServers?.sleuth).toBeUndefined();
+    const cfg = JSON.parse(fs.readFileSync(configJsonFile(), 'utf-8'));
+    expect(cfg.permissions).toBeUndefined();
+    expect(cfg.hooks).toBeUndefined();
+    // AGENTS.md held only our block — the file itself is gone.
+    expect(fs.existsSync(path.join(devinDir(), 'AGENTS.md'))).toBe(false);
+  });
+});
