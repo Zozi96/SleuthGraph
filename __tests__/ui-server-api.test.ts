@@ -21,7 +21,7 @@ import * as path from 'path';
 import SleuthGraph, { getDatabasePath } from '../src/index';
 import { createGraphApi, startUiServer, type GraphApi, type UiServerHandle } from '../src/ui-server';
 import { buildRoutes } from '../src/ui-server/api/routes';
-import { HUB_THRESHOLD, MAX_INCOMING_GROUPS } from '../src/ui-server/api/wire';
+import { HUB_THRESHOLD, MAX_INCOMING_GROUPS, toPosixPath } from '../src/ui-server/api/wire';
 
 interface Response {
   status: number;
@@ -1140,7 +1140,7 @@ describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
         (await repoGet('/api/search?q=' + encodeURIComponent(hub.name))).body
       );
       const hit = search.results.items.find(
-        (r: any) => r.name === hub.name && r.file === hub.file
+        (r: any) => r.name === hub.name && r.file === toPosixPath(hub.file)
       );
       expect(
         hit,
