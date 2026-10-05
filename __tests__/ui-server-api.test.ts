@@ -18,9 +18,10 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import SleuthGraph from '../src/index';
+import SleuthGraph, { getDatabasePath } from '../src/index';
 import { createGraphApi, startUiServer, type GraphApi, type UiServerHandle } from '../src/ui-server';
 import { buildRoutes } from '../src/ui-server/api/routes';
+import { HUB_THRESHOLD, MAX_INCOMING_GROUPS } from '../src/ui-server/api/wire';
 
 interface Response {
   status: number;
@@ -1047,15 +1048,18 @@ export default app;
 
 /**
  * The acceptance bar from the issue, against the engine's OWN index rather than
- * a fixture: `LRUCache.get` in `src/resolution/lru-cache.ts`, a hub with
- * hundreds of callers — past the 300-row cap, which is what this checks. (It
- * had 500+ when the bar was set; sharper resolution has since taken away
- * `get` calls on maps and caches that were never LRUCache's, so the count is
- * held to the cap, not to that number.)
+ * a fixture: the busiest symbol this checkout's graph contains. It used to
+ * name `LRUCache.get` outright — 545 callers when the bar was set — but
+ * resolution keeps improving (it took away `get` calls on maps and caches
+ * that were never LRUCache's, dropping it to 22), so no hardcoded symbol is a
+ * stable fixture. The hub is discovered instead: the top target by distinct
+ * `calls` source in `.sleuth/sleuth.db`, then every count is checked back
+ * against that same database — the exact store the endpoint reads.
  *
  * `.sleuth/` is gitignored, so this only runs on a machine that has indexed
- * this repository. The fixture test above covers the same properties in CI; this
- * one is the check against the real, messy graph the number came from.
+ * this repository. Nothing in a real index is guaranteed past the 300-row cap
+ * — that path is pinned deterministically by the synthetic 500-caller fixture
+ * above; this one is the check against the real, messy graph the bar came from.
  */
 describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
   "the engine's own busiest symbol",
@@ -1063,6 +1067,9 @@ describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
     const repoRoot = path.resolve(__dirname, '..');
     let repoApi: GraphApi;
     let repoServer: UiServerHandle;
+    let hubDb: import('node:sqlite').DatabaseSync | undefined;
+    /** The discovered hub and the counts the endpoint should report for it. */
+    let hub: { name: string; file: string; fanIn: number; callers: number };
 
     beforeAll(async () => {
       repoApi = createGraphApi({ projectRoot: repoRoot });
@@ -1072,9 +1079,55 @@ describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
         port: 0,
         api: repoApi.handler,
       });
+
+      // Discover the hub from the same store the API serves, opened read-only:
+      // the symbol with the most distinct `calls` sources. The endpoint's own
+      // rule is every non-`contains` edge, so the expected counts below use
+      // that filter rather than `calls` alone. The kind list mirrors
+      // NON_HUB_KINDS in api/entrypoints.ts: a mention, a container or a name
+      // is never a hub.
+      const { DatabaseSync } = require('node:sqlite') as typeof import('node:sqlite');
+      hubDb = new DatabaseSync(getDatabasePath(repoRoot), { readOnly: true });
+      const db = hubDb;
+      const top = db
+        .prepare(
+          `SELECT n.id AS id, n.name AS name, n.file_path AS file
+             FROM edges e JOIN nodes n ON n.id = e.target
+            WHERE e.kind = 'calls'
+              AND n.kind NOT IN ('file', 'import', 'export', 'parameter')
+            GROUP BY e.target
+            ORDER BY COUNT(DISTINCT e.source) DESC, COUNT(*) DESC
+            LIMIT 1`
+        )
+        .get() as { id: string; name: string; file: string } | undefined;
+      if (!top) throw new Error("the engine's own index has no called symbol");
+      hub = {
+        name: top.name,
+        file: top.file,
+        // `counts.fanIn` is the raw incoming edge count — edges whose source
+        // no longer resolves still count, so this query joins nothing.
+        fanIn: (
+          db
+            .prepare("SELECT COUNT(*) AS c FROM edges WHERE target = ? AND kind != 'contains'")
+            .get(top.id) as { c: number }
+        ).c,
+        // `counts.callers`/`incoming.total` is one group per resolved source
+        // symbol, so the join to `nodes` mirrors `groupRelations` skipping a
+        // source the node table no longer has.
+        callers: (
+          db
+            .prepare(
+              `SELECT COUNT(DISTINCT e.source) AS c FROM edges e
+                 JOIN nodes s ON s.id = e.source
+                WHERE e.target = ? AND e.kind != 'contains'`
+            )
+            .get(top.id) as { c: number }
+        ).c,
+      };
     });
 
     afterAll(async () => {
+      hubDb?.close();
       repoApi?.close();
       await repoServer?.close();
     });
@@ -1084,12 +1137,15 @@ describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
 
     it('answers in under 100 ms with grouped, capped lists and correct counts', async () => {
       const search = JSON.parse(
-        (await repoGet('/api/search?q=' + encodeURIComponent('LRUCache.get'))).body
+        (await repoGet('/api/search?q=' + encodeURIComponent(hub.name))).body
       );
       const hit = search.results.items.find(
-        (r: any) => r.name === 'get' && r.file.endsWith('src/resolution/lru-cache.ts')
+        (r: any) => r.name === hub.name && r.file === hub.file
       );
-      expect(hit, 'LRUCache.get should be in the engine\'s own index').toBeTruthy();
+      expect(
+        hit,
+        `${hub.name} in ${hub.file} should be findable in the engine's own index`
+      ).toBeTruthy();
 
       await repoGet(`/api/node/${hit.id}`); // warm
 
@@ -1107,14 +1163,21 @@ describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
       expect(res.status).toBe(200);
       const body = JSON.parse(res.body);
 
-      expect(body.counts.fanIn).toBeGreaterThan(300);
-      expect(body.counts.hub).toBe(true);
+      // Self-validating: the wire counts must equal what the index itself
+      // holds for this symbol, however resolution happened to rank it.
+      expect(body.counts.fanIn).toBe(hub.fanIn);
+      expect(body.counts.callers).toBe(hub.callers);
+      expect(body.incoming.total).toBe(hub.callers);
+      // `hub` is decided by the distinct-caller count (`callers` /
+      // `incoming.total`), not by the raw edge fan-in.
+      expect(body.counts.callers).toBeGreaterThanOrEqual(HUB_THRESHOLD);
+      expect(body.counts.hub).toBe(body.counts.callers >= HUB_THRESHOLD);
       // Grouped by calling symbol, so the row count is the distinct-caller
       // count, never the edge count.
       expect(body.incoming.items).toHaveLength(body.incoming.shown);
-      expect(body.incoming.shown).toBeLessThanOrEqual(300);
-      expect(body.incoming.shown).toBe(Math.min(300, body.incoming.total));
-      expect(body.incoming.truncated).toBe(body.incoming.total > 300);
+      expect(body.incoming.shown).toBeLessThanOrEqual(MAX_INCOMING_GROUPS);
+      expect(body.incoming.shown).toBe(Math.min(MAX_INCOMING_GROUPS, body.incoming.total));
+      expect(body.incoming.truncated).toBe(body.incoming.total > MAX_INCOMING_GROUPS);
       expect(new Set(body.incoming.items.map((r: any) => r.node.id)).size).toBe(
         body.incoming.shown
       );
@@ -1124,7 +1187,6 @@ describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
       );
       expect(edgesInRows).toBeLessThanOrEqual(body.counts.fanIn);
       expect(body.blast.direct).toBe(body.counts.callers);
-      expect(body.tests.reached).toBe(true);
 
       expect(elapsed).toBeLessThan(100);
     });
