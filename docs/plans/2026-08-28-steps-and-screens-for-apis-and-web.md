@@ -28,7 +28,7 @@ and read against the mobile app's picture.
 SvelteKit web app, and a monorepo that has both, as they are on the mobile app today. "As good" is
 defined precisely in §1 below; it is not "draws something".
 
-Companion reading, in this order: `docs/design/codegraph-ui-design-spec.md` §1 (principles), §3.12,
+Companion reading, in this order: `docs/design/sleuth-ui-design-spec.md` §1 (principles), §3.12,
 §3.13, §3.14; `CHANGELOG.md` `[Unreleased]` (the user-facing description of what shipped);
 `docs/design/dynamic-dispatch-coverage-playbook.md` (the coverage rules and the validation method —
 **"partial coverage is worse than none"** governs everything here); `CLAUDE.md` (tests, kernel, docs).

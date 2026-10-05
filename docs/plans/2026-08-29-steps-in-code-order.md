@@ -38,7 +38,7 @@ person wants from a handler. They want *the flow of the code*: first the lookup,
 token and answer 200, **else** answer 401. "I think this should show the flow/order of the code. That would be way more
 useful to me." Build that.
 
-Read first, in this order: spec §3.13 and §3.14 (`docs/design/codegraph-ui-design-spec.md`), then
+Read first, in this order: spec §3.13 and §3.14 (`docs/design/sleuth-ui-design-spec.md`), then
 `docs/plans/2026-08-28-steps-and-screens-for-apis-and-web.md` §2 and §6 (how the pictures work and the gotchas), then the
 auto-memory note `steps-for-apis-2026-08-28` (the two facts that made Steps work, the screenshot harness), then the files in
 §3 below. `CLAUDE.md` for tests, docs and the no-kernel-work rule (this plan is all request-time: no extractor changes).
