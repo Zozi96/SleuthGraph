@@ -1,21 +1,21 @@
 /**
  * Native-kernel loader — finds, loads, and contract-verifies the
- * codegraph-kernel .node addon.
+ * sleuth-kernel .node addon.
  *
  * The kernel is OPTIONAL everywhere. Every failure mode here (no binary for
  * this platform, dlopen error, ABI/kind-table mismatch) resolves to `null`
  * and the extraction path silently keeps using the wasm pipeline — a missing
  * or stale kernel must never break indexing, only skip the speedup. Set
- * CODEGRAPH_KERNEL_DEBUG=1 to see why a kernel didn't load.
+ * SLEUTH_KERNEL_DEBUG=1 to see why a kernel didn't load.
  *
- * Kill switch: CODEGRAPH_KERNEL=0 disables the kernel entirely (checked per
+ * Kill switch: SLEUTH_KERNEL=0 disables the kernel entirely (checked per
  * call so tests and embedders can flip it at runtime).
  *
  * Search order:
- *   1. CODEGRAPH_KERNEL_PATH — explicit .node path (dev/testing override)
- *   2. <up3>/kernel/codegraph-kernel.node — the release bundle layout
+ *   1. SLEUTH_KERNEL_PATH — explicit .node path (dev/testing override)
+ *   2. <up3>/kernel/sleuth-kernel.node — the release bundle layout
  *      (lib/dist/** next to lib/kernel/; see scripts/build-bundle.sh)
- *   3. <up3>/codegraph-kernel/prebuilds/<platform>-<arch>/codegraph-kernel.node
+ *   3. <up3>/sleuth-kernel/prebuilds/<platform>-<arch>/sleuth-kernel.node
  *      — from-source runs and tests (staged by scripts/build-kernel.sh)
  *
  * "up3" = three directories above this file, which is the package root both
@@ -61,7 +61,7 @@ export interface CfnptrFileIn {
 }
 
 /** Per-file facts from the native cFnPtr extraction sweep — mirror of the
- *  Rust `CfnptrFacts` (see codegraph-kernel/src/cfnptr.rs); semantics match
+ *  Rust `CfnptrFacts` (see sleuth-kernel/src/cfnptr.rs); semantics match
  *  the JS sweep in src/resolution/c-fnptr-synthesizer.ts. */
 export interface CfnptrFactsOut {
   fnPtrTypedefs: string[];
@@ -90,9 +90,9 @@ export interface KernelModule {
   cfnptrStripC?(text: string): string;
 }
 
-const debugEnabled = () => process.env.CODEGRAPH_KERNEL_DEBUG === '1';
+const debugEnabled = () => process.env.SLEUTH_KERNEL_DEBUG === '1';
 function debug(msg: string): void {
-  if (debugEnabled()) process.stderr.write(`[codegraph-kernel] ${msg}\n`);
+  if (debugEnabled()) process.stderr.write(`[sleuth-kernel] ${msg}\n`);
 }
 
 /** Languages the loaded binary supports (contract-verified). Empty when no kernel. */
@@ -102,16 +102,16 @@ let cached: KernelModule | null | undefined;
 
 function candidatePaths(): string[] {
   const candidates: string[] = [];
-  if (process.env.CODEGRAPH_KERNEL_PATH) candidates.push(process.env.CODEGRAPH_KERNEL_PATH);
+  if (process.env.SLEUTH_KERNEL_PATH) candidates.push(process.env.SLEUTH_KERNEL_PATH);
   const packageRoot = path.resolve(__dirname, '..', '..', '..');
-  candidates.push(path.join(packageRoot, 'kernel', 'codegraph-kernel.node'));
+  candidates.push(path.join(packageRoot, 'kernel', 'sleuth-kernel.node'));
   candidates.push(
     path.join(
       packageRoot,
-      'codegraph-kernel',
+      'sleuth-kernel',
       'prebuilds',
       `${process.platform}-${process.arch}`,
-      'codegraph-kernel.node'
+      'sleuth-kernel.node'
     )
   );
   return candidates;
@@ -168,7 +168,7 @@ export function getKernel(): KernelModule | null {
 
 /** True when the kill switch is off, a verified binary is loaded, and it supports `language`. */
 export function kernelSupports(language: string): boolean {
-  if (process.env.CODEGRAPH_KERNEL === '0') return false;
+  if (process.env.SLEUTH_KERNEL === '0') return false;
   return getKernel() !== null && kernelLanguages.has(language);
 }
 

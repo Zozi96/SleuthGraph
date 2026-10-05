@@ -73,12 +73,12 @@ function measure(run) {
     cliCalls: s.cliCalls,
     cliContaminated: s.cliContaminated,
     ctx: o.ctxFinal,
-    occCg: o.residual.codegraph,
+    occCg: o.residual.sleuth,
     occFile: o.residualFileAccess,
-    // The arm's OWN retrieval residual: codegraph in a with-arm, Read/Grep/Bash
+    // The arm's OWN retrieval residual: sleuth in a with-arm, Read/Grep/Bash
     // in a without-arm. Comparing these two is the apples-to-apples pair.
-    occSelf: o.residual.codegraph + o.residualFileAccess,
-    occShare: o.ctxFinal > 0 ? ((o.residual.codegraph + o.residualFileAccess) / o.ctxFinal) * 100 : 0,
+    occSelf: o.residual.sleuth + o.residualFileAccess,
+    occShare: o.ctxFinal > 0 ? ((o.residual.sleuth + o.residualFileAccess) / o.ctxFinal) * 100 : 0,
     suffAnswered: s.sufficiency.answered,
     suffCounts: s.sufficiency.counts,
     suffErrors: s.sufficiency.errors,
@@ -128,12 +128,12 @@ export function formatComparison(arms) {
   row('  Read', arms.map((a) => span(a.runs, (r) => r.reads)));
   row('  Grep/Glob', arms.map((a) => span(a.runs, (r) => r.grep)));
   row('  Bash', arms.map((a) => span(a.runs, (r) => r.bash)));
-  row('  codegraph calls', arms.map((a) => span(a.runs, (r) => r.cg)));
+  row('  sleuth calls', arms.map((a) => span(a.runs, (r) => r.cg)));
   out.push('');
 
   rule('residual context occupancy (CG-7) — tokens still resident at end of run');
   row('  final context (tok)', arms.map((a) => span(a.runs, (r) => r.ctx, int)));
-  row('  codegraph residual (tok)', arms.map((a) => span(a.runs, (r) => r.occCg, int)));
+  row('  sleuth residual (tok)', arms.map((a) => span(a.runs, (r) => r.occCg, int)));
   row('  file-access residual (tok)', arms.map((a) => span(a.runs, (r) => r.occFile, int)));
   row('  → retrieval residual (tok)', arms.map((a) => span(a.runs, (r) => r.occSelf, int)));
   row('  → share of final context', arms.map((a) => span(a.runs, (r) => r.occShare, pct1)));
@@ -165,18 +165,18 @@ export function formatComparison(arms) {
   row('  envelope (chars)', arms.map((a) => int(a.runs.reduce((s, r) => s + (r.allocEnvelope || 0), 0))));
   out.push('');
 
-  rule('contamination — the CLI must never be how codegraph is reached');
+  rule('contamination — the CLI must never be how sleuth is reached');
   row('  CLI calls that RETURNED output', arms.map((a) => a.runs.reduce((s, r) => s + r.cliContaminated, 0)));
   row('  CLI attempts blocked', arms.map((a) => a.runs.reduce((s, r) => s + r.cliCalls, 0)));
   const contaminated = arms.filter((a) => a.runs.some((r) => r.cliContaminated));
   if (contaminated.length) {
-    out.push(`  !! ${contaminated.map((a) => a.label).join(', ')} reached codegraph through Bash — those runs are CONTAMINATED`);
-    out.push('     (a without-arm was not without codegraph; a with-arm has bytes attributed to Bash, not codegraph)');
+    out.push(`  !! ${contaminated.map((a) => a.label).join(', ')} reached sleuth through Bash — those runs are CONTAMINATED`);
+    out.push('     (a without-arm was not without sleuth; a with-arm has bytes attributed to Bash, not sleuth)');
   }
   out.push('');
 
   out.push('  how to read this');
-  out.push('    occupancy  compare each arm\'s RETRIEVAL residual (codegraph in a with-arm,');
+  out.push('    occupancy  compare each arm\'s RETRIEVAL residual (sleuth in a with-arm,');
   out.push('               file-access in a without-arm). Shares are Claude Code on a 200k');
   out.push('               window and do NOT transfer to another host; the ratio does.');
   out.push('    sufficiency  pooled across runs because it is per-CALL. "explore again" is');
@@ -184,7 +184,7 @@ export function formatComparison(arms) {
   out.push('               allocation miss, the two recall rows are recall misses.');
   out.push('    allocation  RELATIVE, not absolute — attribution is by citation, and an agent');
   out.push('               can use a file without naming it. Compare builds on the SAME');
-  out.push('               question; never quote it as "codegraph wastes N% of what it returns."');
+  out.push('               question; never quote it as "sleuth wastes N% of what it returns."');
   out.push('    all three  small-n. Runs make 1–5 explore calls, so read the range, not the');
   out.push('               median of one run. RUNS>=2, and the 7-repo campaign for a verdict.');
   return out.join('\n');

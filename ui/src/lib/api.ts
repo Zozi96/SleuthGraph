@@ -191,7 +191,7 @@ export function fetchMap(
  * A flow. Exactly one of the three shapes is sent:
  *
  * - `{ from, to }` — "how does X reach Y", from the search box.
- * - `{ symbols }` — `codegraph_explore`'s own question, verbatim.
+ * - `{ symbols }` — `sleuth_explore`'s own question, verbatim.
  * - `{ trail }` — the hops the reader walked, as `<dir><id>` strings.
  */
 export function fetchFlow(

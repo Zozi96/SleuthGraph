@@ -1,5 +1,5 @@
 /**
- * Per-file allocation diagnostic for `codegraph_explore` (CG-4).
+ * Per-file allocation diagnostic for `sleuth_explore` (CG-4).
  *
  * The explore response is a fixed byte envelope (`budget.maxOutputChars`, hard-
  * capped at 25K so the host never externalizes the result). WHICH files fill it,
@@ -8,7 +8,7 @@
  * read the output and guess, but you cannot say "this file took 16% of the
  * envelope and that one took 21%" without hand-counting.
  *
- * This module is the instrument. Enabled by `CODEGRAPH_EXPLORE_DEBUG`, it
+ * This module is the instrument. Enabled by `SLEUTH_EXPLORE_DEBUG`, it
  * records, for one explore call:
  *   - per candidate file: relevance score, graph (RWR) mass, distinct query-term
  *     hits, ranking flags, render mode, bytes of source actually emitted, that
@@ -24,7 +24,7 @@
  * diagnostic never mutates render state, and every method is wrapped so a bug in
  * here can never fail an explore call.
  *
- * Sinks (value of `CODEGRAPH_EXPLORE_DEBUG`):
+ * Sinks (value of `SLEUTH_EXPLORE_DEBUG`):
  *   `1` / `true` / `on` / `yes` / `stderr` → human-readable table on stderr
  *   `json`                                 → one JSON object on stderr
  *   anything else                          → treated as a path; one JSON object
@@ -202,7 +202,7 @@ export interface ExploreDiagnosticSession {
 
 /** The full report — one per explore call, JSON-serialized to the sink. */
 export interface ExploreDiagnosticReport {
-  tool: 'codegraph_explore';
+  tool: 'sleuth_explore';
   query: string;
   projectRoot: string;
   indexedFileCount: number;
@@ -276,7 +276,7 @@ const STDERR_TABLE = new Set(['1', 'true', 'on', 'yes', 'stderr']);
  * read per call (not memoized) so a test can toggle it between invocations.
  */
 function resolveSink(): Sink | null {
-  const raw = process.env.CODEGRAPH_EXPLORE_DEBUG;
+  const raw = process.env.SLEUTH_EXPLORE_DEBUG;
   if (raw === undefined) return null;
   const value = raw.trim();
   const lower = value.toLowerCase();
@@ -314,7 +314,7 @@ export class ExploreDiagnostics {
   ) {}
 
   /**
-   * Returns `null` when `CODEGRAPH_EXPLORE_DEBUG` is unset/off — the whole
+   * Returns `null` when `SLEUTH_EXPLORE_DEBUG` is unset/off — the whole
    * instrument then costs one env read per explore call and nothing else.
    */
   static start(
@@ -526,7 +526,7 @@ export class ExploreDiagnostics {
     const rendered = records.filter((r) => r.finalChars > 0);
     const sourceChars = rendered.reduce((s, r) => s + r.finalChars, 0);
     return {
-      tool: 'codegraph_explore',
+      tool: 'sleuth_explore',
       query: this.query,
       projectRoot: this.projectRoot,
       indexedFileCount: this.indexedFileCount,
@@ -680,7 +680,7 @@ export function renderTable(report: ExploreDiagnosticReport): string {
 
   const out: string[] = [];
   out.push('');
-  out.push(`codegraph explore diagnostic — "${report.query}"`);
+  out.push(`sleuth explore diagnostic — "${report.query}"`);
   out.push(`  project ${report.projectRoot} · ${num(report.indexedFileCount)} files indexed`);
   if (report.note) out.push(`  note: ${report.note}`);
   if (report.session) {

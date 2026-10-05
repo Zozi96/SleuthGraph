@@ -9,15 +9,15 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 
 let tempDir: string;
-let cg: CodeGraph | null = null;
+let cg: SleuthGraph | null = null;
 
 async function callsFromMethod(source: string, methodName: string): Promise<string[]> {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1714-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1714-'));
   fs.writeFileSync(path.join(tempDir, 'record.ts'), source);
-  cg = await CodeGraph.init(tempDir, { index: true });
+  cg = await SleuthGraph.init(tempDir, { index: true });
   cg.resolveReferences();
   const from = cg.getNodesByKind('method').find((n) => n.name === methodName)!;
   expect(from).toBeDefined();
@@ -79,7 +79,7 @@ describe('a receiver-less JS/TS call never binds to a method (#1714)', () => {
   });
 
   it('a bare call to a name the file binds itself has no cross-file candidate', async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1714-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1714-'));
     fs.writeFileSync(path.join(tempDir, 'config.ts'), 'export function resolve(p: string) { return p; }\nexport function transform(c: string) { return c; }\nexport function now() { return 0; }\n');
     fs.writeFileSync(
       path.join(tempDir, 'client.ts'),
@@ -97,7 +97,7 @@ describe('a receiver-less JS/TS call never binds to a method (#1714)', () => {
         '',
       ].join('\n')
     );
-    cg = await CodeGraph.init(tempDir, { index: true });
+    cg = await SleuthGraph.init(tempDir, { index: true });
     cg.resolveReferences();
     const targets = cg.getNodesByKind('function').filter((n) => n.filePath === 'config.ts').map((n) => n.id);
     const callers = cg.getNodesByKind('function').filter((n) => n.filePath === 'client.ts');
@@ -106,7 +106,7 @@ describe('a receiver-less JS/TS call never binds to a method (#1714)', () => {
   });
 
   it('a destructured require or a string mentioning the name is not a local binding', async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1714-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1714-'));
     fs.writeFileSync(path.join(tempDir, 'public-ip.js'), 'function lookupPublicIPv4() { return "1.2.3.4"; }\nfunction test(name, fn) { return fn(); }\nmodule.exports = { lookupPublicIPv4, test };\n');
     fs.writeFileSync(
       path.join(tempDir, 'main.js'),
@@ -122,7 +122,7 @@ describe('a receiver-less JS/TS call never binds to a method (#1714)', () => {
         '',
       ].join('\n')
     );
-    cg = await CodeGraph.init(tempDir, { index: true });
+    cg = await SleuthGraph.init(tempDir, { index: true });
     cg.resolveReferences();
     const prepare = cg.getNodesByKind('function').find((n) => n.name === 'prepare')!;
     const names = cg.getOutgoingEdges(prepare.id).filter((e) => e.kind === 'calls').map((e) => cg!.getNode(e.target)?.name);
@@ -135,7 +135,7 @@ describe('a receiver-less JS/TS call never binds to a method (#1714)', () => {
     // backtrack through every way to split each type from its default — tens
     // of seconds per called name on vscode's markersModel.test.ts, which
     // stalled a whole resolution batch.
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1714-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1714-'));
     fs.writeFileSync(
       path.join(tempDir, 'harness.ts'),
       'export function suite(name: string, fn: () => void) { fn(); }\nexport function resolve(p: string) { return p; }\n'
@@ -157,7 +157,7 @@ describe('a receiver-less JS/TS call never binds to a method (#1714)', () => {
         '',
       ].join('\n')
     );
-    cg = await CodeGraph.init(tempDir, { index: true });
+    cg = await SleuthGraph.init(tempDir, { index: true });
     cg.resolveReferences();
     const harness = cg.getNodesByKind('function').filter((n) => n.filePath === 'harness.ts');
     const suiteFn = harness.find((n) => n.name === 'suite')!;

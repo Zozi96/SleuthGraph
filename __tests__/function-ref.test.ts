@@ -23,7 +23,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import type { Edge } from '../src/types';
 import { ToolHandler } from '../src/mcp/tools';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
@@ -34,7 +34,7 @@ beforeAll(async () => {
 });
 
 /** Incoming edges to `name`'s node that came from function-as-value capture. */
-function fnRefEdgesInto(cg: CodeGraph, name: string): Edge[] {
+function fnRefEdgesInto(cg: SleuthGraph, name: string): Edge[] {
   const targets = cg.getNodesByName(name);
   const edges: Edge[] = [];
   for (const t of targets) {
@@ -48,7 +48,7 @@ function fnRefEdgesInto(cg: CodeGraph, name: string): Edge[] {
 }
 
 /** Names of the source nodes of the given edges, sorted. */
-function sourceNames(cg: CodeGraph, edges: Edge[]): string[] {
+function sourceNames(cg: SleuthGraph, edges: Edge[]): string[] {
   const names: string[] = [];
   for (const e of edges) {
     const n = cg.getNode(e.source);
@@ -88,7 +88,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -136,7 +136,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -172,7 +172,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'onMessage');
@@ -200,7 +200,7 @@ describe('Function-as-value capture (#756)', () => {
       'export function wire(bus: { on(cb: unknown): void }, process: unknown): void { bus.on(process); }\n'
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'process');
@@ -223,7 +223,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const wires = fnRefEdgesInto(cg, 'my_cb').filter((e) => {
@@ -250,7 +250,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const strategy = cg.getNodesByName('Strategy').find((n) => n.kind === 'class')!;
@@ -274,7 +274,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const retry = cg.getNodesByName('retry')[0]!;
@@ -318,7 +318,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -396,7 +396,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       expect(sourceNames(cg, fnRefEdgesInto(cg, 'TargetCb'))).toEqual([
@@ -430,7 +430,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -481,7 +481,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const handleSubmits = cg.getNodesByName('handleSubmit');
@@ -532,7 +532,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -576,7 +576,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const handles = cg.getNodesByName('handle');
@@ -610,7 +610,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'report');
@@ -647,7 +647,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -693,7 +693,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       // Exactly ONE source for cmp_items: the usort site, not some_random_fn.
@@ -728,7 +728,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -790,7 +790,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
 
@@ -849,7 +849,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       expect(fnRefEdgesInto(cg, 'refresh')).toHaveLength(0);
@@ -891,7 +891,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const fetch = cg.getNodesByName('fetch').find((n) => n.kind === 'method')!;
@@ -900,7 +900,7 @@ describe('Function-as-value capture (#756)', () => {
       expect(callers).toContain('via_callback');
       expect(sourceNames(cg, fnRefEdgesInto(cg, 'fetch'))).toEqual(['via_callback']);
       expect([...cg.getImpactRadius(fetch.id).nodes.values()].map(n => n.name)).toContain('via_callback');
-      const response = await new ToolHandler(cg).execute('codegraph_explore', {
+      const response = await new ToolHandler(cg).execute('sleuth_explore', {
         query: 'Consumer.via_callback Store.fetch',
       });
       expect(response.isError).not.toBe(true);
@@ -935,7 +935,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'fetch');
@@ -975,7 +975,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'fetch');
@@ -1000,7 +1000,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       expect(fnRefEdgesInto(cg, 'fetch')).toHaveLength(0);
@@ -1038,7 +1038,7 @@ describe('Function-as-value capture (#756)', () => {
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const fetch = cg.getNodesByName('Fetch').find((n) => n.kind === 'method')!;
@@ -1076,7 +1076,7 @@ def typed(obj: Actual, pool):
 def static(pool):
     pool.submit(Actual.fetch)
 `);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'fetch');
@@ -1119,7 +1119,7 @@ def known_callback(pool):
 def construct():
     return Actual()
 `);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const task = cg.getNodesByName('send_welcome').find(n => n.kind === 'function')!;
@@ -1166,7 +1166,7 @@ class Own:
     def class_bound(cls, pool):
         pool.submit(cls.fetch)
 `);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'fetch');
@@ -1216,7 +1216,7 @@ def reassigned(obj: Store, pool):
 def direct(obj: Store):
     obj.fetch()
 `);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       expect(sourceNames(cg, fnRefEdgesInto(cg, 'fetch'))).toEqual([
@@ -1269,7 +1269,7 @@ def local_import(pool):
     from settings import conn
     pool.submit(conn.fetch, [])
 `);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const store = cg.getNodesByName('fetch').find(n => n.qualifiedName.startsWith('Store::'))!;
@@ -1327,7 +1327,7 @@ def opaque(pool):
     pool.submit(unknown.conn.fetch, [])
     pool.submit(unknown.mixed.fetch, [])
 `);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const byOwner = (owner: string, name = 'fetch') => cg.getNodesByName(name).find(n => n.qualifiedName.startsWith(`${owner}::`))!;
@@ -1500,7 +1500,7 @@ def init():
         fs.mkdirSync(path.dirname(path.join(tmpDir, file)), { recursive: true });
         fs.writeFileSync(path.join(tmpDir, file), content);
       }
-      const cg = CodeGraph.initSync(tmpDir);
+      const cg = SleuthGraph.initSync(tmpDir);
       try {
         await cg.indexAll();
         got[name] = cg.getNodesByName('fetch').flatMap(t => cg.getIncomingEdges(t.id)
@@ -1519,7 +1519,7 @@ def init():
     fs.writeFileSync(path.join(tmpDir, 'decoy.py'), 'class Decoy:\n    def fetch(self, ids):\n        return []\n');
     fs.writeFileSync(path.join(tmpDir, 'settings.py'), settings);
     fs.writeFileSync(path.join(tmpDir, 'consumer.py'), consumer);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     const edges = () => cg.getNodesByName('fetch').flatMap(t => cg.getIncomingEdges(t.id)
       .filter(e => e.metadata?.fnRef === true).map(e => `${cg.getNode(e.source)?.name} -> ${t.qualifiedName}`));
     try {
@@ -1549,7 +1549,7 @@ func MethodExpression() { Submit(Store.Fetch) }
 func (c *Consumer) External() { Submit(c.external.Fetch) }
 func Unknown(obj interface{}) { Submit(obj.Fetch) }
 `);
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const edges = fnRefEdgesInto(cg, 'Fetch');
@@ -1569,7 +1569,7 @@ func Unknown(obj interface{}) { Submit(obj.Fetch) }
       ].join('\n')
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     try {
       await cg.indexAll();
       const stats1 = cg.getStats();

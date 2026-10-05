@@ -11,11 +11,11 @@ import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadGrammarsForLanguages, getParser } from '../src/extraction/grammars';
 
 let root = '';
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-kotlin-infix-'));
@@ -30,7 +30,7 @@ class Ops {
     fun found(id1: Int): Int = listOf(1).filter { it eq id1 }.single()
 }
 `);
-  cg = await CodeGraph.init(root, { index: true });
+  cg = await SleuthGraph.init(root, { index: true });
 });
 
 afterAll(() => {

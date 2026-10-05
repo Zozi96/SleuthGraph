@@ -40,7 +40,7 @@ realistic, putting dubbo ≈ 7.5–8s total (parity with cbm).
 
 ## Architecture
 
-- **Crate:** `codegraph-kernel`, napi-rs, links tree-sitter's C library and
+- **Crate:** `sleuth-kernel`, napi-rs, links tree-sitter's C library and
   vendored grammars natively. Input: `(filePath, content, language)`. Output:
   flat typed buffers (nodes, edges, unresolved refs) — one boundary crossing
   per file.

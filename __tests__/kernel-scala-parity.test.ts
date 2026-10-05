@@ -1,7 +1,7 @@
 /**
  * Kernel↔wasm Scala extraction parity (R7b batch 4 of the kernel migration).
  *
- * Asserts the native walker (codegraph-kernel/src/scala.rs) produces the SAME
+ * Asserts the native walker (sleuth-kernel/src/scala.rs) produces the SAME
  * ExtractionResult as the wasm TreeSitterExtractor — nodes, edges, and
  * unresolved refs compared as canonicalized multisets — over the checked-in
  * fixtures (torture.scala: first-segment imports, defs-as-methods with the
@@ -26,7 +26,7 @@
  * The full-repo sweeps live in scripts/kernel-parity.mjs (os-lib/cats +
  * scala3 compiler/src + library/src with --max-deferral 0.3); this suite
  * keeps the invariant alive in `npm test`. Skips when no kernel binary is
- * staged; CODEGRAPH_KERNEL_EXPECT=1 turns that into a failure.
+ * staged; SLEUTH_KERNEL_EXPECT=1 turns that into a failure.
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
@@ -40,10 +40,10 @@ import type { ExtractionResult } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 
@@ -61,7 +61,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel Scala extraction parity', () => {
@@ -84,14 +84,14 @@ describe.skipIf(!kernelBuilt)('kernel Scala extraction parity', () => {
   });
 
   function assertParity(filePath: string, source: string, minNodes = 2): ExtractionResult {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, 'scala');
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, 'scala');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -165,19 +165,19 @@ describe.skipIf(!kernelBuilt)('kernel Scala extraction parity', () => {
     // A tree whose only defect is a MISSING node: hasError is true, yet there
     // is no ERROR node to find. The kernel must defer on the FLAG.
     const missingOnly = 'object O { val x = }\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/missing.scala', missingOnly, 'scala')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/missing.scala', missingOnly, 'scala');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'file')).toBe(true);
   });
 
   it('real parse errors defer', () => {
     const broken = 'class A {\n  def f( = 1\n}\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/broken.scala', broken, 'scala')).toBeNull();
   });
 

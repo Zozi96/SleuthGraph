@@ -13,12 +13,12 @@ const recipe = fs.readFileSync(path.resolve('scripts/build-bundle.sh'), 'utf8');
 const launcherRecipe = recipe.slice(recipe.indexOf('# 4. Vendored'), recipe.indexOf('# 5. Archive'));
 const archiveRecipe = recipe.slice(recipe.indexOf('# 5. Archive'));
 const roots: string[] = [];
-const env = { ...process.env, CODEGRAPH_TELEMETRY: '0', DO_NOT_TRACK: '1', CODEGRAPH_NO_PROMPT_HOOK: '1' };
+const env = { ...process.env, SLEUTH_TELEMETRY: '0', DO_NOT_TRACK: '1', SLEUTH_NO_PROMPT_HOOK: '1' };
 
 function shell(script: string, args: string[] = [], extraEnv: NodeJS.ProcessEnv = {}, input?: string) {
   // A file avoids Windows command-line quoting altering the recipe's printf
   // escapes or our argument fixtures before Bash even reads them.
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-shell-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-shell-'));
   roots.push(root);
   const file = path.join(root, 'test.sh');
   const quote = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
@@ -29,9 +29,9 @@ function shell(script: string, args: string[] = [], extraEnv: NodeJS.ProcessEnv 
 }
 
 function stage(osfam = windows ? 'win32' : process.platform) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph bundle space '));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth bundle space '));
   roots.push(root);
-  const bundle = path.join(root, `codegraph-${osfam}-x64`);
+  const bundle = path.join(root, `sleuthgraph-${osfam}-x64`);
   fs.mkdirSync(path.join(bundle, 'bin'), { recursive: true });
   fs.mkdirSync(path.join(bundle, 'lib/dist/bin'), { recursive: true });
   const convert = windows ? '$(cygpath -u "$1")' : '$1';
@@ -49,9 +49,9 @@ function invoke(bundle: string, command: string, args: string[] = [], extraEnv: 
 }
 
 function probe(bundle: string) {
-  fs.writeFileSync(path.join(bundle, 'lib/dist/bin/codegraph.js'), `
+  fs.writeFileSync(path.join(bundle, 'lib/dist/bin/sleuth.js'), `
 console.log(JSON.stringify({args: process.argv.slice(2), flags: process.execArgv,
-  host: process.env.CODEGRAPH_HOST_PPID, exe: process.execPath}));
+  host: process.env.SLEUTH_HOST_PPID, exe: process.execPath}));
 process.exit(23);
 `);
 }
@@ -59,7 +59,7 @@ process.exit(23);
 function checkForwarding(bundle: string) {
   probe(bundle);
   const args = ['two words', '', 'quote"value', "single'value", '$literal', '*.ts', 'a&b'];
-  const result = invoke(bundle, 'codegraph "$@"', args, { CODEGRAPH_HOST_PPID: '12345' });
+  const result = invoke(bundle, 'sleuth "$@"', args, { SLEUTH_HOST_PPID: '12345' });
   expect(result.status, result.stderr).toBe(23);
   const output = JSON.parse(result.stdout);
   expect(output.args).toEqual(args);
@@ -86,15 +86,15 @@ describe('bundled launchers (#1278)', () => {
     fs.rmSync(path.join(bundle, 'lib/dist'), { recursive: true });
     fs.symlinkSync(path.resolve('dist'), path.join(bundle, 'lib/dist'), 'junction');
     const version = require('../package.json').version;
-    const result = invoke(bundle, 'codegraph --version');
+    const result = invoke(bundle, 'sleuth --version');
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout.trim()).toBe(version);
-    const hook = invoke(bundle, 'codegraph prompt-hook', [], {}, '{"prompt":"test"}\n');
+    const hook = invoke(bundle, 'sleuth prompt-hook', [], {}, '{"prompt":"test"}\n');
     expect(hook.status, hook.stderr).toBe(0);
     const bin = path.join(bundle, 'bin');
     for (const [exe, args] of [
-      ['cmd.exe', ['/d', '/s', '/c', 'codegraph --version']],
-      ['powershell.exe', ['-NoProfile', '-Command', 'codegraph --version']],
+      ['cmd.exe', ['/d', '/s', '/c', 'sleuth --version']],
+      ['powershell.exe', ['-NoProfile', '-Command', 'sleuth --version']],
     ] as const) {
       const control = spawnSync(exe, [...args], {
         cwd: bin, encoding: 'utf8', timeout: 30_000,
@@ -111,14 +111,14 @@ describe('bundled launchers (#1278)', () => {
   it.runIf(!windows).each(['x64', 'arm64'])('ships both launchers in the Windows %s archive', (arch) => {
     const { root, bundle } = stage('win32');
     const target = `win32-${arch}`;
-    if (arch !== 'x64') fs.renameSync(bundle, path.join(root, `codegraph-${target}`));
+    if (arch !== 'x64') fs.renameSync(bundle, path.join(root, `sleuthgraph-${target}`));
     const result = shell(`set -eu\nWORK="$1"\nOUT="$1/release"\nOSFAM=win32\nTARGET="$2"\n${archiveRecipe}`, [root, target]);
     expect(result.status, result.stderr).toBe(0);
-    const list = spawnSync('unzip', ['-Z1', path.join(root, 'release', `codegraph-${target}.zip`)], { encoding: 'utf8' });
+    const list = spawnSync('unzip', ['-Z1', path.join(root, 'release', `sleuthgraph-${target}.zip`)], { encoding: 'utf8' });
     expect(list.status, list.stderr).toBe(0);
     const entries = list.stdout.split('\n');
-    for (const file of ['bin/codegraph', 'bin/codegraph.cmd', 'node.exe']) {
-      expect(entries).toContain(`codegraph-${target}/${file}`);
+    for (const file of ['bin/sleuth', 'bin/sleuth.cmd', 'node.exe']) {
+      expect(entries).toContain(`sleuthgraph-${target}/${file}`);
     }
   });
 });

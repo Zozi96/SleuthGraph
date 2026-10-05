@@ -14,7 +14,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 import { buildScreens } from '../src/ui-server/api/screens';
 import { buildSteps } from '../src/ui-server/api/steps';
@@ -62,7 +62,7 @@ describe('react-router: reactRouterNavVerb', () => {
 
 describe('react-router: a routed app end to end', () => {
   let tmpDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   function write(rel: string, content: string): void {
     const full = path.join(tmpDir, rel);
@@ -210,7 +210,7 @@ describe('react-router: a routed app end to end', () => {
         '  return paths\n' +
         '}\n'
     );
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
   });
 
@@ -336,7 +336,7 @@ describe('react-router: a routed app end to end', () => {
 
 describe('react-router: the shapes proshop is written in', () => {
   let tmpDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   function write(rel: string, content: string): void {
     const full = path.join(tmpDir, rel);
@@ -425,7 +425,7 @@ describe('react-router: the shapes proshop is written in', () => {
       'src/screens/ProductScreen.js',
       "import React from 'react'\nconst ProductScreen = () => <div>Product</div>\nexport default ProductScreen\n"
     );
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
   });
 
@@ -499,7 +499,7 @@ describe('react-router: the shapes proshop is written in', () => {
 
 describe('react-router: route declaration boundaries (#1348)', () => {
   let tmpDir: string;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
 
   afterEach(() => {
     cg?.close();
@@ -511,7 +511,7 @@ describe('react-router: route declaration boundaries (#1348)', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-rr-boundaries-'));
     fs.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify({ dependencies: { react: '18' } }));
     fs.writeFileSync(path.join(tmpDir, `App.${extension}`), source);
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
     const routes = cg.getNodesByKind('route');
     return {
@@ -597,7 +597,7 @@ describe('react-router: route declaration boundaries (#1348)', () => {
 
 describe('react-router: v5 redirects and styled link wrappers', () => {
   let root: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   beforeAll(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-rr-wrappers-'));
     const files: Record<string, string> = {
@@ -667,7 +667,7 @@ export default function FeaturePage() { return <h1>Features</h1>; }
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    cg = await CodeGraph.init(root, { index: true });
+    cg = await SleuthGraph.init(root, { index: true });
   });
   afterAll(() => {
     cg?.close();

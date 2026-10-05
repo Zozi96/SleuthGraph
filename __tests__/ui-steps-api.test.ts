@@ -14,12 +14,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 import { buildSteps, crossing, effectCategory, isStoreFile } from '../src/ui-server/api/steps';
 
 let tmpDir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 function write(rel: string, content: string): void {
   const full = path.join(tmpDir, rel);
@@ -156,7 +156,7 @@ beforeAll(async () => {
       '  )\n' +
       '}\n'
   );
-  cg = CodeGraph.initSync(tmpDir);
+  cg = SleuthGraph.initSync(tmpDir);
   await cg.indexAll();
 });
 

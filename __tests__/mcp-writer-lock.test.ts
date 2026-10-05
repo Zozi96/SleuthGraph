@@ -8,7 +8,7 @@ import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import type { MCPEngine } from '../src/mcp/engine';
 
 import { createDatabase } from '../src/db/sqlite-adapter';
@@ -19,7 +19,7 @@ import { recordSpawns, removeSpawnLog, settleLosingCandidates } from './daemon-c
 // Exercise the shipped lazy CommonJS loader as well as the engine lifecycle.
 const { MCPEngine: BuiltMCPEngine } = require('../dist/mcp/engine') as typeof import('../src/mcp/engine');
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -75,7 +75,7 @@ describe('issue #1740 — direct-mode writer lock', () => {
     realRoot = fs.realpathSync(tempDir);
     fs.mkdirSync(path.join(realRoot, 'src'));
     fs.writeFileSync(path.join(realRoot, 'src/a.ts'), 'export function a() { return 1; }\n');
-    const cg = await CodeGraph.init(realRoot);
+    const cg = await SleuthGraph.init(realRoot);
     await cg.indexAll();
     cg.close();
   });
@@ -117,15 +117,15 @@ describe('issue #1740 — direct-mode writer lock', () => {
 
   afterEach(cleanup, 45_000);
 
-  it('second CODEGRAPH_NO_DAEMON serve --mcp exits with writer-lock error', async () => {
+  it('second SLEUTH_NO_DAEMON serve --mcp exits with writer-lock error', async () => {
     const env = {
-      CODEGRAPH_NO_DAEMON: '1',
-      CODEGRAPH_MCP_DEBUG: '1',
-      CODEGRAPH_NO_WATCHDOG: '1',
-      CODEGRAPH_STARTUP_HANDSHAKE_TIMEOUT_MS: '0',
+      SLEUTH_NO_DAEMON: '1',
+      SLEUTH_MCP_DEBUG: '1',
+      SLEUTH_NO_WATCHDOG: '1',
+      SLEUTH_STARTUP_HANDSHAKE_TIMEOUT_MS: '0',
       // Avoid wasm --liftoff-only re-exec so lock.pid matches the spawned pid.
-      CODEGRAPH_NO_RELAUNCH: '1',
-      CODEGRAPH_WASM_RELAUNCHED: '1',
+      SLEUTH_NO_RELAUNCH: '1',
+      SLEUTH_WASM_RELAUNCHED: '1',
     };
     const first = spawnMcp(realRoot, env);
     children.push(first.child);
@@ -151,7 +151,7 @@ describe('issue #1740 — direct-mode writer lock', () => {
 
     expect(code).toBe(1);
     expect(second.getStderr()).toMatch(/writer lock held/i);
-    expect(second.getStderr()).toMatch(/CODEGRAPH_NO_DAEMON/);
+    expect(second.getStderr()).toMatch(/SLEUTH_NO_DAEMON/);
     expect(first.child.exitCode).toBeNull();
     const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8')) as { pid: number };
     expect(lock.pid).toBe(first.child.pid);
@@ -159,12 +159,12 @@ describe('issue #1740 — direct-mode writer lock', () => {
 
   it('default daemon mode still allows two proxies to share one writer', async () => {
     const env = {
-      CODEGRAPH_NO_DAEMON: '0',
-      CODEGRAPH_MCP_LOG_ATTACH: '1',
-      CODEGRAPH_NO_WATCHDOG: '1',
-      CODEGRAPH_STARTUP_HANDSHAKE_TIMEOUT_MS: '0',
-      CODEGRAPH_NO_RELAUNCH: '1',
-      CODEGRAPH_WASM_RELAUNCHED: '1',
+      SLEUTH_NO_DAEMON: '0',
+      SLEUTH_MCP_LOG_ATTACH: '1',
+      SLEUTH_NO_WATCHDOG: '1',
+      SLEUTH_STARTUP_HANDSHAKE_TIMEOUT_MS: '0',
+      SLEUTH_NO_RELAUNCH: '1',
+      SLEUTH_WASM_RELAUNCHED: '1',
     };
     const a = spawnMcp(realRoot, env);
     const b = spawnMcp(realRoot, env);
@@ -212,7 +212,7 @@ describe('reader-only MCP engine (#1963)', () => {
   beforeEach(async () => {
     root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cg1963-reader-')));
     fs.writeFileSync(path.join(root, 'app.ts'), 'export function originalSymbol() { return 1; }\n');
-    const cg = await CodeGraph.init(root);
+    const cg = await SleuthGraph.init(root);
     try { await cg.indexAll(); } finally { cg.close(); }
   });
 
@@ -226,7 +226,7 @@ describe('reader-only MCP engine (#1963)', () => {
     const owner = JSON.stringify({ pid: process.pid, mode: 'daemon', startedAt: Date.now() });
     fs.writeFileSync(lockPath, owner);
     fs.writeFileSync(path.join(root, 'app.ts'), 'export function changedSymbol() { return 2; }\n');
-    const { db } = createDatabase(path.join(root, '.codegraph', 'codegraph.db'), { readOnly: true });
+    const { db } = createDatabase(path.join(root, '.sleuth', 'sleuth.db'), { readOnly: true });
     const version = db.pragma('data_version', { simple: true });
     // readOnly overrides watching, pool workers, and writer acquisition.
     engine = new BuiltMCPEngine({ readOnly: true, watch: true, queryPool: true, writerLockRoot: root });
@@ -238,7 +238,7 @@ describe('reader-only MCP engine (#1963)', () => {
         engine.retryInitializeSync(empty);
       }
       const args = mode === 'explicit' ? { projectPath: root } : {};
-      const result = await engine.getToolHandler().execute('codegraph_search', { ...args, query: 'originalSymbol' });
+      const result = await engine.getToolHandler().execute('sleuth_search', { ...args, query: 'originalSymbol' });
       expect(result.isError).not.toBe(true);
       expect(result.content[0].text).toContain('originalSymbol');
       fs.writeFileSync(path.join(root, 'added.ts'), 'export function addedSymbol() {}\n');
@@ -256,7 +256,7 @@ describe('reader-only MCP engine (#1963)', () => {
     fs.writeFileSync(path.join(root, 'app.ts'), 'export function changedSymbol() {}\n');
     engine = new BuiltMCPEngine({ watch: false });
     await engine.ensureInitialized(root);
-    const result = await engine.getToolHandler().execute('codegraph_search', { query: 'changedSymbol' });
+    const result = await engine.getToolHandler().execute('sleuth_search', { query: 'changedSymbol' });
     expect(result.isError).not.toBe(true);
     expect(result.content[0].text).toContain('changedSymbol');
   });

@@ -25,7 +25,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 function spawnServer(cwd: string, handshakeTimeoutMs: number): ChildProcessWithoutNullStreams {
   return spawn(process.execPath, [BIN, 'serve', '--mcp'], {
@@ -35,15 +35,15 @@ function spawnServer(cwd: string, handshakeTimeoutMs: number): ChildProcessWitho
       ...process.env,
       // Direct mode: hermetic (no detached daemon to leak from the suite).
       // The backstop is armed identically on the proxy path.
-      CODEGRAPH_NO_DAEMON: '1',
+      SLEUTH_NO_DAEMON: '1',
       // Single process (skip the --liftoff-only re-exec) so exit-code and
       // liveness assertions observe the server itself.
-      CODEGRAPH_WASM_RELAUNCHED: '1',
+      SLEUTH_WASM_RELAUNCHED: '1',
       // One less helper child; the liveness watchdog is not under test.
-      CODEGRAPH_NO_WATCHDOG: '1',
-      CODEGRAPH_TELEMETRY: '0',
+      SLEUTH_NO_WATCHDOG: '1',
+      SLEUTH_TELEMETRY: '0',
       DO_NOT_TRACK: '1',
-      CODEGRAPH_STARTUP_HANDSHAKE_TIMEOUT_MS: String(handshakeTimeoutMs),
+      SLEUTH_STARTUP_HANDSHAKE_TIMEOUT_MS: String(handshakeTimeoutMs),
     },
   }) as ChildProcessWithoutNullStreams;
 }

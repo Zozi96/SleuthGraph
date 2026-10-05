@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('erlang arity-aware resolution', () => {
   let dir: string;
@@ -20,7 +20,7 @@ describe('erlang arity-aware resolution', () => {
   afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
   async function callEdges(d: string): Promise<Array<{ sq: string; tq: string }>> {
-    const cg = await CodeGraph.init(d, { silent: true });
+    const cg = await SleuthGraph.init(d, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const rows = db

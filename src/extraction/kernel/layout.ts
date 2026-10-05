@@ -1,5 +1,5 @@
 /**
- * Native-kernel buffer layout — TS mirror of codegraph-kernel/src/buffers.rs.
+ * Native-kernel buffer layout — TS mirror of sleuth-kernel/src/buffers.rs.
  *
  * The kernel returns five Buffers per file: meta, nodes, edges, refs, arena.
  * Rows are fixed-width little-endian; strings are (offset, len) pairs into

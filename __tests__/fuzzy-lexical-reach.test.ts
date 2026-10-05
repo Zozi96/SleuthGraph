@@ -9,17 +9,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { matchFuzzy } from '../src/resolution/name-matcher';
 import type { Node } from '../src/types';
 import type { ResolutionContext, UnresolvedRef } from '../src/resolution/types';
 
 describe('fuzzy matching respects lexical reachability of nested functions', () => {
   let tempDir: string;
-  let cg: CodeGraph | null = null;
+  let cg: SleuthGraph | null = null;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-fuzzy-reach-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-fuzzy-reach-'));
   });
 
   afterEach(() => {
@@ -55,7 +55,7 @@ describe('fuzzy matching respects lexical reachability of nested functions', () 
         '',
       ].join('\n')
     );
-    cg = await CodeGraph.init(tempDir, { index: true });
+    cg = await SleuthGraph.init(tempDir, { index: true });
     cg.resolveReferences();
 
     const closure = cg

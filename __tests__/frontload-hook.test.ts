@@ -1,7 +1,7 @@
 /**
  * Front-load hook project resolution (#964).
  *
- * The Claude `UserPromptSubmit` front-load hook must inject CodeGraph context
+ * The Claude `UserPromptSubmit` front-load hook must inject SleuthGraph context
  * for the RIGHT project — including the monorepo case where the agent's cwd is
  * an un-indexed workspace root and the index lives in a sub-project. These test
  * `planFrontload` / `findIndexedSubprojectRoots` directly (the hook's decision
@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'node:child_process';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { planFrontload, isTaskNotification, isAgentMessage, findIndexedSubprojectRoots, unsafeIndexRootReason, isStructuralPrompt, hasStructuralKeyword, extractCodeTokens, PROMPT_HOOK_INJECTION_MAX, CLAUDE_CODE_INLINE_HOOK_OUTPUT_LIMIT, capPromptHookInjection } from '../src/directory';
 
 // Make the built-in exports configurable so HOME can point at a real temp
@@ -20,12 +20,12 @@ import { planFrontload, isTaskNotification, isAgentMessage, findIndexedSubprojec
 vi.mock('os', async (importOriginal) => ({ ...await importOriginal<typeof import('os')>() }));
 
 /**
- * Make `dir` indexed. isInitialized needs `.codegraph/codegraph.db` WITH the
- * codegraph schema — an empty file no longer counts (#1895).
+ * Make `dir` indexed. isInitialized needs `.sleuth/sleuth.db` WITH the
+ * sleuth schema — an empty file no longer counts (#1895).
  */
 function mkIndexed(dir: string): string {
   fs.mkdirSync(dir, { recursive: true });
-  CodeGraph.initSync(dir).close();
+  SleuthGraph.initSync(dir).close();
   return dir;
 }
 /** A workspace-root manifest so the down-scan gate (looksLikeProjectRoot) passes. */
@@ -316,23 +316,23 @@ export class OrderStateMachine {
   submitOrder() { return true; }
 }
 `);
-    const cg = await CodeGraph.init(tmp, { silent: true });
+    const cg = await SleuthGraph.init(tmp, { silent: true });
     try { await cg.indexAll(); } finally { cg.destroy(); }
   });
   afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
 
   function hook(prompt: string): string {
-    const result = spawnSync(process.execPath, [path.resolve(__dirname, '../dist/bin/codegraph.js'), 'prompt-hook'], {
+    const result = spawnSync(process.execPath, [path.resolve(__dirname, '../dist/bin/sleuth.js'), 'prompt-hook'], {
       cwd: tmp,
       input: JSON.stringify({ cwd: tmp, prompt }),
       encoding: 'utf8',
       timeout: 15_000,
       env: {
         ...process.env,
-        CODEGRAPH_TELEMETRY: '0', DO_NOT_TRACK: '1', CODEGRAPH_NO_DAEMON: '1',
-        CODEGRAPH_NO_RELAUNCH: '1', CODEGRAPH_WASM_RELAUNCHED: '1',
+        SLEUTH_TELEMETRY: '0', DO_NOT_TRACK: '1', SLEUTH_NO_DAEMON: '1',
+        SLEUTH_NO_RELAUNCH: '1', SLEUTH_WASM_RELAUNCHED: '1',
         // Enable only the hook subprocess under test.
-        CODEGRAPH_NO_PROMPT_HOOK: '0', CODEGRAPH_PROMPT_HOOK: '1',
+        SLEUTH_NO_PROMPT_HOOK: '0', SLEUTH_PROMPT_HOOK: '1',
       },
     });
     expect(result.error).toBeUndefined();
@@ -370,22 +370,22 @@ export class OrderStateMachine {
       '¿cómo se procesan los pedidos?',
       'how does OrderStateMachine work?',
     ]) {
-      expect.soft(hook(prompt), prompt).toContain('Structural context from CodeGraph');
+      expect.soft(hook(prompt), prompt).toContain('Structural context from SleuthGraph');
     }
   });
 
   it('stays silent on a subagent hand-back envelope, even one that names indexed symbols (#2184)', () => {
     const report = 'how does OrderStateMachine work? submitOrder() calls into the state machine.';
-    expect(hook(report)).toContain('Structural context from CodeGraph');
+    expect(hook(report)).toContain('Structural context from SleuthGraph');
     expect(hook(`<agent-message from="agent-7f3e">\n[Subagent hand-back] ${report}\n</agent-message>`)).toBe('');
   });
 
   it('uses MEDIUM for indexed prose segments without a strong keyword or verified token', () => {
     for (const prompt of ['como state machine?', 'wie state machine?']) {
       const output = hook(prompt);
-      expect(output, prompt).toContain('CodeGraph found indexed symbols matching this prompt');
+      expect(output, prompt).toContain('SleuthGraph found indexed symbols matching this prompt');
       expect(output).toContain('OrderStateMachine');
-      expect(output).not.toContain('Structural context from CodeGraph');
+      expect(output).not.toContain('Structural context from SleuthGraph');
     }
   });
 });
@@ -445,7 +445,7 @@ describe('prompt-hook injection cap (#1694)', () => {
     expect(PROMPT_HOOK_INJECTION_MAX).toBe(9000);
     expect(CLAUDE_CODE_INLINE_HOOK_OUTPUT_LIMIT).toBe(10_000);
     expect(PROMPT_HOOK_INJECTION_MAX).toBeLessThan(CLAUDE_CODE_INLINE_HOOK_OUTPUT_LIMIT);
-    // Leave headroom for the <codegraph_context> wrapper + projectPath nudge lines.
+    // Leave headroom for the <sleuth_context> wrapper + projectPath nudge lines.
     expect(CLAUDE_CODE_INLINE_HOOK_OUTPUT_LIMIT - PROMPT_HOOK_INJECTION_MAX).toBeGreaterThanOrEqual(500);
   });
 
@@ -459,7 +459,7 @@ describe('prompt-hook injection cap (#1694)', () => {
     const out = capPromptHookInjection(over);
     expect(out.length).toBeLessThan(over.length);
     expect(out.startsWith('a'.repeat(PROMPT_HOOK_INJECTION_MAX))).toBe(true);
-    expect(out).toContain('…(truncated; call codegraph_explore for the rest)');
+    expect(out).toContain('…(truncated; call sleuth_explore for the rest)');
     // Capped body alone must still fit under the host inline limit.
     expect(out.length).toBeLessThan(CLAUDE_CODE_INLINE_HOOK_OUTPUT_LIMIT);
   });

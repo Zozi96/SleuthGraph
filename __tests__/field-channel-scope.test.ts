@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { ToolHandler } from '../src/mcp/tools';
 
 let dir: string;
-let cg: CodeGraph | undefined;
+let cg: SleuthGraph | undefined;
 afterEach(() => {
   cg?.close();
   cg = undefined;
@@ -21,7 +21,7 @@ async function index(files: Record<string, string>) {
   emit() { this.handlers.forEach(h => h()); }
 }`;
   for (const [file, source] of Object.entries(files)) fs.writeFileSync(path.join(dir, file), source);
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
   await cg.resolveReferencesBatched();
   const emit = cg.getNodesByName('emit').find(n => n.qualifiedName === 'Store::emit')!;
@@ -43,7 +43,7 @@ describe('field-channel registration scope (#1355)', () => {
     expect(edges).toHaveLength(1);
     expect(cg!.getNode(edges[0]!.target)).toMatchObject({ qualifiedName: 'Real::triggerRender', filePath: file });
     expect(edges[0]).toMatchObject({ provenance: 'heuristic', metadata: { registeredAt: `${file}:4` } });
-    const result = await new ToolHandler(cg!).execute('codegraph_explore', { query: 'Store.emit Real.triggerRender' });
+    const result = await new ToolHandler(cg!).execute('sleuth_explore', { query: 'Store.emit Real.triggerRender' });
     const text = result.content?.[0]?.text ?? '';
     expect(text).toContain(`emit → triggerRender   [dynamic: callback via \`subscribe\` @${file}:4]`);
     expect(text).toContain(`${file}:4`);

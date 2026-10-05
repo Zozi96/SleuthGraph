@@ -27,7 +27,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import type { ExploreDiagnosticReport } from '../src/mcp/explore-diagnostics';
 
@@ -76,29 +76,29 @@ function responseSource(interleave: boolean): string {
 
 interface Run {
   dir: string;
-  cg: CodeGraph;
+  cg: SleuthGraph;
   response: string;
   report: ExploreDiagnosticReport;
 }
 
 async function runExplore(interleave: boolean, query: string): Promise<Run> {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-isolated-named-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-isolated-named-'));
   fs.mkdirSync(path.join(dir, 'lib'));
   fs.writeFileSync(path.join(dir, TARGET), responseSource(interleave));
   fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"isolated-named","version":"1.0.0"}\n');
-  const cg = CodeGraph.initSync(dir);
+  const cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 
   const sidecar = path.join(dir, 'explore-diag.jsonl');
-  const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-  process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+  const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+  process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
   let response: string;
   try {
-    response = (await new ToolHandler(cg).execute('codegraph_explore', { query }))
+    response = (await new ToolHandler(cg).execute('sleuth_explore', { query }))
       .content?.[0]?.text ?? '';
   } finally {
-    if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-    else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+    if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+    else process.env.SLEUTH_EXPLORE_DEBUG = previous;
   }
   const written = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
   return { dir, cg, response, report: JSON.parse(written[written.length - 1]!) };

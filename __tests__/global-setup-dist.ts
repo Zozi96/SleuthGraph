@@ -77,7 +77,7 @@ export function ensureTestDist(root: string, runBuild: BuildRunner = build): voi
     try {
       runBuild(part, root);
       const built = outputSnapshot(root, part);
-      const sentinel = part === 'engine' ? 'dist/bin/codegraph.js' : 'dist/viewer/index.html';
+      const sentinel = part === 'engine' ? 'dist/bin/sleuth.js' : 'dist/viewer/index.html';
       if (!fs.existsSync(path.join(root, sentinel))) throw new Error(`Build did not produce ${sentinel}`);
       fs.writeFileSync(stamp, JSON.stringify({ inputs, outputs: built }));
     } catch (error) {

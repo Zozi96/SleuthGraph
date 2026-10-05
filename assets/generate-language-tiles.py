@@ -99,7 +99,7 @@ LANGS = [
 
 
 def fetch(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "codegraph-assets"})
+    req = urllib.request.Request(url, headers={"User-Agent": "sleuth-assets"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return r.read().decode("utf-8")
 

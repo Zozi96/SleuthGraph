@@ -1,17 +1,17 @@
 ---
 name: agent-eval
-description: Benchmark CodeGraph retrieval quality on a real codebase by comparing agent behavior with vs without CodeGraph. Use when the user runs /agent-eval or asks to test, benchmark, audit, or validate a codegraph version (the local dev build or a published npm version) against a language's repo.
+description: Benchmark SleuthGraph retrieval quality on a real codebase by comparing agent behavior with vs without SleuthGraph. Use when the user runs /agent-eval or asks to test, benchmark, audit, or validate a sleuth version (the local dev build or a published npm version) against a language's repo.
 ---
 
-# CodeGraph Quality Audit
+# SleuthGraph Quality Audit
 
-Measures how much CodeGraph helps an agent versus plain grep/read, for a chosen
-codegraph version on a chosen real-world repo. Drives the harness in
+Measures how much SleuthGraph helps an agent versus plain grep/read, for a chosen
+sleuth version on a chosen real-world repo. Drives the harness in
 `scripts/agent-eval/`.
 
 ## Prerequisites
 - `tmux` 3+, a logged-in `claude` CLI, `node`, `git` (macOS/Linux).
-- Run from the codegraph repo root.
+- Run from the sleuth repo root.
 
 ## Workflow
 
@@ -25,7 +25,7 @@ Copy this checklist:
 - [ ] 6. Report results
 ```
 
-**Step 1 — version.** Ask with `AskUserQuestion`: which codegraph version to test.
+**Step 1 — version.** Ask with `AskUserQuestion`: which sleuth version to test.
 Offer "Local dev build" and "Latest published"; the free-text "Other" lets the
 user type a specific version (e.g. `0.7.10`). Map the answer to a VERSION token:
 - "Local dev build" → `local`
@@ -55,26 +55,26 @@ scripts/agent-eval/audit.sh <VERSION> <repo-name> <repo-url> "<question>" <MODE>
 
 **Step 6 — report.** When the job finishes, read the log and report per arm:
 - Headless (`parse-run.mjs`): total tool calls, file `Read`s, Grep/Bash,
-  codegraph-tool calls, duration, **total cost**.
-- Interactive (`parse-session.mjs`): the `VERDICT: codegraph_explore used Nx |
+  sleuth-tool calls, duration, **total cost**.
+- Interactive (`parse-session.mjs`): the `VERDICT: sleuth_explore used Nx |
   Read N | Grep/Bash N` and `TOKENS:` lines.
 - Both paths also print the three feedback metrics — residual context occupancy,
   explore sufficiency, allocation efficiency — and a headless A/B ends with a
   side-by-side `ARM COMPARISON` table. Report that table, and check its
   contamination row first: `CLI calls that RETURNED output` > 0 means the arm
-  reached codegraph through Bash and its numbers are void. How to read the rest:
+  reached sleuth through Bash and its numbers are void. How to read the rest:
   `docs/benchmarks/agent-eval-feedback-metrics.md`.
 
 Lead with cost + tool/Read counts — they are the reliable signals; raw token
 in/out are confounded by subagent delegation and prompt caching. State whether
-codegraph reduced effort and whether both arms reached a correct answer.
+sleuth reduced effort and whether both arms reached a correct answer.
 
 ## Notes
-- The index is rebuilt every run (`audit.sh` wipes `.codegraph`) — different
+- The index is rebuilt every run (`audit.sh` wipes `.sleuth`) — different
   versions extract differently, so an index must be served by the same binary
   that built it.
-- `audit.sh` temporarily mutates the global `codegraph` install for the test,
+- `audit.sh` temporarily mutates the global `sleuth` install for the test,
   then restores your dev link via `local-install.sh`.
-- Corpus repos are cloned to `/tmp/codegraph-corpus` (reused if already present).
+- Corpus repos are cloned to `/tmp/sleuth-corpus` (reused if already present).
 - Add or edit repos in `corpus.json` (fields: `name`, `repo`, `size`, `files`,
   `question`).

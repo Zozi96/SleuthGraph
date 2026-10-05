@@ -8,17 +8,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { Node, Edge } from '../src/types';
 import { GraphTraverser } from '../src/graph/traversal';
 
 describe('Graph Queries', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(async () => {
     // Create temp directory
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-graph-test-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-graph-test-'));
 
     // Create test files with relationships
     const srcDir = path.join(testDir, 'src');
@@ -115,7 +115,7 @@ export { main };
     );
 
     // Initialize and index
-    cg = CodeGraph.initSync(testDir, {
+    cg = SleuthGraph.initSync(testDir, {
       config: {
         include: ['src/**/*.ts'],
         exclude: [],
@@ -411,7 +411,7 @@ export { main };
     // Regression: getFileDependents/getFileDependencies used to follow
     // ONLY `imports` edges, which in this engine are same-file (a file → its
     // own local import declarations). That made both return [] for EVERY file,
-    // so `codegraph affected` found no dependents on any language/framework.
+    // so `sleuth affected` found no dependents on any language/framework.
     // They must follow the cross-file symbol graph instead (calls / references
     // / instantiates / extends / implements / ...).
     it('reports cross-file dependencies via the symbol graph, not just imports', () => {
@@ -654,12 +654,12 @@ describe('Traversal edge-completeness & limits (#1086–#1090)', () => {
 
 describe('findPath enqueue-once (#1359)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(() => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-findpath-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-findpath-'));
     fs.writeFileSync(path.join(testDir, 'graph.ts'), 'export function start() {}\n');
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
   });
 
   afterEach(() => {
@@ -689,7 +689,7 @@ describe('findPath enqueue-once (#1359)', () => {
     // Count actual queue insertions, without timing thresholds or replacing SQLite.
     const counts = new Map<string, number>();
     const push = Array.prototype.push;
-    let result: ReturnType<CodeGraph['findPath']>;
+    let result: ReturnType<SleuthGraph['findPath']>;
     try {
       Array.prototype.push = function (...items) {
         for (const item of items) {

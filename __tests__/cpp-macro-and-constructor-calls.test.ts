@@ -18,7 +18,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { ToolHandler } from '../src/mcp/tools';
 import { extractFromSource } from '../src/extraction';
 import { initGrammars, loadGrammarsForLanguages } from '../src/extraction/grammars';
@@ -29,24 +29,24 @@ afterEach(() => {
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
 });
 
-async function indexed(files: Record<string, string>): Promise<CodeGraph> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cpp-calls-'));
+async function indexed(files: Record<string, string>): Promise<SleuthGraph> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cpp-calls-'));
   roots.push(root);
   for (const [rel, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return CodeGraph.init(root, { index: true });
+  return SleuthGraph.init(root, { index: true });
 }
 
-function fn(cg: CodeGraph, name: string): Node {
+function fn(cg: SleuthGraph, name: string): Node {
   const node = cg.getNodesByKind('function').find((n) => n.name === name);
   if (!node) throw new Error(`no function ${name}`);
   return node;
 }
 
 /** `calls` callees of a function, as `kind qualifiedName (file)`. */
-function calls(cg: CodeGraph, caller: string): string[] {
+function calls(cg: SleuthGraph, caller: string): string[] {
   return cg
     .getCallees(fn(cg, caller).id)
     .filter((r) => r.edge.kind === 'calls')
@@ -454,7 +454,7 @@ describe('#1839 — local object initialization calls the constructor, not the t
     const cg = await indexed({ 'case.cpp': REPRODUCTION });
     try {
       const handler = new ToolHandler(cg);
-      const result = await handler.execute('codegraph_callees', { symbol: 'constructor_braced' });
+      const result = await handler.execute('sleuth_callees', { symbol: 'constructor_braced' });
       expect(result.isError).not.toBe(true);
       const text = result.content?.[0]?.text ?? '';
       expect(text).toContain('WithConstructor (method)');
@@ -471,8 +471,8 @@ describe('#1839 — local object initialization calls the constructor, not the t
     const root = cg.getProjectRoot();
     cg.close();
     const cli = (symbol: string, json = false) => execFileSync(process.execPath,
-      [path.resolve(__dirname, '../dist/bin/codegraph.js'), 'callees', symbol, '-p', root, ...(json ? ['-j'] : [])],
-      { encoding: 'utf8', env: { ...process.env, CODEGRAPH_NO_WATCH: '1', CODEGRAPH_NO_DAEMON: '1', NO_COLOR: '1' } });
+      [path.resolve(__dirname, '../dist/bin/sleuth.js'), 'callees', symbol, '-p', root, ...(json ? ['-j'] : [])],
+      { encoding: 'utf8', env: { ...process.env, SLEUTH_NO_WATCH: '1', SLEUTH_NO_DAEMON: '1', NO_COLOR: '1' } });
     const aggregate = JSON.parse(cli('aggregate_initialization', true));
     expect(aggregate.callees).toEqual([expect.objectContaining({ kind: 'struct', relationships: ['instantiates'] })]);
     const constructed = JSON.parse(cli('constructor_braced', true));
@@ -505,7 +505,7 @@ describe('#1839 — local object initialization calls the constructor, not the t
 });
 
 /** Every outgoing edge of a function, as `edgeKind kind qualifiedName (file)`. */
-function edges(cg: CodeGraph, caller: string): string[] {
+function edges(cg: SleuthGraph, caller: string): string[] {
   return cg
     .getCallees(fn(cg, caller).id)
     .map((r) => `${r.edge.kind} ${r.node.kind} ${r.node.qualifiedName} (${r.node.filePath})`)

@@ -15,14 +15,14 @@
  *     down — other attached clients keep working (the must-fix-2 detach: the
  *     in-process daemon used to die with its launcher's process group and
  *     orphan on host SIGKILL, regressing #277).
- *   - A stale lockfile (dead pid) is cleared; `CODEGRAPH_NO_DAEMON=1` opts out;
+ *   - A stale lockfile (dead pid) is cleared; `SLEUTH_NO_DAEMON=1` opts out;
  *     the proxy refuses to attach across a version mismatch; the daemon
  *     idle-times-out after the last client leaves (so a single session can't
  *     leak a daemon forever).
  *
- * These tests intentionally spawn real `node dist/bin/codegraph.js` processes
+ * These tests intentionally spawn real `node dist/bin/sleuth.js` processes
  * over real sockets/pipes — the same surface a Claude Code / Cursor / Codex
- * install exercises. The daemon logs to `.codegraph/daemon.log` (it has no
+ * install exercises. The daemon logs to `.sleuth/daemon.log` (it has no
  * client stderr of its own), so daemon-side assertions read that file.
  *
  * `realRoot` vs `tempDir`: processes are spawned with the (possibly symlinked)
@@ -38,11 +38,11 @@ import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { getDaemonSocketPath } from '../src/mcp/daemon-paths';
-import { CodeGraphPackageVersion } from '../src/mcp/version';
+import { SleuthGraphPackageVersion } from '../src/mcp/version';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 interface SpawnedServer {
   child: ChildProcessWithoutNullStreams;
@@ -55,9 +55,9 @@ function spawnServer(cwd: string, env: NodeJS.ProcessEnv = {}): SpawnedServer {
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
     // #618: the daemon-attach log line is now off by default; opt the test
-    // harness into it (CODEGRAPH_MCP_LOG_ATTACH=1) so the attach assertions
+    // harness into it (SLEUTH_MCP_LOG_ATTACH=1) so the attach assertions
     // below can still observe a successful attach. A per-test env still wins.
-    env: { CODEGRAPH_MCP_LOG_ATTACH: '1', ...process.env, ...env },
+    env: { SLEUTH_MCP_LOG_ATTACH: '1', ...process.env, ...env },
   }) as ChildProcessWithoutNullStreams;
   // Swallow spawn/EPIPE errors so killing a child mid-write can't surface as an
   // unhandled error that crashes the vitest worker.
@@ -148,19 +148,19 @@ function isAlive(pid: number): boolean {
 
 function readLockPid(root: string): number | null {
   try {
-    const raw = fs.readFileSync(path.join(root, '.codegraph', 'daemon.pid'), 'utf8');
+    const raw = fs.readFileSync(path.join(root, '.sleuth', 'daemon.pid'), 'utf8');
     const info = JSON.parse(raw);
     return typeof info.pid === 'number' ? info.pid : null;
   } catch { return null; }
 }
 
 function readDaemonLog(root: string): string {
-  try { return fs.readFileSync(path.join(root, '.codegraph', 'daemon.log'), 'utf8'); }
+  try { return fs.readFileSync(path.join(root, '.sleuth', 'daemon.log'), 'utf8'); }
   catch { return ''; }
 }
 
 function countListeningLines(root: string): number {
-  return readDaemonLog(root).split('\n').filter((l) => l.includes('[CodeGraph daemon] Listening on')).length;
+  return readDaemonLog(root).split('\n').filter((l) => l.includes('[SleuthGraph daemon] Listening on')).length;
 }
 
 function killTree(...procs: ChildProcessWithoutNullStreams[]): void {
@@ -179,8 +179,8 @@ describe('Shared MCP daemon (issue #411)', () => {
   const servers: SpawnedServer[] = [];
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-mcp-daemon-'));
-    const cg = await CodeGraph.init(tempDir);
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-mcp-daemon-'));
+    const cg = await SleuthGraph.init(tempDir);
     cg.close();
     realRoot = fs.realpathSync(tempDir);
   });
@@ -203,7 +203,7 @@ describe('Shared MCP daemon (issue #411)', () => {
   });
 
   it('takes over after SIGKILL even when the stale PID has been reused (#1553)', async () => {
-    const env = { CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS: '30000' };
+    const env = { SLEUTH_DAEMON_IDLE_TIMEOUT_MS: '30000' };
     const first = spawnServer(tempDir, env);
     servers.push(first);
     sendInitialize(first.child, `file://${tempDir}`, 1);
@@ -217,10 +217,10 @@ describe('Shared MCP daemon (issue #411)', () => {
     // Model OS PID reuse without risking another process: the stale lock now
     // names this live vitest worker, but no daemon answers the leftover socket.
     fs.writeFileSync(
-      path.join(realRoot, '.codegraph', 'daemon.pid'),
+      path.join(realRoot, '.sleuth', 'daemon.pid'),
       JSON.stringify({
         pid: process.pid,
-        version: CodeGraphPackageVersion,
+        version: SleuthGraphPackageVersion,
         socketPath: getDaemonSocketPath(realRoot),
         startedAt: Date.now() - 60_000,
       }),
@@ -230,7 +230,7 @@ describe('Shared MCP daemon (issue #411)', () => {
     servers.push(second);
     sendInitialize(second.child, `file://${tempDir}`, 2);
     const response = await waitFor(() => findResponse(second.stdout, 2), 12000);
-    expect(response.result.serverInfo.name).toBe('codegraph');
+    expect(response.result.serverInfo.name).toBe('sleuth');
     await waitFor(() => countListeningLines(realRoot) >= 2, 10000);
 
     const replacementPid = readLockPid(realRoot)!;

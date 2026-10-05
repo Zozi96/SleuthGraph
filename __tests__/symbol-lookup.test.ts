@@ -2,7 +2,7 @@
  * Module-qualified symbol lookup (`stage_apply::run`, `Session.request`,
  * `configurator/stage_apply`).
  *
- * Pinned because the lookup vocabulary is what makes codegraph useful
+ * Pinned because the lookup vocabulary is what makes sleuth useful
  * in workspaces with same-named symbols across modules — Rust
  * sub-pipelines, Python `__init__.py` packages, Java packages, etc.
  * See #173 for the original report: a `run` function in
@@ -38,7 +38,7 @@ function hasSqliteBindings(): boolean {
 const HAS_SQLITE = hasSqliteBindings();
 
 function tmpRoot(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-symbol-lookup-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-symbol-lookup-'));
 }
 
 function rmTree(dir: string): void {
@@ -83,9 +83,9 @@ describe.skipIf(!HAS_SQLITE)('matchesSymbol — module-qualified lookups (#173)'
 
   beforeEach(async () => {
     projectRoot = await buildRustWorkspace();
-    const CodeGraph = (await import('../src/index')).default;
+    const SleuthGraph = (await import('../src/index')).default;
     const { ToolHandler } = await import('../src/mcp/tools');
-    cg = CodeGraph.initSync(projectRoot, {
+    cg = SleuthGraph.initSync(projectRoot, {
       config: { include: ['**/*.rs'], exclude: [] },
     });
     await cg.indexAll();
@@ -170,17 +170,17 @@ describe.skipIf(!HAS_SQLITE)('matchesSymbol — module-qualified lookups (#173)'
     expect(findAllSymbols(cg, 'missing::run').nodes).toEqual([]);
   });
 
-  it('preserves codegraph_node file-basename lookup (#1473)', () => {
+  it('preserves sleuth_node file-basename lookup (#1473)', () => {
     expect(cg.getNodesByName('stage_apply')).toEqual([]);
     const matches = findSymbolMatches(cg, 'stage_apply');
     expect(matches.length).toBeGreaterThan(0);
     expect(matches[0]!.filePath).toMatch(/configurator\/stage_apply\.rs$/);
   });
 
-  it('codegraph_node with a `file` hint pins an overloaded name to that file', async () => {
+  it('sleuth_node with a `file` hint pins an overloaded name to that file', async () => {
     // `run` is defined in BOTH stage_apply.rs and stage_detect.rs. A bare lookup
     // returns both; the `file` hint narrows to the one the caller saw in a trail.
-    const res = await handler.execute('codegraph_node', {
+    const res = await handler.execute('sleuth_node', {
       symbol: 'run',
       includeCode: true,
       file: 'stage_detect.rs',
@@ -206,9 +206,9 @@ describe.skipIf(!HAS_SQLITE)('matchesSymbol — dotted lookups (regression for #
       `export class Session {\n  request(): void { fetch('x'); }\n}\nexport function request(): void {}\n`
     );
 
-    const CodeGraph = (await import('../src/index')).default;
+    const SleuthGraph = (await import('../src/index')).default;
     const { ToolHandler } = await import('../src/mcp/tools');
-    cg = CodeGraph.initSync(projectRoot, {
+    cg = SleuthGraph.initSync(projectRoot, {
       config: { include: ['src/**/*.ts'], exclude: [] },
     });
     await cg.indexAll();
@@ -229,11 +229,11 @@ describe.skipIf(!HAS_SQLITE)('matchesSymbol — dotted lookups (regression for #
     expect(matches[0]!.qualifiedName).toContain('Session::request');
   });
 
-  it('codegraph_node on an ambiguous bare name returns ALL overloads with bodies (no guess)', async () => {
+  it('sleuth_node on an ambiguous bare name returns ALL overloads with bodies (no guess)', async () => {
     // `request` is BOTH a method (Session.request) and a free function. The old
     // behavior returned one + a dead-end "Others:" note, forcing a Read to get
     // the other overload; now both bodies come back in one call.
-    const res = await handler.execute('codegraph_node', { symbol: 'request', includeCode: true });
+    const res = await handler.execute('sleuth_node', { symbol: 'request', includeCode: true });
     const text = res.content?.[0]?.text ?? '';
     expect(text).toContain('2 definitions named "request"');
     // Both definitions are rendered (method + function), each with a Location.
@@ -338,8 +338,8 @@ describe.skipIf(!HAS_SQLITE)('lookupSymbolNodes — the shared path used by call
       `from pkg.fmtutil.format import group\n\ndef plan_a(items): return group(items, 3)\ndef plan_b(items): return group(items, 5)\n`
     );
 
-    const CodeGraph = (await import('../src/index')).default;
-    cg = CodeGraph.initSync(projectRoot, {
+    const SleuthGraph = (await import('../src/index')).default;
+    cg = SleuthGraph.initSync(projectRoot, {
       config: { include: ['**/*.ts', '**/*.tsx', '**/*.py'], exclude: [] },
     });
     await cg.indexAll();

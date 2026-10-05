@@ -48,16 +48,16 @@ if (!existsSync(join(REPO_ROOT, 'dist/index.js'))) {
 }
 const idxMod = await load('dist/index.js');
 const toolsMod = await load('dist/mcp/tools.js');
-const CodeGraph = idxMod.default?.default ?? idxMod.default ?? idxMod.CodeGraph;
+const SleuthGraph = idxMod.default?.default ?? idxMod.default ?? idxMod.SleuthGraph;
 const ToolHandler = toolsMod.ToolHandler ?? toolsMod.default?.ToolHandler;
 
 const dir = mkdtempSync(join(tmpdir(), 'cg-factory-'));
 cpSync(FIXTURE, dir, { recursive: true });
-rmSync(join(dir, '.codegraph'), { recursive: true, force: true });
+rmSync(join(dir, '.sleuth'), { recursive: true, force: true });
 
 let out;
 try {
-  let cg = CodeGraph.initSync(dir);
+  let cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 
   // Inner function definitions, straight from the index — the symbols the file's
@@ -72,12 +72,12 @@ try {
   cg.close?.();
 
   const sidecar = join(dir, 'diag.jsonl');
-  process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
-  cg = CodeGraph.openSync(dir);
-  const res = await new ToolHandler(cg).execute('codegraph_explore', { query: QUERY });
+  process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
+  cg = SleuthGraph.openSync(dir);
+  const res = await new ToolHandler(cg).execute('sleuth_explore', { query: QUERY });
   const text = res.content?.[0]?.text ?? '';
   cg.close?.();
-  delete process.env.CODEGRAPH_EXPLORE_DEBUG;
+  delete process.env.SLEUTH_EXPLORE_DEBUG;
   const report = JSON.parse(readFileSync(sidecar, 'utf8').trim().split('\n').pop());
 
   // Which source lines of the target file the response actually carries. The

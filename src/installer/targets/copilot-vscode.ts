@@ -21,7 +21,7 @@
  * Unlike Cursor, VS Code DOCUMENTS the launch cwd for stdio MCP
  * servers: "Working directory for the server command. Defaults to the
  * workspace folder when run in a workspace" (mcp-configuration
- * reference). The codegraph server resolves its project via the MCP
+ * reference). The sleuth server resolves its project via the MCP
  * roots/list dance with a cwd fallback, so cwd alone is sufficient:
  *
  *   - `local`  install: absolute `--path` (known at install time) —
@@ -84,7 +84,7 @@ function mcpJsonPath(loc: Location): string {
 }
 
 /**
- * Build the codegraph server entry for VS Code at the given location.
+ * Build the sleuth server entry for VS Code at the given location.
  * Local installs pin `--path`; global installs rely on VS Code's
  * documented workspace-folder cwd — see file header for why the global
  * entry must stay variable-free.
@@ -126,7 +126,7 @@ class CopilotVscodeTarget implements AgentTarget {
   detect(loc: Location): DetectionResult {
     const file = mcpJsonPath(loc);
     const config = parseConfig(readConfigText(file));
-    const alreadyConfigured = !!config.servers?.codegraph;
+    const alreadyConfigured = !!config.servers?.sleuth;
     // "Installed" heuristic: the VS Code User dir (created on first
     // launch) or ~/.vscode (extensions dir) for global; an existing
     // .vscode/ dir in the project for local.
@@ -149,7 +149,7 @@ class CopilotVscodeTarget implements AgentTarget {
 
   printConfig(loc: Location): string {
     const target = mcpJsonPath(loc);
-    const snippet = JSON.stringify({ servers: { codegraph: buildVscodeServerEntry(loc) } }, null, 2);
+    const snippet = JSON.stringify({ servers: { sleuth: buildVscodeServerEntry(loc) } }, null, 2);
     return `# Add to ${target}\n\n${snippet}\n`;
   }
 
@@ -165,7 +165,7 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
   if (!text.trim()) text = '{}\n';
 
   const config = parseConfig(text);
-  const before = config.servers?.codegraph;
+  const before = config.servers?.sleuth;
   const after = buildVscodeServerEntry(loc);
 
   if (jsonDeepEqual(before, after)) {
@@ -174,7 +174,7 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
 
   // Surgical edit — preserves comments, formatting, and sibling
   // servers ("servers" is created when missing).
-  const edits = modify(text, ['servers', 'codegraph'], after, {
+  const edits = modify(text, ['servers', 'sleuth'], after, {
     formattingOptions: FORMATTING,
   });
   const updated = applyEdits(text, edits);
@@ -188,9 +188,9 @@ function removeMcpEntry(loc: Location): WriteResult['files'][number] {
   if (!fs.existsSync(file)) return { path: file, action: 'not-found' };
   const text = readConfigText(file);
   const config = parseConfig(text);
-  if (!config.servers?.codegraph) return { path: file, action: 'not-found' };
+  if (!config.servers?.sleuth) return { path: file, action: 'not-found' };
 
-  let edits = modify(text, ['servers', 'codegraph'], undefined, {
+  let edits = modify(text, ['servers', 'sleuth'], undefined, {
     formattingOptions: FORMATTING,
   });
   let updated = applyEdits(text, edits);

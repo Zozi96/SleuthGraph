@@ -2,7 +2,7 @@
  * The type hierarchy (CG-58) — the walk, the fan, and the tree the viewer draws.
  *
  * The walk half runs against a real indexed fixture rather than a stubbed
- * `CodeGraph`: the properties worth pinning are ones only a real index has —
+ * `SleuthGraph`: the properties worth pinning are ones only a real index has —
  * that a Go struct satisfies an interface through a SYNTHESIZED `implements`
  * edge with no textual link between the two files, that a self-referential
  * `extends` in generated code does not loop, that the breadth-first order puts
@@ -18,7 +18,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import type { Node } from '../src/types';
 import {
   buildTypeHierarchy,
@@ -50,7 +50,7 @@ import type {
 
 let tempDir: string;
 let projectRoot: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 /** The one node with this name and kind, or a failure that says which was missing. */
 function nodeNamed(name: string, kind?: string): Node {
@@ -63,7 +63,7 @@ function nodeNamed(name: string, kind?: string): Node {
 }
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-hierarchy-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-hierarchy-'));
   projectRoot = path.join(tempDir, 'project');
   const src = path.join(projectRoot, 'src');
   fs.mkdirSync(src, { recursive: true });
@@ -140,7 +140,7 @@ func (f Fixed) Now() time.Time { return f.At }
 `
   );
 
-  cg = CodeGraph.initSync(projectRoot, {
+  cg = SleuthGraph.initSync(projectRoot, {
     config: { include: ['src/**/*.ts', 'src/**/*.go'], exclude: [] },
   });
   await cg.indexAll();
@@ -318,7 +318,7 @@ describe('the /api/node block', () => {
 // =============================================================================
 
 /**
- * A `CodeGraph` stub holding only what the walk reads.
+ * A `SleuthGraph` stub holding only what the walk reads.
  *
  * A fan wide enough to hit {@link MAX_DESCENDANTS} would be thousands of files
  * to index for one assertion, and the property being pinned is arithmetic

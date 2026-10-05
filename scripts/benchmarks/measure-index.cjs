@@ -8,7 +8,7 @@ const [engine, root, out, backend] = process.argv.slice(2);
 if (!engine || !root || !out || !['native', 'wasm'].includes(backend)) {
   throw new Error('Usage: node measure-index.cjs BUILT_ENGINE FRESH_FIXTURE EXISTING_OUTPUT native|wasm');
 }
-if (fs.existsSync(path.join(root, '.codegraph'))) {
+if (fs.existsSync(path.join(root, '.sleuth'))) {
   throw new Error('Refusing an existing fixture index; preserve it and use a fresh fixture.');
 }
 const begin = performance.now();
@@ -33,13 +33,13 @@ const heartbeat = setInterval(() => {
 }, 5000);
 heartbeat.unref();
 progress('start');
-const { CodeGraph } = require(path.join(engine, 'dist/index.js'));
+const { SleuthGraph } = require(path.join(engine, 'dist/index.js'));
 const { DatabaseConnection } = require(path.join(engine, 'dist/db/index.js'));
 const loader = require(path.join(engine, 'dist/extraction/kernel/loader.js'));
 const result = { engine, root, backend, node: process.version, stages: [] };
 let cg;
-const orig = CodeGraph.prototype.resolveReferencesBatched;
-CodeGraph.prototype.resolveReferencesBatched = async function (...args) {
+const orig = SleuthGraph.prototype.resolveReferencesBatched;
+SleuthGraph.prototype.resolveReferencesBatched = async function (...args) {
   const stage = { name: 'resolution-and-synthesis', startEpochMs: Date.now(), memoryBefore: process.memoryUsage(), refsBefore: this.db.getDb().prepare('SELECT count(*) AS n FROM unresolved_refs').get().n };
   const start = performance.now(), cpu = process.cpuUsage();
   progress('stage-start', { name: stage.name });
@@ -67,11 +67,11 @@ DatabaseConnection.prototype.runMaintenance = async function (...args) {
 };
 (async () => {
   try {
-    // getKernel() deliberately ignores CODEGRAPH_KERNEL=0; kernelSupports()
+    // getKernel() deliberately ignores SLEUTH_KERNEL=0; kernelSupports()
     // is the actual per-call routing predicate used by extraction.
     result.nativeLoaded = loader.kernelSupports('typescript');
     if (result.nativeLoaded !== (backend === 'native')) throw new Error('Wrong extraction backend');
-    cg = CodeGraph.initSync(root);
+    cg = SleuthGraph.initSync(root);
     result.openMs = performance.now() - begin;
     const start = performance.now(), cpu = process.cpuUsage();
     result.indexStartEpochMs = Date.now();
@@ -99,7 +99,7 @@ DatabaseConnection.prototype.runMaintenance = async function (...args) {
     phase = 'verification';
     progress('verification-start');
     if (!result.index.success || result.index.filesErrored) throw new Error('Index did not finish cleanly');
-    const db = new DatabaseSync(path.join(root, '.codegraph/codegraph.db'), { readOnly: true });
+    const db = new DatabaseSync(path.join(root, '.sleuth/sleuth.db'), { readOnly: true });
     result.counts = Object.fromEntries(['files','nodes','edges','unresolved_refs'].map(table => [table, db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
     result.languages = db.prepare('SELECT language,count(*) AS n FROM files GROUP BY language').all();
     result.integrity = db.prepare('PRAGMA integrity_check').all();

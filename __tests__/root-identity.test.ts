@@ -4,7 +4,7 @@
  * The MCP server caches its open-DB connections by resolved-root PATH STRING, so
  * two spellings of one physical repo — a symlinked checkout, or a case-variant
  * on a case-insensitive mount (macOS, NTFS, WSL DrvFs `/mnt/c`) — each opened a
- * SEPARATE connection to the same `.codegraph/codegraph.db`. The cache stays
+ * SEPARATE connection to the same `.sleuth/sleuth.db`. The cache stays
  * path-keyed (a same-path recreate must still heal in place, #925); a miss now
  * checks whether an open root is the same index as the new spelling, compared
  * as it is on disk NOW, without caching an alias that could later be retargeted.
@@ -16,9 +16,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { getCodeGraphDir, isSameIndexRoot, statInode } from '../src/directory';
-import CodeGraph from '../src/index';
-import { ToolHandler, __setLoadCodeGraphForTests } from '../src/mcp/tools';
+import { getSleuthGraphDir, isSameIndexRoot, statInode } from '../src/directory';
+import SleuthGraph from '../src/index';
+import { ToolHandler, __setLoadSleuthGraphForTests } from '../src/mcp/tools';
 
 const posixOnly = it.runIf(process.platform !== 'win32');
 const windowsOnly = it.runIf(process.platform === 'win32');
@@ -35,8 +35,8 @@ describe('isSameIndexRoot (#1057)', () => {
 
   function makeProject(name: string): string {
     const proj = path.join(tmp, name);
-    fs.mkdirSync(path.join(proj, '.codegraph'), { recursive: true });
-    fs.writeFileSync(path.join(proj, '.codegraph', 'codegraph.db'), 'x');
+    fs.mkdirSync(path.join(proj, '.sleuth'), { recursive: true });
+    fs.writeFileSync(path.join(proj, '.sleuth', 'sleuth.db'), 'x');
     return proj;
   }
 
@@ -65,7 +65,7 @@ describe('isSameIndexRoot (#1057)', () => {
     // by comparing against what the old root WAS: once it is gone it no longer
     // stats, so no later directory can claim its identity.
     const old = makeProject('old');
-    const oldId = statInode(getCodeGraphDir(old));
+    const oldId = statInode(getSleuthGraphDir(old));
     fs.rmSync(old, { recursive: true, force: true });
     const fresh = makeProject('fresh');
 
@@ -90,16 +90,16 @@ describe('isSameIndexRoot (#1057)', () => {
 describe('ToolHandler connection cache (#1057)', () => {
   let tmp: string;
   let handler: ToolHandler;
-  const graphs: CodeGraph[] = [];
+  const graphs: SleuthGraph[] = [];
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-rootcache-'));
-    __setLoadCodeGraphForTests(CodeGraph);
+    __setLoadSleuthGraphForTests(SleuthGraph);
     handler = new ToolHandler(null);
   });
   afterEach(() => {
     handler.closeAll();
-    __setLoadCodeGraphForTests(null);
+    __setLoadSleuthGraphForTests(null);
     for (const cg of graphs.splice(0)) {
       try { cg.close(); } catch { /* already closed */ }
     }
@@ -110,14 +110,14 @@ describe('ToolHandler connection cache (#1057)', () => {
     const proj = path.join(tmp, name);
     fs.mkdirSync(path.join(proj, 'src'), { recursive: true });
     fs.writeFileSync(path.join(proj, 'src', 'a.ts'), 'export function a() { return 1; }\n');
-    const cg = CodeGraph.initSync(proj);
+    const cg = SleuthGraph.initSync(proj);
     await cg.indexAll();
     cg.close();
     return proj;
   }
 
-  function open(p: string): CodeGraph {
-    return (handler as unknown as { getCodeGraph(p: string): CodeGraph }).getCodeGraph(p);
+  function open(p: string): SleuthGraph {
+    return (handler as unknown as { getSleuthGraph(p: string): SleuthGraph }).getSleuthGraph(p);
   }
 
   it('serves a symlinked spelling from the connection already open', async () => {
@@ -179,7 +179,7 @@ describe('ToolHandler connection cache (#1057)', () => {
     const link = path.join(tmp, 'projLink');
     fs.symlinkSync(real, link, 'junction');
 
-    const def = CodeGraph.openSync(real);
+    const def = SleuthGraph.openSync(real);
     graphs.push(def);
     handler = new ToolHandler(def);
     expect(open(link)).toBe(def);
@@ -215,7 +215,7 @@ describe('ToolHandler connection cache (#1057)', () => {
 
     // Evict the entry the way a bounded cache does: drop the key, close the
     // connection. The other spelling must not be left holding a closed handle.
-    const cache = (handler as unknown as { projectCache: Map<string, CodeGraph> }).projectCache;
+    const cache = (handler as unknown as { projectCache: Map<string, SleuthGraph> }).projectCache;
     for (const [key, cg] of cache) {
       if (cg === first) {
         cache.delete(key);
@@ -234,8 +234,8 @@ describe('ToolHandler connection cache (#1057)', () => {
     const real = await makeIndexed('proj');
     const first = open(real);
 
-    fs.rmSync(getCodeGraphDir(real), { recursive: true, force: true });
-    const cg = CodeGraph.initSync(real);
+    fs.rmSync(getSleuthGraphDir(real), { recursive: true, force: true });
+    const cg = SleuthGraph.initSync(real);
     await cg.indexAll();
     cg.close();
 

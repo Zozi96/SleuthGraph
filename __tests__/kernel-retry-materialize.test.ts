@@ -22,7 +22,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadGrammarsForLanguages } from '../src/extraction/grammars';
 import { tryKernelExtractRaw } from '../src/extraction/kernel';
 import type { ExtractionResult } from '../src/types';
@@ -30,20 +30,20 @@ import type { ExtractionResult } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 
 describe.skipIf(!kernelBuilt)('kernel buffer-transport storage (#1541)', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kernel-retry-mat-'));
-    cg = await CodeGraph.init(dir);
+    cg = await SleuthGraph.init(dir);
     await initGrammars();
     await loadGrammarsForLanguages(['python']);
   });
@@ -106,7 +106,7 @@ describe.skipIf(!kernelBuilt)('kernel buffer-transport storage (#1541)', () => {
  */
 describe('zero-node row self-heal (#1541)', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zero-node-heal-'));
@@ -119,7 +119,7 @@ describe('zero-node row self-heal (#1541)', () => {
         '    def adapt(self):\n' +
         '        return target_fn(1, 2)\n'
     );
-    cg = await CodeGraph.init(dir);
+    cg = await SleuthGraph.init(dir);
     await cg.indexAll();
   });
 

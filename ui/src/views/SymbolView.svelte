@@ -74,7 +74,7 @@
    *
    * When the file has moved on, the symbol's indexed range names nothing, so
    * the only correct source to show is the whole current file — the same call
-   * `codegraph_node` makes (issue #1474), for the same reason: current bytes
+   * `sleuth_node` makes (issue #1474), for the same reason: current bytes
    * are right by construction, a slice of them is a guess. Past this length
    * that stops being a symbol view and becomes a file view badly done, so the
    * banner points at the real one instead.

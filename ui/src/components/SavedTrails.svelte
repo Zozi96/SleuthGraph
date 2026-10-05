@@ -76,7 +76,7 @@
   /**
    * Hand the trail over as the file it is.
    *
-   * `.codegraph/` is gitignored wholesale, which is right for a scratch walk
+   * `.sleuth/` is gitignored wholesale, which is right for a scratch walk
    * and wrong for a tour worth committing — so exporting is a copy the reader
    * makes deliberately, and lands wherever their browser puts downloads.
    */

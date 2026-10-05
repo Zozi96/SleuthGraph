@@ -9,7 +9,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const roots: string[] = [];
 afterAll(() => {
@@ -65,7 +65,7 @@ describe('Python: a method is reached through a receiver', () => {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const authenticate = cg.getNodesByName('authenticate')[0]!;
       const targets = cg

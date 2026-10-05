@@ -2,17 +2,17 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 let root: string;
-let cg: CodeGraph | undefined;
+let cg: SleuthGraph | undefined;
 beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-rust-self-owner-')); });
 afterEach(() => { cg?.close(); cg = undefined; fs.rmSync(root, { recursive: true, force: true }); });
 async function index(files: Record<string, string>) {
   fs.mkdirSync(path.join(root, 'src'));
   fs.writeFileSync(path.join(root, 'Cargo.toml'), '[package]\nname="owners"\nversion="0.1.0"\nedition="2021"\n');
   for (const [file, text] of Object.entries(files)) fs.writeFileSync(path.join(root, 'src', file), text);
-  cg = await CodeGraph.init(root, { index: true });
+  cg = await SleuthGraph.init(root, { index: true });
 }
 function targets(file: string) {
   const caller = cg!.getNodesByKind('method').find(n => n.filePath === `src/${file}` && n.qualifiedName === 'Target::run');

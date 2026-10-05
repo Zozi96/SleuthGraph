@@ -6,7 +6,7 @@ import type { LanguageExtractor } from '../tree-sitter-types';
  * structurally — `call_expression`/`member_expression`, same shape as
  * cfscript's), so a call like `#getCurrentUser().getId()#` embedded in a
  * WHERE clause is a genuine call edge. The surrounding SQL keywords/
- * identifiers aren't symbols CodeGraph models — only `call_expression` is
+ * identifiers aren't symbols SleuthGraph models — only `call_expression` is
  * mapped, so extraction yields call references and nothing else.
  */
 export const cfqueryExtractor: LanguageExtractor = {

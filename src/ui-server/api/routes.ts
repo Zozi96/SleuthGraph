@@ -20,7 +20,7 @@
  * instead, which is the number a reader means by "how many routes are there".
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import { intParam } from './respond';
 import { toPosixPath } from './wire';
 import { routeRoots } from './route-roots';
@@ -93,7 +93,7 @@ const MIN_LIMIT = 3;
 /** Manifest rows fetched per route shown, so folding repeats still fills the page. */
 const ROWS_PER_ROUTE = 4;
 
-type ManifestRow = NonNullable<ReturnType<CodeGraph['getRoutingManifest']>>['entries'][number];
+type ManifestRow = NonNullable<ReturnType<SleuthGraph['getRoutingManifest']>>['entries'][number];
 
 /**
  * The manifest's rows folded to one per route, in its order: the row naming
@@ -103,7 +103,7 @@ type ManifestRow = NonNullable<ReturnType<CodeGraph['getRoutingManifest']>>['ent
  * the body sorted first — and is left out when it is written in a test, as
  * the manifest leaves out test handlers.
  */
-function oneRowPerRoute(cg: CodeGraph, entries: readonly ManifestRow[]): Array<ManifestRow & { inline: boolean }> {
+function oneRowPerRoute(cg: SleuthGraph, entries: readonly ManifestRow[]): Array<ManifestRow & { inline: boolean }> {
   const byRoute = new Map<string, ManifestRow[]>();
   for (const entry of entries) {
     const list = byRoute.get(entry.routeId);
@@ -136,7 +136,7 @@ function oneRowPerRoute(cg: CodeGraph, entries: readonly ManifestRow[]): Array<M
   return out;
 }
 
-export function buildRoutes(cg: CodeGraph, query: URLSearchParams): WireRoutes {
+export function buildRoutes(cg: SleuthGraph, query: URLSearchParams): WireRoutes {
   const limit = intParam(query, 'limit', { min: MIN_LIMIT, max: 500, default: 200 });
 
   // The engine's manifest is a row per (route, edge): a route bound to two

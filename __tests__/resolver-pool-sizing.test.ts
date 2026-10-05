@@ -1,6 +1,6 @@
 /**
  * Resolver-pool sizing (§7a.1 P1.2): cgroup-honest CPU term + memory-aware
- * cap + the CODEGRAPH_RESOLVE_WORKERS override. resolvePoolSize is pure —
+ * cap + the SLEUTH_RESOLVE_WORKERS override. resolvePoolSize is pure —
  * these pin the whole decision matrix, including the two failure modes the
  * measurement round exposed: os.cpus() cpuset-blindness (6 workers inside a
  * 2-CPU container) and memory-blind sizing (six ~1GB workers OOM-killing a
@@ -58,7 +58,7 @@ describe('ResolverPool.resolvePoolSize', () => {
     expect(size({ memoryBudget: 512 * MB, dbSizeBytes: 4 * GB })).toBeNull();
   });
 
-  it('CODEGRAPH_RESOLVE_WORKERS overrides everything: 0 disables, values clamp at 16', () => {
+  it('SLEUTH_RESOLVE_WORKERS overrides everything: 0 disables, values clamp at 16', () => {
     expect(size({ explicit: '0' })).toBeNull();
     expect(size({ explicit: '3', memoryBudget: 512 * MB })).toBe(3); // override skips the memory term
     expect(size({ explicit: '64' })).toBe(16);

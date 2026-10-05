@@ -1,6 +1,6 @@
 /**
  * ParseWorkerPool — the worker pool that parses files across cores during a full
- * `codegraph index` (issue #1015). These tests drive the pool's queue / growth /
+ * `sleuth index` (issue #1015). These tests drive the pool's queue / growth /
  * recycle / crash-recovery / timeout / teardown logic with INJECTED fake
  * workers, so they exercise the real scheduling code without spawning threads or
  * needing a built dist.
@@ -81,7 +81,7 @@ function makePool(
 }
 
 describe('resolveParseTimeoutMs', () => {
-  it('honors a positive numeric override (CODEGRAPH_PARSE_TIMEOUT_MS)', () => {
+  it('honors a positive numeric override (SLEUTH_PARSE_TIMEOUT_MS)', () => {
     expect(resolveParseTimeoutMs('30000')).toBe(30000);
     expect(resolveParseTimeoutMs('1500.9')).toBe(1500);
   });

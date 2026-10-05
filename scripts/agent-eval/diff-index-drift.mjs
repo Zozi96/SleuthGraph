@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Diff two CodeGraph indexes of the SAME tree — typically a live,
- * incrementally-synced `.codegraph/codegraph.db` against a clean full rebuild
+ * Diff two SleuthGraph indexes of the SAME tree — typically a live,
+ * incrementally-synced `.sleuth/sleuth.db` against a clean full rebuild
  * of the identical working tree (CG-33).
  *
  * Non-destructive: it only reads. Rebuilding is the caller's job, so the live
@@ -9,13 +9,13 @@
  * original CG-33 artifact.
  *
  *   # snapshot the live index BEFORE touching it
- *   cp .codegraph/codegraph.db /tmp/live.db
- *   node dist/bin/codegraph.js index .
- *   node scripts/agent-eval/diff-index-drift.mjs /tmp/live.db .codegraph/codegraph.db
+ *   cp .sleuth/sleuth.db /tmp/live.db
+ *   node dist/bin/sleuth.js index .
+ *   node scripts/agent-eval/diff-index-drift.mjs /tmp/live.db .sleuth/sleuth.db
  *
  * Edges are compared as distinct `(source, target, kind)` triples. Raw row
  * counts are NOT a drift signal: a bidirectional divergence nets out. On the
- * codegraph repo the raw counts differed by +0.7% while 4.3% of distinct edges
+ * sleuth repo the raw counts differed by +0.7% while 4.3% of distinct edges
  * were actually wrong.
  */
 import { DatabaseSync } from 'node:sqlite';
@@ -83,7 +83,7 @@ console.log(`  TOTAL divergent:   ${divergent}  (${pct(divergent, rebuiltSet.siz
 
 // Integrity checks — these separate "resolution went stale" (edges wrong, nodes
 // identical) from "residue accumulated" (duplicate/orphan rows). CG-33 is the
-// former: on the codegraph repo every check below was 0 on BOTH indexes.
+// former: on the sleuth repo every check below was 0 on BOTH indexes.
 console.log('');
 console.log('integrity                        live   rebuilt');
 for (const [label, q] of [

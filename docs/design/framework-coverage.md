@@ -20,7 +20,7 @@ unlock three different pictures, and a framework can have any subset:
 |---|---|---|
 | **`route` nodes** bound to a handler or component | the **Entry points** tab; an endpoint or page can be a Steps anchor | a framework resolver's `extract()` |
 | **`navigates` edges** from the code that sends a user somewhere to the route it names | the **Screens** tab — without a single one, `buildScreens` returns `routed: false` and the tab stays hidden | a resolver's `resolve()` (calls) + a synthesizer (markup) |
-| **branch-guard rules** for the language | the `WHEN` label on every arrow, in Steps, Screens and `codegraph_explore`'s Flow section | `src/graph/branch-guards.ts` |
+| **branch-guard rules** for the language | the `WHEN` label on every arrow, in Steps, Screens and `sleuth_explore`'s Flow section | `src/graph/branch-guards.ts` |
 
 The Screens picture is a pure function of the first two: *any* framework that
 produces route nodes and `navigates` edges lands on the tab, with no view code
@@ -268,7 +268,7 @@ scripts/try-repo.sh <preset>        # prints the navigation count and says which
 ```
 
 ```sql
--- In a repo's .codegraph/codegraph.db
+-- In a repo's .sleuth/sleuth.db
 select count(*) from edges where kind='navigates';
 select name, file_path from nodes where kind='route' order by name;   -- duplicates = a layout drawn as a screen
 ```

@@ -13,18 +13,18 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 
 let tempDir: string;
-let cg: CodeGraph | null = null;
+let cg: SleuthGraph | null = null;
 
 async function callees(files: Record<string, string>, fromName: string): Promise<string[]> {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1857-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1857-'));
   for (const [rel, source] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(tempDir, rel)), { recursive: true });
     fs.writeFileSync(path.join(tempDir, rel), source);
   }
-  cg = await CodeGraph.init(tempDir, { index: true });
+  cg = await SleuthGraph.init(tempDir, { index: true });
   cg.resolveReferences();
   const from = [...cg.getNodesByKind('function'), ...cg.getNodesByKind('method')].find((n) => n.name === fromName)!;
   expect(from).toBeDefined();

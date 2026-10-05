@@ -3,7 +3,7 @@
  * the fan an interface call dispatches into (design spec §3.10).
  *
  * The walk itself is `src/graph/type-hierarchy.ts`, shared with
- * `codegraph_explore`'s interface-dispatch announcement so the two can never
+ * `sleuth_explore`'s interface-dispatch announcement so the two can never
  * print different implementation counts for the same interface. This module is
  * the renderer: it flattens the tree into rows the viewer can draw without
  * measuring anything, and caps the fan while keeping the true totals.
@@ -17,7 +17,7 @@
  * functions.
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import type { Node } from '../../types';
 import {
   buildTypeHierarchy,
@@ -88,7 +88,7 @@ export interface WireOverride {
  * saying so on every screen is noise.
  */
 export function buildHierarchy(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   node: Node
 ): { wire: WireHierarchy; overrides: Map<string, WireOverride> } | null {
   if (!canHaveHierarchy(node)) return null;

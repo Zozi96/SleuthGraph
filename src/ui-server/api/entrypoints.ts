@@ -15,7 +15,7 @@
  * - **Files that run something** — the engine records a statement at the top
  *   level of a file as an edge out of the *file* node, so a CLI, a worker
  *   entry or a build script has `calls` where a library module has none. That
- *   is what makes `src/bin/codegraph.ts` the root of this repo's CLI flow.
+ *   is what makes `src/bin/sleuth.ts` the root of this repo's CLI flow.
  *   Ranked by calls x how many other files they reach, so the file that both
  *   runs and wires the project together outranks a registration table that
  *   makes a hundred module-level calls into itself.
@@ -33,7 +33,7 @@
  * not be quietly counting them.
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import type { Node, NodeKind } from '../../types';
 import { intParam } from './respond';
 import { buildRoutes, type WireRoute } from './routes';
@@ -163,7 +163,7 @@ export function resetEntryPointsCache(): void {
 // Build
 // =============================================================================
 
-export function buildEntryPoints(cg: CodeGraph, query: URLSearchParams): WireEntryPoints {
+export function buildEntryPoints(cg: SleuthGraph, query: URLSearchParams): WireEntryPoints {
   const started = Date.now();
   const limit = intParam(query, 'limit', { min: 1, max: 50, default: DEFAULT_LIMIT });
   const routeLimit = intParam(query, 'routes', {
@@ -214,7 +214,7 @@ export function buildEntryPoints(cg: CodeGraph, query: URLSearchParams): WireEnt
  * the same thing here as on the routes endpoint — including its handler id and
  * its registration site, which are what make the row navigable and groupable.
  */
-function routeEntries(cg: CodeGraph, limit: number): WireEntryPoints['routes'] {
+function routeEntries(cg: SleuthGraph, limit: number): WireEntryPoints['routes'] {
   const manifest = buildRoutes(cg, new URLSearchParams([['limit', String(limit)]]));
   return {
     routed: manifest.routed,
@@ -240,7 +240,7 @@ function routeEntries(cg: CodeGraph, limit: number): WireEntryPoints['routes'] {
  * and a project whose noisiest module-level callers are all test files would
  * otherwise answer with an empty list.
  */
-function executableFiles(cg: CodeGraph, limit: number): WireList<WireEntryFile> {
+function executableFiles(cg: SleuthGraph, limit: number): WireList<WireEntryFile> {
   const ranked = withoutPreviews(cg, cg.getTopCallingFiles(SCAN_ROWS));
 
   const kept: Array<{ node: Node; calls: number; reaches: number }> = [];
@@ -285,7 +285,7 @@ const MAX_PREVIEW_SCAN = 1024 * 1024;
  * canvas, never code the app runs. A file whose only module-level calls are
  * previews leaves the list; the rest are re-ranked on what is left.
  */
-function withoutPreviews<T extends { nodeId: string; filePath: string; calls: number; reaches: number; score: number }>(cg: CodeGraph, rows: T[]): T[] {
+function withoutPreviews<T extends { nodeId: string; filePath: string; calls: number; reaches: number; score: number }>(cg: SleuthGraph, rows: T[]): T[] {
   let adjusted = false;
   const out: T[] = [];
   for (const row of rows) {
@@ -365,7 +365,7 @@ export function swiftPreviewSpans(text: string): Array<[number, number]> {
  * outside itself is left out on purpose: it exercises nothing this graph can
  * name.
  */
-function testFiles(cg: CodeGraph, limit: number): WireList<WireEntryTest> {
+function testFiles(cg: SleuthGraph, limit: number): WireList<WireEntryTest> {
   const candidates = cg
     .getFiles()
     .map((file) => toPosixPath(file.path))
@@ -397,7 +397,7 @@ function testFiles(cg: CodeGraph, limit: number): WireList<WireEntryTest> {
 }
 
 /** The most depended-on symbols, tests, generated files and non-navigable kinds removed. */
-function hubs(cg: CodeGraph, limit: number): WireList<WireEntryHub> {
+function hubs(cg: SleuthGraph, limit: number): WireList<WireEntryHub> {
   const ranked = cg
     .getTopDependedOn(SCAN_ROWS)
     .map((row) => ({ row, node: cg.getNode(row.nodeId) }));
@@ -416,7 +416,7 @@ function hubs(cg: CodeGraph, limit: number): WireList<WireEntryHub> {
   return wireList(items, Math.max(eligible, items.length));
 }
 
-/** `src/bin/codegraph.ts` -> `src/bin`; a root file -> `.`. */
+/** `src/bin/sleuth.ts` -> `src/bin`; a root file -> `.`. */
 function directoryOf(filePath: string): string {
   const normalized = filePath.replace(/\\/g, '/');
   const cut = normalized.lastIndexOf('/');

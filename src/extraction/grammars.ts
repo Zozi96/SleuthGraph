@@ -234,12 +234,12 @@ export function hasMpegTsExtension(filePath: string): boolean {
 }
 
 /**
- * Whether a file is one CodeGraph can parse, based purely on its extension.
+ * Whether a file is one SleuthGraph can parse, based purely on its extension.
  * This is the single source of truth for "should we index this file" — derived
  * from EXTENSION_MAP so parser support and indexing selection never drift.
  *
  * `overrides` is the project's validated custom extension → language map (from
- * `codegraph.json`); when present its extensions count as indexable in addition
+ * `sleuth.json`); when present its extensions count as indexable in addition
  * to the built-ins. Omitting it is byte-identical to the zero-config behavior.
  */
 export function isSourceFile(filePath: string, overrides?: Record<string, Language>): boolean {
@@ -336,7 +336,7 @@ export async function initGrammars(): Promise<void> {
  * TypeScript/TSX/JavaScript (+jsx, which shares the javascript grammar): the
  * tree-sitter-wasms builds are 2023-era (^0.20.x); we vendor wasm built from
  * the SAME grammar revisions the native extraction kernel compiles
- * (codegraph-kernel/Cargo.toml), so the kernel path and the wasm fallback
+ * (sleuth-kernel/Cargo.toml), so the kernel path and the wasm fallback
  * parse identically and per-language routing stays graph-neutral:
  *   - tree-sitter/tree-sitter-typescript v0.23.2 (f975a62) → typescript + tsx
  *   - tree-sitter/tree-sitter-javascript v0.25.0 (44c892e) → javascript + jsx
@@ -389,7 +389,7 @@ const VENDORED_WASM_LANGS: ReadonlySet<GrammarLanguage> = new Set([
   // gate repos) — a reproducibility re-vendor, ABI stays 14. The crates.io
   // crate is UNUSABLE by the kernel (pins tree-sitter <0.23) and
   // tree-sitter-kotlin-ng is a different grammar — the kernel compiles the
-  // same vendored C sources instead (codegraph-kernel/grammars/kotlin).
+  // same vendored C sources instead (sleuth-kernel/grammars/kotlin).
   // Both carry docs/grammars/tree-sitter-kotlin.patch (scanner: no automatic
   // semicolon before a same-line `e` word, e.g. an `eq` infix call).
   'kotlin',
@@ -398,7 +398,7 @@ const VENDORED_WASM_LANGS: ReadonlySet<GrammarLanguage> = new Set([
   // tree-sitter-dart master@d4d8f3e337d8). tree-sitter-wasms' dart dep is an
   // UNPINNED github ref, so a routine tree-sitter-wasms update would have
   // silently changed dart's grammar — vendoring kills that hazard. The
-  // kernel compiles the same-commit vendored C (codegraph-kernel/grammars/
+  // kernel compiles the same-commit vendored C (sleuth-kernel/grammars/
   // dart); crates.io tree-sitter-dart is a different-lineage fork (rejected).
   'dart',
 ]);
@@ -488,7 +488,7 @@ export async function loadGrammarsForLanguages(languages: Language[], wasmBytes?
       languageCache.set(lang, language);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(`[CodeGraph] Failed to load ${lang} grammar — parsing will be unavailable: ${message}`);
+      console.warn(`[SleuthGraph] Failed to load ${lang} grammar — parsing will be unavailable: ${message}`);
       unavailableGrammarErrors.set(lang, message);
     }
   }
@@ -534,7 +534,7 @@ export function getParser(language: Language): Parser | null {
  * Detect language from file extension.
  *
  * `overrides` is the project's validated custom extension → language map (from
- * `codegraph.json`); when present its mappings take precedence over the built-in
+ * `sleuth.json`); when present its mappings take precedence over the built-in
  * `EXTENSION_MAP`. Omitting it is byte-identical to the zero-config behavior.
  */
 export function detectLanguage(filePath: string, source?: string, overrides?: Record<string, Language>): Language {
@@ -563,7 +563,7 @@ export function detectLanguage(filePath: string, source?: string, overrides?: Re
 
   // `.inc` is PHP's include extension (Drupal) and Pascal/Delphi's too
   // (`{$I defs.inc}`: directive blocks, declaration fragments), so it is
-  // decided per file by content (#2279). An explicit codegraph.json mapping
+  // decided per file by content (#2279). An explicit sleuth.json mapping
   // for `.inc` is the user's answer and is not second-guessed.
   if (lang === 'php' && ext === '.inc' && source && !(overrides && overrides[ext]) && looksLikePascalInclude(source)) {
     return 'pascal';

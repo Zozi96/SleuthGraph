@@ -1,6 +1,6 @@
 # Ruby kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/ruby.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/ruby.rs`,
 all gates passed (grammar bump validated standalone — sinatra/jekyll dumps
 byte-identical old-vs-new, rails exactly the one classified `&.!=` hunk;
 parity sweeps 0-diff sinatra 147/147 / jekyll 164/164 / rails 3452/3452 with
@@ -55,7 +55,7 @@ era). The bump:
   wasm to `src/extraction/wasm/tree-sitter-ruby.wasm`; add `'ruby'` to
   `VENDORED_WASM_LANGS` (grammars.ts:291) with an R7b comment following the
   rust pattern (tag + sha-matched note); pin `tree-sitter-ruby = "=0.23.1"` in
-  codegraph-kernel/Cargo.toml under the exact-pin comment block (`=` like
+  sleuth-kernel/Cargo.toml under the exact-pin comment block (`=` like
   c/cpp/rust — crate + wasm move together or kernel-grammar-parity fails);
   kernel symbol `tree_sitter_ruby::LANGUAGE` in langs.rs when the walker
   lands. Full suite green + the standalone bump gate (§Gates) before walker
@@ -124,7 +124,7 @@ era). The bump:
    (ruby.ts:109-190), runs identically after either arm inside
    `extractFromSource` (tree-sitter.ts:6736-6758), merging `route` nodes +
    `controller#action` refs. §Frameworks pins its input contract.
-4. **One walker module** (suggest `codegraph-kernel/src/rubylang.rs` or
+4. **One walker module** (suggest `sleuth-kernel/src/rubylang.rs` or
    `ruby.rs` — no crate-language collision this time, `ruby.rs` is fine),
    registered in langs.rs (`LANGUAGES` + `grammar_for` +
    `tree_sitter_ruby::LANGUAGE`); per-file `has_error()` → `defer:` like every
@@ -555,7 +555,7 @@ special: {`call`, `simple_symbol`}. No unwrap/ungatedModes/addressOfOnly.
 ### Value-reference edges (398-931) — ruby IS in VALUE_REF_LANGS (401)
 
 Port the full machinery (crib python.rs — python is also a member):
-`CODEGRAPH_VALUE_REFS=0` kill; MAX_VALUE_REF_NODES=20_000 caps prune scan and
+`SLEUTH_VALUE_REFS=0` kill; MAX_VALUE_REF_NODES=20_000 caps prune scan and
 each reader scan; isGeneratedFile skip.
 
 - Targets (captureValueRefScope:735): created nodes of kind
@@ -709,7 +709,7 @@ config/routes.rb.
   rails (large, 3,452)** — gate-repo clones from the survey lived at the
   prior session's scratchpad (`…/765a9532…/scratchpad/{sinatra,jekyll,rails}`;
   re-clone fresh if gone — agent-eval policy, public OSS only). Then
-  **full-init dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+  **full-init dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   `dump-graph.mjs`, cmp) on the same three.
 - **Deferral-rate guard: default `--max-deferral 0.1` and expect ~0** —
   measured 0.00% parse-error incidence on all three repos, both grammars.
@@ -717,7 +717,7 @@ config/routes.rb.
 - Suite: new `__tests__/kernel-ruby-parity.test.ts` (torture + CRLF-derived
   variant + one intentionally-erroring defer fixture — e.g. an unclosed
   `def` — asserting the wasm fallback path); full suite green ×2 with
-  `CODEGRAPH_KERNEL_EXPECT=1`.
+  `SLEUTH_KERNEL_EXPECT=1`.
 - `DEFAULT_ROUTED += ruby` (kernel/index.ts:37) only after ALL of the above;
   changelog rides the existing kernel entry.
 - Post-route perf sanity: remember §arch-2 — a real Rails app forces the

@@ -1,4 +1,4 @@
--- CodeGraph SQLite Schema
+-- SleuthGraph SQLite Schema
 -- Version 1
 
 -- Schema version tracking
@@ -152,7 +152,7 @@ END;
 -- tokenizer keeps camelCase names as single tokens), so segments are
 -- materialized on the node write path.
 -- Deletions leave orphan rows ON PURPOSE: rows are PROPOSALS, always
--- re-verified against nodes before being surfaced (CodeGraph.getSegmentMatches),
+-- re-verified against nodes before being surfaced (SleuthGraph.getSegmentMatches),
 -- and a full index clears the table at its start. Populated lazily on old
 -- databases (empty until the next index/sync heals it).
 CREATE TABLE IF NOT EXISTS name_segment_vocab (

@@ -6,7 +6,7 @@
  * (`export const actions = { foo: () => {} }`) or RETURNED by an initializer
  * call (`export const useStore = create((set, get) => ({ foo: () => {} }))`,
  * incl. middleware wrappers). This makes store actions (Zustand/Redux/Pinia/
- * MobX/handler maps) real nodes, so `codegraph_node`/`callers` on them resolve
+ * MobX/handler maps) real nodes, so `sleuth_node`/`callers` on them resolve
  * instead of returning "not found" and forcing the agent to Read the store.
  *
  * Extraction is keyed on AST shape. The store-accessor resolver follows
@@ -17,7 +17,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { extractFromSource } from '../src/extraction';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
@@ -158,7 +158,7 @@ describe('object-literal method resolution (end-to-end)', () => {
         `}\n`
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const fns = cg.getNodesByKind('function');

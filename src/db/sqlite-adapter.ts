@@ -5,7 +5,7 @@
  * through a small better-sqlite3-shaped interface so the rest of the codebase
  * is storage-agnostic.
  *
- * CodeGraph ships with a bundled Node runtime, so `node:sqlite` (real SQLite,
+ * SleuthGraph ships with a bundled Node runtime, so `node:sqlite` (real SQLite,
  * with WAL + FTS5) is always available — there is no native build step and no
  * wasm fallback. When run from source instead, it requires Node >= 22.5.
  */
@@ -38,7 +38,7 @@ export interface SqliteDatabase {
 
 /**
  * The active SQLite backend. Only one now (`node:sqlite`); kept as a named type
- * so `codegraph status` and the per-instance reporting have a stable shape.
+ * so `sleuth status` and the per-instance reporting have a stable shape.
  */
 export type SqliteBackend = 'node-sqlite';
 
@@ -65,7 +65,7 @@ class NodeSqliteAdapter implements SqliteDatabase {
 
   /**
    * What a failed call throws: the error itself, or — for a "disk I/O error"
-   * on a WSL index that Windows CodeGraph shares — the actionable rewrite
+   * on a WSL index that Windows SleuthGraph shares — the actionable rewrite
    * (#995). Every open runs its PRAGMAs and first reads through the methods
    * below, and so does every later query. `iterate()` is left raw: a
    * row-by-row wrapper would tax the unbounded scans it exists for, and a
@@ -206,8 +206,8 @@ export function createDatabase(dbPath: string, opts?: { readOnly?: boolean }): {
     const msg = error instanceof Error ? error.message : String(error);
     throw new Error(
       'Failed to open SQLite via the built-in node:sqlite module.\n' +
-      'CodeGraph requires node:sqlite (Node.js 22.5+). Install the self-contained\n' +
-      'CodeGraph release (it bundles a compatible Node), or run on Node 22.5+.\n' +
+      'SleuthGraph requires node:sqlite (Node.js 22.5+). Install the self-contained\n' +
+      'SleuthGraph release (it bundles a compatible Node), or run on Node 22.5+.\n' +
       `Underlying error: ${msg}`
     );
   }

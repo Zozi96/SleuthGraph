@@ -19,7 +19,7 @@
  * palette actually has to answer.
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import type { Node, NodeKind } from '../../types';
 import { parseQuery, type ParsedQuery } from '../../search/query-parser';
 import { intParam, optionalTextParam } from './respond';
@@ -91,7 +91,7 @@ function classify(node: Node, needle: string): MatchKind | null {
   return null;
 }
 
-export function buildSearch(cg: CodeGraph, query: URLSearchParams): unknown {
+export function buildSearch(cg: SleuthGraph, query: URLSearchParams): unknown {
   const raw = optionalTextParam(query, 'q');
   const limit = intParam(query, 'limit', { min: 1, max: 200, default: 60 });
 

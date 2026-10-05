@@ -21,7 +21,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { createGraphApi, startUiServer, type GraphApi, type UiServerHandle } from '../src/ui-server';
 import {
   encodeResolvedRun,
@@ -67,7 +67,7 @@ function callOn(port: number, requestPath: string, opts: CallOptions = {}): Prom
   const isWrite = method === 'POST' || method === 'DELETE';
   const payload = opts.body === undefined ? null : Buffer.from(JSON.stringify(opts.body), 'utf-8');
   const headers: Record<string, string> = { Host: `127.0.0.1:${port}` };
-  if (isWrite && (opts.marker ?? true)) headers['X-CodeGraph-UI'] = '1';
+  if (isWrite && (opts.marker ?? true)) headers['X-SleuthGraph-UI'] = '1';
   if (opts.origin) headers['Origin'] = opts.origin;
   if (payload) {
     const type = opts.contentType === undefined ? 'application/json' : opts.contentType;
@@ -115,9 +115,9 @@ function trailsDir(): string {
   return path.join(projectRoot, TRAILS_RELATIVE_DIR);
 }
 
-/** Re-index in place, the way a `codegraph sync` would after an edit. */
+/** Re-index in place, the way a `sleuth sync` would after an edit. */
 async function reindex(): Promise<void> {
-  const cg = CodeGraph.openSync(projectRoot);
+  const cg = SleuthGraph.openSync(projectRoot);
   await cg.sync();
   cg.resolveReferences();
   cg.close();
@@ -126,7 +126,7 @@ async function reindex(): Promise<void> {
 const SRC = () => path.join(projectRoot, 'src');
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-trails-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-trails-'));
   projectRoot = path.join(tempDir, 'project');
   fs.mkdirSync(SRC(), { recursive: true });
 
@@ -160,7 +160,7 @@ export function retired(): string {
 `
   );
 
-  const cg = CodeGraph.initSync(projectRoot, {
+  const cg = SleuthGraph.initSync(projectRoot, {
     config: { include: ['src/**/*.ts'], exclude: [] },
   });
   await cg.indexAll();
@@ -318,7 +318,7 @@ describe('POST /api/trails', () => {
     expect(trail.hops[1].savedFile).toBe('src/service.ts');
   });
 
-  it('writes one readable JSON file into .codegraph/ui/trails', () => {
+  it('writes one readable JSON file into .sleuth/ui/trails', () => {
     const file = path.join(trailsDir(), 'how-a-request-is-served.json');
     expect(fs.existsSync(file)).toBe(true);
     const raw = JSON.parse(fs.readFileSync(file, 'utf-8'));
@@ -407,7 +407,7 @@ describe('the write boundary', () => {
     });
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('refused');
-    expect(String(res.body.error)).toContain('x-codegraph-ui');
+    expect(String(res.body.error)).toContain('x-sleuthgraph-ui');
   });
 
   it('refuses a POST whose body claims to be a form', async () => {

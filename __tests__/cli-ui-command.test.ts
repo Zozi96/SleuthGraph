@@ -1,5 +1,5 @@
 /**
- * `codegraph ui` — the CLI face of the viewer server (CG-41).
+ * `sleuth ui` — the CLI face of the viewer server (CG-41).
  *
  * Exercised end-to-end against the built binary, because the things worth
  * pinning here are the ones that only exist once commander, the project
@@ -7,7 +7,7 @@
  * "not indexed" guidance, the sensitive-directory refusal, and whether
  * `--no-open` actually stops a browser from being launched.
  *
- * The browser check works by pointing `CODEGRAPH_BROWSER` at a script that
+ * The browser check works by pointing `SLEUTH_BROWSER` at a script that
  * touches a marker file — so "did it try to open a browser" becomes an
  * observable fact rather than a promise.
  */
@@ -18,17 +18,17 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { DEFAULT_UI_PORT as DEFAULT_PORT } from '../src/ui-server/constants';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 const BASE_ENV = {
   ...process.env,
   // The viewer is opt-in until it is released (see src/bin/viewer-gate.ts).
-  CODEGRAPH_UI: '1',
-  CODEGRAPH_NO_DAEMON: '1',
-  CODEGRAPH_WASM_RELAUNCHED: '1',
+  SLEUTH_UI: '1',
+  SLEUTH_NO_DAEMON: '1',
+  SLEUTH_WASM_RELAUNCHED: '1',
   NO_COLOR: '1',
 };
 
@@ -66,7 +66,7 @@ function get(port: number, requestPath: string): Promise<{ status: number; body:
 }
 
 /**
- * Start `codegraph ui` and wait for the URL it prints.
+ * Start `sleuth ui` and wait for the URL it prints.
  *
  * The banner IS the readiness signal: the server is bound before the URL is
  * printed, so anything the test does after this line is talking to a live
@@ -84,7 +84,7 @@ function startViewer(
     let output = '';
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(new Error(`codegraph ui never printed a URL. Output:\n${output}`));
+      reject(new Error(`sleuth ui never printed a URL. Output:\n${output}`));
     }, 30_000);
 
     const onChunk = (chunk: Buffer): void => {
@@ -103,7 +103,7 @@ function startViewer(
     });
     child.on('exit', (code) => {
       clearTimeout(timer);
-      reject(new Error(`codegraph ui exited with ${code} before serving. Output:\n${output}`));
+      reject(new Error(`sleuth ui exited with ${code} before serving. Output:\n${output}`));
     });
   });
 }
@@ -121,7 +121,7 @@ async function stopViewer(child: ChildProcess): Promise<void> {
   });
 }
 
-describe('codegraph ui — help', () => {
+describe('sleuth ui — help', () => {
   it('reads well and documents the flags', () => {
     const { code, output } = runCli(['ui', '--help']);
     expect(code).toBe(0);
@@ -131,10 +131,10 @@ describe('codegraph ui — help', () => {
     expect(output).toContain('127.0.0.1');
     expect(output).toContain('read-only');
     expect(output).toContain('Examples:');
-    expect(output).toContain('CODEGRAPH_BROWSER');
+    expect(output).toContain('SLEUTH_BROWSER');
   });
 
-  it('works through `codegraph help ui`', () => {
+  it('works through `sleuth help ui`', () => {
     const viaHelpCommand = runCli(['help', 'ui']);
     const viaFlag = runCli(['ui', '--help']);
     expect(viaHelpCommand.code).toBe(0);
@@ -157,11 +157,11 @@ describe('codegraph ui — help', () => {
   });
 });
 
-describe('codegraph ui — refusals', () => {
+describe('sleuth ui — refusals', () => {
   let unindexed: string;
 
   beforeAll(() => {
-    unindexed = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-unindexed-'));
+    unindexed = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-unindexed-'));
     fs.writeFileSync(path.join(unindexed, 'a.ts'), 'export const a = 1;\n');
   });
 
@@ -172,8 +172,8 @@ describe('codegraph ui — refusals', () => {
   it('gives friendly guidance — never a stack trace — when there is no index', () => {
     const { code, output } = runCli(['ui', unindexed]);
     expect(code).toBe(1);
-    expect(output).toContain('No CodeGraph index found');
-    expect(output).toContain('codegraph init');
+    expect(output).toContain('No SleuthGraph index found');
+    expect(output).toContain('sleuth init');
     expect(output).not.toContain('at Object.');
     expect(output).not.toContain('Error:');
   });
@@ -187,24 +187,24 @@ describe('codegraph ui — refusals', () => {
   });
 });
 
-describe('codegraph ui — serving', () => {
+describe('sleuth ui — serving', () => {
   let projectDir: string;
   let markerDir: string;
   let opener: string;
 
   beforeAll(async () => {
-    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-cli-'));
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-cli-'));
     fs.mkdirSync(path.join(projectDir, 'src'));
     fs.writeFileSync(
       path.join(projectDir, 'src', 'auth.ts'),
       'export function parseToken(t: string){ return t.trim(); }\n'
     );
-    const cg = CodeGraph.initSync(projectDir);
+    const cg = SleuthGraph.initSync(projectDir);
     await cg.indexAll();
     cg.close();
 
     // A stand-in browser: records that it was launched, and with what.
-    markerDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-open-'));
+    markerDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-open-'));
     const markerFile = path.join(markerDir, 'opened.txt');
     if (process.platform === 'win32') {
       opener = path.join(markerDir, 'open.cmd');
@@ -241,7 +241,7 @@ describe('codegraph ui — serving', () => {
       expect(res.body).toContain('<div id="app">');
 
       const banner = viewer.output();
-      expect(banner).toContain('CodeGraph viewer');
+      expect(banner).toContain('SleuthGraph viewer');
       expect(banner).toContain(projectDir);
       expect(banner).toContain('this machine only');
     } finally {
@@ -252,7 +252,7 @@ describe('codegraph ui — serving', () => {
   it('honours --no-open: no browser is launched', async () => {
     fs.rmSync(markerFile(), { force: true });
     const viewer = await startViewer(['--no-open', '--port', '0', projectDir], {
-      CODEGRAPH_BROWSER: opener,
+      SLEUTH_BROWSER: opener,
     });
     try {
       // Confirm the server is genuinely up before concluding "nothing opened" —
@@ -268,7 +268,7 @@ describe('codegraph ui — serving', () => {
 
   it('opens the browser at the served URL when --no-open is absent', async () => {
     fs.rmSync(markerFile(), { force: true });
-    const viewer = await startViewer(['--port', '0', projectDir], { CODEGRAPH_BROWSER: opener });
+    const viewer = await startViewer(['--port', '0', projectDir], { SLEUTH_BROWSER: opener });
     try {
       const opened = await waitForMarker(10_000);
       expect(opened).not.toBeNull();
@@ -279,9 +279,9 @@ describe('codegraph ui — serving', () => {
     }
   }, 60_000);
 
-  it('CODEGRAPH_BROWSER=none suppresses the launch like --no-open', async () => {
+  it('SLEUTH_BROWSER=none suppresses the launch like --no-open', async () => {
     fs.rmSync(markerFile(), { force: true });
-    const viewer = await startViewer(['--port', '0', projectDir], { CODEGRAPH_BROWSER: 'none' });
+    const viewer = await startViewer(['--port', '0', projectDir], { SLEUTH_BROWSER: 'none' });
     try {
       expect((await get(viewer.port, '/')).status).toBe(200);
       expect(await waitForMarker(1_000)).toBeNull();
@@ -328,14 +328,14 @@ describe('codegraph ui — serving', () => {
     }
   }, 60_000);
 
-  // `codegraph ui` re-execs itself with `--liftoff-only`, and the command the
+  // `sleuth ui` re-execs itself with `--liftoff-only`, and the command the
   // user started blocks in spawnSync, unable to forward a signal: killing it by
   // pid (a process manager, an IDE task, `kill`) used to leave the server
   // serving the port forever. POSIX-only: it relies on reparenting.
   it.runIf(process.platform !== 'win32')('stops serving when the command it was started as is killed', async () => {
     const viewer = await startViewer(['--no-open', '--port', '0', projectDir], {
-      CODEGRAPH_WASM_RELAUNCHED: '',
-      CODEGRAPH_PPID_POLL_MS: '200',
+      SLEUTH_WASM_RELAUNCHED: '',
+      SLEUTH_PPID_POLL_MS: '200',
     });
     expect((await get(viewer.port, '/api/stats')).status).toBe(200);
     viewer.child.kill('SIGKILL');

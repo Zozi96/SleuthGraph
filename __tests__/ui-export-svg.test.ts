@@ -14,7 +14,7 @@
  * - it fits the drawing, with nothing running off the edge of the canvas.
  *
  * Everything here is pure. The raster step needs a browser and is verified
- * over CDP against a live `codegraph ui`.
+ * over CDP against a live `sleuth ui`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -238,9 +238,9 @@ describe('wrapText', () => {
 
 describe('exportFilename', () => {
   it('slugs a flow label into something a filesystem accepts', () => {
-    expect(exportFilename('flow', 'execute → getFile')).toBe('codegraph-flow-execute-getfile');
-    expect(exportFilename('map', 'src/')).toBe('codegraph-map-src');
-    expect(exportFilename('map', '')).toBe('codegraph-map');
+    expect(exportFilename('flow', 'execute → getFile')).toBe('sleuth-flow-execute-getfile');
+    expect(exportFilename('map', 'src/')).toBe('sleuth-map-src');
+    expect(exportFilename('map', '')).toBe('sleuth-map');
   });
 });
 

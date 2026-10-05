@@ -95,7 +95,7 @@ describe('armStartupHandshakeTimeout', () => {
     expect(fired).toBe(0);
   });
 
-  it('timeout 0 disables (env convention shared with CODEGRAPH_PPID_POLL_MS)', async () => {
+  it('timeout 0 disables (env convention shared with SLEUTH_PPID_POLL_MS)', async () => {
     const stream = new PassThrough();
     let fired = 0;
     const disarm = armStartupHandshakeTimeout(() => { fired++; }, stream, 0);

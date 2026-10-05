@@ -21,7 +21,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('reference target-kind gate', () => {
   let dir: string;
@@ -37,7 +37,7 @@ describe('reference target-kind gate', () => {
   type InhEdge = { src: string; srcKind: string; tgt: string; tgtKind: string; kind: string };
 
   const load = async (): Promise<{ edges: InhEdge[]; failed: { name: string; kind: string }[] }> => {
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const edges: InhEdge[] = db
@@ -187,7 +187,7 @@ describe('reference target-kind gate', () => {
       'src/run.ts',
       `import * as path from 'node:path';\n\nexport function run() {\n  return path.join('a', 'b');\n}\n`
     );
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const rows: { tgt: string; tgtKind: string }[] = db

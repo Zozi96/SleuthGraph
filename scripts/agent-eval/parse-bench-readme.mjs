@@ -47,13 +47,13 @@ function parse(dir, label) {
     segments: files.length,
     ctx: o.ctxFinal,
     ctxBase: o.ctxBase,
-    occCg: o.residual.codegraph,
+    occCg: o.residual.sleuth,
     occFile: o.residualFileAccess,
-    // The arm's own retrieval residual: codegraph in the with-arm, Read/Grep/Bash
+    // The arm's own retrieval residual: sleuth in the with-arm, Read/Grep/Bash
     // in the without-arm. Comparing these is the apples-to-apples pair.
-    occSelf: o.residual.codegraph + o.residualFileAccess,
-    occShareCtx: o.ctxFinal > 0 ? ((o.residual.codegraph + o.residualFileAccess) / o.ctxFinal) * 100 : 0,
-    occShareWin: ((o.residual.codegraph + o.residualFileAccess) / o.windowTokens) * 100,
+    occSelf: o.residual.sleuth + o.residualFileAccess,
+    occShareCtx: o.ctxFinal > 0 ? ((o.residual.sleuth + o.residualFileAccess) / o.ctxFinal) * 100 : 0,
+    occShareWin: ((o.residual.sleuth + o.residualFileAccess) / o.windowTokens) * 100,
     window: o.windowTokens,
     // The other two feedback metrics, carried per run so the campaign can pool
     // them. Both are with-arm-only in practice — a without-arm makes no explore
@@ -77,8 +77,8 @@ const pct = (w, wo) => wo > 0 ? Math.round((1 - w / wo) * 100) : 0;
 // race, not steady-state value. `CG_INCLUDE_RACED=1` keeps them (to see the raw
 // distribution). The WITHOUT arm has no MCP, so it's never raced.
 const includeRaced = process.env.CG_INCLUDE_RACED === '1';
-// A without-arm run that shelled out to the codegraph CLI measured
-// codegraph-over-CLI, not codegraph-absent. Drop it unless asked otherwise.
+// A without-arm run that shelled out to the sleuth CLI measured
+// sleuth-over-CLI, not sleuth-absent. Drop it unless asked otherwise.
 const includeContaminated = process.env.CG_INCLUDE_CONTAMINATED === '1';
 const rows = [];
 let contaminated = 0;
@@ -91,7 +91,7 @@ for (const repo of REPOS) {
     if (w) { if (w.raced && !includeRaced) racedExcluded++; else W.push(w); }
     const wo = parse(join(dir, rd), 'headless-without');
     if (wo) {
-      if (wo.cliContaminated && !includeContaminated) { contaminated++; console.error(`[excluded] ${repo}/${rd} without-arm got codegraph CLI output ${wo.cliContaminated}x`); }
+      if (wo.cliContaminated && !includeContaminated) { contaminated++; console.error(`[excluded] ${repo}/${rd} without-arm got sleuth CLI output ${wo.cliContaminated}x`); }
       else WO.push(wo);
     }
   }
@@ -121,11 +121,11 @@ const avg = (a) => a.length ? Math.round(a.reduce((s, x) => s + x, 0) / a.length
 console.log(`\nAVERAGE saved:  cost ${avg(savings.cost)}%  ·  tokens ${avg(savings.tokens)}%  ·  time ${avg(savings.time)}%  ·  tool calls ${avg(savings.tools)}%`);
 
 // ---- Table 2: residual context occupancy. ----------------------------------
-// WITH's retrieval residual is codegraph's tool output; WITHOUT's is Read +
+// WITH's retrieval residual is sleuth's tool output; WITHOUT's is Read +
 // Grep/Glob + Bash. Same question, same window — so the pair is comparable.
 const anyMulti = rows.some(({ W, WO }) => [...W, ...WO].some(r => r.segments > 1));
 console.log(`\n\nRESIDUAL CONTEXT OCCUPANCY — retrieval tokens still in the window at end of run`);
-console.log(`(WITH = codegraph responses · WITHOUT = Read + Grep/Glob + Bash responses)`);
+console.log(`(WITH = sleuth responses · WITHOUT = Read + Grep/Glob + Bash responses)`);
 console.log(`${anyMulti ? 'multi-turn sessions' : 'SINGLE-TURN sessions — see the caveat below'}\n`);
 console.log('repo        turns   final ctx W→WO        residual W→WO         % of ctx W→WO     % of window W→WO');
 const occ = { resid: [], shareCtx: [], fixed: [] };
@@ -148,18 +148,18 @@ for (const { repo, W, WO } of rows) {
 }
 // Direction must follow the SIGN, not the hope. `pct(w, wo)` is the reduction
 // going with→without, so a NEGATIVE value means the with-arm's residual is
-// LARGER. Hardcoding "lower" printed "-82% lower with codegraph" for the case
-// where codegraph in fact occupies 82% MORE — a double negative that reads as a
+// LARGER. Hardcoding "lower" printed "-82% lower with sleuth" for the case
+// where sleuth in fact occupies 82% MORE — a double negative that reads as a
 // win and inverts the headline. Say which way it went, in words.
 const dir = (v) => (v < 0 ? 'HIGHER' : 'lower');
 const magn = (v) => Math.abs(v);
 console.log(
-  `\nAVERAGE: retrieval residual ${magn(avg(occ.resid))}% ${dir(avg(occ.resid))} with codegraph` +
+  `\nAVERAGE: retrieval residual ${magn(avg(occ.resid))}% ${dir(avg(occ.resid))} with sleuth` +
   `  ·  share-of-context ${magn(avg(occ.shareCtx))}% ${dir(avg(occ.shareCtx))}`
 );
 if (avg(occ.resid) < 0) {
   console.log(
-    `  ^ codegraph front-loads one large verbatim payload that STAYS resident, where Read/Grep\n` +
+    `  ^ sleuth front-loads one large verbatim payload that STAYS resident, where Read/Grep\n` +
     `    churn many small results that evict. Read alongside the cost/token table above: fewer\n` +
     `    total tokens processed can coexist with a larger persistent footprint. This is the axis\n` +
     `    issue #1500 reported.`
@@ -167,9 +167,9 @@ if (avg(occ.resid) < 0) {
 }
 
 console.log(
-  `FIXED overhead: codegraph's tool schema + MCP instructions cost ${avg(occ.fixed) >= 0 ? '+' : ''}${avg(occ.fixed)} tok\n` +
+  `FIXED overhead: sleuth's tool schema + MCP instructions cost ${avg(occ.fixed) >= 0 ? '+' : ''}${avg(occ.fixed)} tok\n` +
   `  of context before any tool is called (median WITH ctxBase - median WITHOUT ctxBase, averaged\n` +
-  `  over repos). It is paid whether or not the agent ever calls codegraph.`
+  `  over repos). It is paid whether or not the agent ever calls sleuth.`
 );
 
 // Per-run detail. Medians over 2-3 runs hide swings big enough to flip a repo's
@@ -233,6 +233,6 @@ console.log(
   `\nHOW TO READ: "read-ret" (Read a file we RETURNED) is an allocation miss — right file,\n` +
   `wrong bytes; "read-miss" and "grep" are recall misses. "again" is ambiguous by construction.\n` +
   `Allocation efficiency is RELATIVE — attribution is by citation, so it compares BUILDS on the\n` +
-  `same questions and is not a claim that codegraph wasted the remainder. Full guidance:\n` +
+  `same questions and is not a claim that sleuth wasted the remainder. Full guidance:\n` +
   `docs/benchmarks/agent-eval-feedback-metrics.md`
 );

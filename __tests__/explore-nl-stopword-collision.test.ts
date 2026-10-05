@@ -1,5 +1,5 @@
 /**
- * codegraph_explore — NL-stopword collision guard (named-symbol seeding).
+ * sleuth_explore — NL-stopword collision guard (named-symbol seeding).
  *
  * handleExplore's named-symbol seeding treats every identifier-shaped query
  * token as "a symbol the agent named" and grants its definition the
@@ -21,7 +21,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 
 /** Paths explore rendered as full-body ``**`<path>`** —`` source sections, in order. */
@@ -34,13 +34,13 @@ function sourcedFiles(text: string): string[] {
   return out;
 }
 
-describe('codegraph_explore — NL-stopword collision guard', () => {
+describe('sleuth_explore — NL-stopword collision guard', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-stopword-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-stopword-'));
 
     // --- The collision file: an unrelated class whose methods are ordinary
     // English words ("check", "drain", "fire" — the only defs of those names).
@@ -82,7 +82,7 @@ describe('codegraph_explore — NL-stopword collision guard', () => {
       `  return latest;\n` +
       `}\n`);
 
-    cg = CodeGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   });
@@ -93,7 +93,7 @@ describe('codegraph_explore — NL-stopword collision guard', () => {
   });
 
   async function explore(query: string): Promise<string> {
-    const res = await handler.execute('codegraph_explore', { query });
+    const res = await handler.execute('sleuth_explore', { query });
     expect(res.isError).toBeFalsy();
     return res.content[0]!.text;
   }
@@ -124,9 +124,9 @@ describe('codegraph_explore — NL-stopword collision guard', () => {
   });
 });
 
-describe('codegraph_explore — interface members never corroborate a bare word', () => {
+describe('sleuth_explore — interface members never corroborate a bare word', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   afterEach(() => {
     cg?.destroy();
@@ -140,7 +140,7 @@ describe('codegraph_explore — interface members never corroborate a bare word'
     // token named in that file, so the English word "main" seeded `main()` into
     // the named-first tier and the file outranked the ones about the extension
     // host itself.
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-iface-corroboration-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-iface-corroboration-'));
     const src = path.join(testDir, 'src');
     fs.mkdirSync(src, { recursive: true });
     fs.writeFileSync(path.join(src, 'serverMain.ts'),
@@ -164,10 +164,10 @@ describe('codegraph_explore — interface members never corroborate a bare word'
       '  return connection;\n' +
       '}\n');
     for (let i = 1; i <= 12; i++) fs.writeFileSync(path.join(src, `noise${i}.ts`), `export const n${i} = ${i};\n`);
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
 
-    const res = await new ToolHandler(cg).execute('codegraph_explore', {
+    const res = await new ToolHandler(cg).execute('sleuth_explore', {
       query: 'how does the extension host talk to the main process',
     });
     const files = sourcedFiles(res.content[0].text as string);

@@ -83,12 +83,12 @@ const PHP_PROP_SHAPE = /^this->\w+\.\w+$/;
  * stays flat on large codebases (20k+ files). Sizes were chosen to
  * cover the working set for typical resolution batches without
  * exceeding a few hundred MB worst-case. Override via the env var
- * `CODEGRAPH_RESOLVER_CACHE_SIZE` (single integer applied to all
+ * `SLEUTH_RESOLVER_CACHE_SIZE` (single integer applied to all
  * caches) when tuning for very large or very small projects.
  */
 const DEFAULT_CACHE_LIMIT = 5_000;
 function resolveCacheLimit(): number {
-  const raw = process.env.CODEGRAPH_RESOLVER_CACHE_SIZE;
+  const raw = process.env.SLEUTH_RESOLVER_CACHE_SIZE;
   if (!raw) return DEFAULT_CACHE_LIMIT;
   const parsed = Number.parseInt(raw, 10);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
@@ -397,7 +397,7 @@ export class ReferenceResolver {
    * warmCaches for the async resolution entry points: streams the distinct
    * name set with periodic yields instead of one synchronous `.all()`. On a
    * multi-million-node index the DISTINCT scan is a solid multi-second block
-   * (measured up to 28s inside `codegraph sync` on the Linux kernel index),
+   * (measured up to 28s inside `sleuth sync` on the Linux kernel index),
    * long enough to matter to the #850 watchdog on slower hardware. Same
    * result, same memory — only the event loop keeps turning.
    */
@@ -1725,7 +1725,7 @@ export class ReferenceResolver {
    * no watchdog heartbeat to starve). Results are in input order.
    */
   /**
-   * CODEGRAPH_RESOLVE_PROFILE=1: per-outcome wall-clock histogram of
+   * SLEUTH_RESOLVE_PROFILE=1: per-outcome wall-clock histogram of
    * resolveOne, keyed by the winning strategy (`resolvedBy`) or
    * `fail:<referenceKind>` — the §7a.2 "profile the per-ref path" probe. The
    * kernel-scale batch loop is ~430s and CORE-INVARIANT (835.9s pooled-4-on-8
@@ -1734,15 +1734,15 @@ export class ReferenceResolver {
    * default: the hrtime pair costs ~100ns/ref only when the env is set.
    */
   private resolveProfile: Map<string, { n: number; ns: bigint }> | null =
-    process.env.CODEGRAPH_RESOLVE_PROFILE ? new Map() : null;
+    process.env.SLEUTH_RESOLVE_PROFILE ? new Map() : null;
 
   /**
-   * CODEGRAPH_RESOLVE_PROFILE=2 additionally attributes time to the
+   * SLEUTH_RESOLVE_PROFILE=2 additionally attributes time to the
    * STRATEGIES inside resolveOne (`stage:<name>|<refKind>|hit/miss` rows in
    * the same histogram) — i.e. WHICH machinery a failing class of refs pays
    * for, not just that it fails. =1 keeps the per-outcome rows only.
    */
-  private profileStages: boolean = process.env.CODEGRAPH_RESOLVE_PROFILE === '2';
+  private profileStages: boolean = process.env.SLEUTH_RESOLVE_PROFILE === '2';
 
   private stageAdd(stage: string, ref: UnresolvedRef, hit: boolean, t0: bigint): void {
     if (!this.resolveProfile) return;
@@ -1773,7 +1773,7 @@ export class ReferenceResolver {
     return result;
   }
 
-  /** Dump the CODEGRAPH_RESOLVE_PROFILE histogram to stderr (no-op when off). */
+  /** Dump the SLEUTH_RESOLVE_PROFILE histogram to stderr (no-op when off). */
   dumpResolveProfile(label: string): void {
     if (!this.resolveProfile || this.resolveProfile.size === 0) return;
     const rows = [...this.resolveProfile.entries()]
@@ -1859,7 +1859,7 @@ export class ReferenceResolver {
     onSynthesisProgress?: (done: number, total: number) => void,
     // When provided, big batches fan out across a read-only resolver-worker
     // pool with results admitted in canonical order (see resolver-pool.ts).
-    // Sequential fallback on any pool failure. CODEGRAPH_NO_PARALLEL_RESOLVE=1
+    // Sequential fallback on any pool failure. SLEUTH_NO_PARALLEL_RESOLVE=1
     // disables entirely. bulkEdgeLoad hooks (when provided) bracket the batch
     // loop with drop/recreate of the non-unique edge indexes on big runs —
     // see DatabaseConnection.beginBulkEdgeLoad. backpressure (when provided)
@@ -1892,15 +1892,15 @@ export class ReferenceResolver {
     // window to fire; see ./cooperative-yield.
     const maybeYield = createYielder();
 
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS) {
+    if (process.env.SLEUTH_SYNTH_TIMINGS) {
       console.error(`[pool-timing] backpressure hook: ${parallel?.backpressure ? 'present' : 'absent'}`);
     }
 
-    // CODEGRAPH_RESOLVE_PROFILE loop-stage attribution: the §7a.2 kernel-scale
+    // SLEUTH_RESOLVE_PROFILE loop-stage attribution: the §7a.2 kernel-scale
     // histogram showed resolveOne owns only ~93s of the ~436s batch loop —
     // these counters name where the other ~340s goes (reads, edge build+insert,
     // deletes/marks, the per-batch count guard).
-    const loopProf: Record<string, number> | null = process.env.CODEGRAPH_RESOLVE_PROFILE
+    const loopProf: Record<string, number> | null = process.env.SLEUTH_RESOLVE_PROFILE
       ? { read: 0, settle: 0, backpressure: 0, recycle: 0, createEdges: 0, insertEdges: 0, deletes: 0, marks: 0, countGuard: 0 }
       : null;
     const lp = (k: string, t0: number): void => { if (loopProf) loopProf[k] = (loopProf[k] ?? 0) + (Date.now() - t0); };
@@ -1937,7 +1937,7 @@ export class ReferenceResolver {
       p?.ready().then(
         () => {
           poolReady = true;
-          if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[pool-timing] pool ready after ${Date.now() - t0}ms (${why})`);
+          if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[pool-timing] pool ready after ${Date.now() - t0}ms (${why})`);
         },
         () => {
           void p.destroy().catch(() => undefined);
@@ -2092,7 +2092,7 @@ export class ReferenceResolver {
 
       const tBatch = Date.now();
       const result = await settleBatch(inFlight, batch);
-      if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[pool-timing] batch ${inFlight.mode}: ${batch.length} refs in ${Date.now() - tBatch}ms`);
+      if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[pool-timing] batch ${inFlight.mode}: ${batch.length} refs in ${Date.now() - tBatch}ms`);
       lp('settle', tBatch);
 
       // Adaptive pool engagement: the fixed ref-count gate can't see PER-REF
@@ -2110,7 +2110,7 @@ export class ReferenceResolver {
         const remaining = total - processed - batch.length;
         const projectedMs = (adaptiveSeqMs / Math.max(1, adaptiveSeqRefs)) * Math.max(0, remaining);
         if (shouldEngageAdaptively(projectedMs, remaining, ADAPTIVE_ENGAGE_SETTLE_MS)) {
-          if (process.env.CODEGRAPH_SYNTH_TIMINGS) {
+          if (process.env.SLEUTH_SYNTH_TIMINGS) {
             console.error(`[pool-timing] adaptive engage: projected ${Math.round(projectedMs)}ms sequential settle over ${remaining} remaining refs`);
           }
           pool = createPool(Date.now(), 'adaptive');
@@ -2229,7 +2229,7 @@ export class ReferenceResolver {
       }
       lp('marks', tLp);
 
-      if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[pool-timing] batch persist: ${Date.now() - tPersist}ms`);
+      if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[pool-timing] batch persist: ${Date.now() - tPersist}ms`);
 
       // Aggregate stats
       aggregateStats.total += result.stats.total;
@@ -2289,12 +2289,12 @@ export class ReferenceResolver {
       if (bulkRefsActive) {
         const tRef = Date.now();
         await parallel!.refIndexLoad!.end();
-        if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] ref-index-recreate: ${Date.now() - tRef}ms`);
+        if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] ref-index-recreate: ${Date.now() - tRef}ms`);
       }
       if (bulkEdgesActive) {
         const tIdx = Date.now();
         await parallel!.bulkEdgeLoad!.end();
-        if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] edge-index-recreate: ${Date.now() - tIdx}ms`);
+        if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] edge-index-recreate: ${Date.now() - tIdx}ms`);
         // The recreate just wrote every non-unique edge index into the WAL
         // (multi-GB at kernel scale) with the pool idle — fold before the
         // synthesis passes pin readers against it for minutes.
@@ -2313,7 +2313,7 @@ export class ReferenceResolver {
       try {
         parallel!.bulkEdgeLoad!.deferred!();
       } catch { /* healed by schema.sql on the next open, like a crash in the window */ }
-      if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] deferred-edge-index: ${Date.now() - tDeferred}ms`);
+      if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] deferred-edge-index: ${Date.now() - tDeferred}ms`);
     };
 
     // Dynamic-edge synthesis: now that all base `calls` edges are persisted,
@@ -2337,7 +2337,7 @@ export class ReferenceResolver {
       // synthesis is additive and optional; ignore failures
     }
     buildDeferredIndexes();
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS) console.error(`[phase-timing] callback-synthesis: ${Date.now() - tSynth}ms`);
+    if (process.env.SLEUTH_SYNTH_TIMINGS) console.error(`[phase-timing] callback-synthesis: ${Date.now() - tSynth}ms`);
     } finally {
       if (pool) await pool.destroy().catch(() => undefined);
     }

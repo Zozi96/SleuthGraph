@@ -35,7 +35,7 @@ export const project = {
   get error(): string | null {
     return error;
   },
-  /** "codegraph" — the indexed project's directory name. */
+  /** "sleuth" — the indexed project's directory name. */
   get name(): string | null {
     return stats?.project.name ?? null;
   },

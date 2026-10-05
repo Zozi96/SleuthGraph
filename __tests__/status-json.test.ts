@@ -1,7 +1,7 @@
 /**
- * Tests for the CI/scripting fields `codegraph status --json` exposes (issue
+ * Tests for the CI/scripting fields `sleuth status --json` exposes (issue
  * #329): the `version`, `indexPath`, and `lastIndexed` fields, plus the
- * matching `CodeGraph.getLastIndexedAt()` library method.
+ * matching `SleuthGraph.getLastIndexedAt()` library method.
  *
  * The CLI itself is exercised end-to-end against the built binary so the JSON
  * field names survive future refactors of the underlying plumbing.
@@ -12,9 +12,9 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 const PKG_VERSION = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf-8'),
 ).version as string;
@@ -23,7 +23,7 @@ function runStatusJson(cwd: string): Record<string, unknown> {
   const stdout = execFileSync(process.execPath, [BIN, 'status', '--json'], {
     cwd,
     encoding: 'utf-8',
-    env: { ...process.env, CODEGRAPH_NO_DAEMON: '1' },
+    env: { ...process.env, SLEUTH_NO_DAEMON: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   // JSON mode prints exactly one line to stdout; be defensive about any stray
@@ -32,18 +32,18 @@ function runStatusJson(cwd: string): Record<string, unknown> {
   return JSON.parse(line);
 }
 
-describe('codegraph status --json — CI fields (#329)', () => {
+describe('sleuth status --json — CI fields (#329)', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-status-json-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-status-json-'));
   });
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
   it('getLastIndexedAt() is null before indexing and a recent ms timestamp after', async () => {
-    const cg = CodeGraph.initSync(tempDir);
+    const cg = SleuthGraph.initSync(tempDir);
     expect(cg.getLastIndexedAt()).toBeNull();
 
     fs.writeFileSync(path.join(tempDir, 'a.ts'), 'export const x = 1;\n');
@@ -64,14 +64,14 @@ describe('codegraph status --json — CI fields (#329)', () => {
     expect(out.initialized).toBe(false);
     expect(out.version).toBe(PKG_VERSION);
     expect(typeof out.indexPath).toBe('string');
-    expect(out.indexPath as string).toContain('.codegraph');
+    expect(out.indexPath as string).toContain('.sleuth');
     expect(out.lastIndexed).toBeNull();
   });
 
   it('status --json on an INDEXED project reports version + indexPath + a round-trippable lastIndexed', async () => {
     fs.writeFileSync(path.join(tempDir, 'a.ts'), 'export const x = 1;\n');
     const before = Date.now();
-    const cg = CodeGraph.initSync(tempDir);
+    const cg = SleuthGraph.initSync(tempDir);
     await cg.indexAll();
     const after = Date.now();
     cg.close();
@@ -79,7 +79,7 @@ describe('codegraph status --json — CI fields (#329)', () => {
     const out = runStatusJson(tempDir);
     expect(out.initialized).toBe(true);
     expect(out.version).toBe(PKG_VERSION);
-    expect(out.indexPath as string).toContain('.codegraph');
+    expect(out.indexPath as string).toContain('.sleuth');
     expect(typeof out.lastIndexed).toBe('string');
     // ISO string that round-trips back into the index window.
     const ms = Date.parse(out.lastIndexed as string);
@@ -92,7 +92,7 @@ describe('index completeness marker (index_state)', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-index-state-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-index-state-'));
   });
 
   afterEach(() => {
@@ -102,7 +102,7 @@ describe('index completeness marker (index_state)', () => {
   it('a clean full index stamps state=complete with reconciled counts', async () => {
     fs.writeFileSync(path.join(tempDir, 'a.ts'), 'export function f(): number { return 1; }\n');
     fs.writeFileSync(path.join(tempDir, 'b.ts'), 'import { f } from "./a";\nexport const y = f();\n');
-    const cg = CodeGraph.initSync(tempDir);
+    const cg = SleuthGraph.initSync(tempDir);
     const result = await cg.indexAll();
 
     // The scan's ground truth is reported and fully accounted for.
@@ -120,7 +120,7 @@ describe('index completeness marker (index_state)', () => {
 
   it('a run killed mid-index leaves state=indexing, and status --json surfaces it', async () => {
     fs.writeFileSync(path.join(tempDir, 'a.ts'), 'export const x = 1;\n');
-    const cg = CodeGraph.initSync(tempDir);
+    const cg = SleuthGraph.initSync(tempDir);
     await cg.indexAll();
     cg.close();
 
@@ -130,7 +130,7 @@ describe('index completeness marker (index_state)', () => {
     // (require, not import: vite tries to bundle a dynamic import specifier.)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { DatabaseSync } = require('node:sqlite');
-    const db = new DatabaseSync(path.join(tempDir, '.codegraph', 'codegraph.db'));
+    const db = new DatabaseSync(path.join(tempDir, '.sleuth', 'sleuth.db'));
     db.prepare(
       "INSERT INTO project_metadata (key, value, updated_at) VALUES ('index_state', 'indexing', 0) " +
         "ON CONFLICT(key) DO UPDATE SET value = 'indexing'"
@@ -140,7 +140,7 @@ describe('index completeness marker (index_state)', () => {
     const out = runStatusJson(tempDir);
     expect((out.index as Record<string, unknown>).state).toBe('indexing');
 
-    const reopened = await CodeGraph.open(tempDir);
+    const reopened = await SleuthGraph.open(tempDir);
     expect(reopened.getIndexState()).toBe('indexing');
     reopened.close();
   });

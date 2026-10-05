@@ -13,7 +13,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler, joinPartsWithNamedGaps } from '../src/mcp/tools';
 
 describe('joinPartsWithNamedGaps spare budget', () => {
@@ -49,11 +49,11 @@ describe('joinPartsWithNamedGaps spare budget', () => {
 describe('explore — gap names never displace a shrunk class', () => {
   const rel = 'src/workbench/services/extensions/common/protocol/implementation/rpcProtocolHost.ts';
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let response: string;
 
   beforeAll(async () => {
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-gap-budget-'));
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-gap-budget-'));
     fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"gap-budget","version":"1.0.0"}\n');
     fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true });
     // A class too big to ship whole but under half its file (so it is not
@@ -88,9 +88,9 @@ describe('explore — gap names never displace a shrunk class', () => {
       fs.writeFileSync(path.join(dir, 'src', `noise${i}.ts`), `export const n${i} = ${i};\n`);
     }
 
-    cg = CodeGraph.initSync(dir);
+    cg = SleuthGraph.initSync(dir);
     await cg.indexAll();
-    const result = await new ToolHandler(cg).execute('codegraph_explore', {
+    const result = await new ToolHandler(cg).execute('sleuth_explore', {
       query:
         'RPCProtocolHost receiveIncomingMessageNumber3 receiveIncomingMessageNumber40 receiveIncomingMessageNumber66 dispatchRequestNow',
     });

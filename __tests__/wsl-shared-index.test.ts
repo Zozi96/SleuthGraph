@@ -1,14 +1,14 @@
 /**
  * Windows + WSL sharing one index on a Windows drive (issue #995).
  *
- * When Windows-native CodeGraph and WSL CodeGraph both open the same
- * `.codegraph/codegraph.db` under `/mnt/<drive>/`, SQLite's locking and `-shm`
+ * When Windows-native SleuthGraph and WSL SleuthGraph both open the same
+ * `.sleuth/sleuth.db` under `/mnt/<drive>/`, SQLite's locking and `-shm`
  * shared memory don't hold across the 9p/DrvFs bridge and WSL fails with a bare
  * "disk I/O error". These tests pin both halves of the fix:
  *
- *  - a fresh WSL index there gets its own `.codegraph-wsl`, while an index
- *    already in `.codegraph` stays where it is (no silent re-index), and
- *  - such an error is rewritten into the `CODEGRAPH_DIR=.codegraph-wsl`
+ *  - a fresh WSL index there gets its own `.sleuth-wsl`, while an index
+ *    already in `.sleuth` stays where it is (no silent re-index), and
+ *  - such an error is rewritten into the `SLEUTH_DIR=.sleuth-wsl`
  *    instruction — only on WSL, only under `/mnt/<drive>`, only for the
  *    default-named index — which MCP answers SUCCESS-shaped (never `isError`,
  *    see AGENTS.md "Errors teach abandonment").
@@ -24,10 +24,10 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { DatabaseConnection } from '../src/db';
 import { WslSharedIndexError, isSqliteIoError, toWslSharedIndexError } from '../src/db/wsl-shared-index';
-import { codeGraphDirNameFor, findNearestCodeGraphRoot, getCodeGraphDir, isInitialized } from '../src/directory';
+import { sleuthGraphDirNameFor, findNearestSleuthGraphRoot, getSleuthGraphDir, isInitialized } from '../src/directory';
 import { __setWslWindowsDriveForTests, isWslWindowsDrive } from '../src/sync/watch-policy';
 import { ToolHandler } from '../src/mcp/tools';
 
@@ -39,7 +39,7 @@ const builtWatchPolicy = require('../dist/sync/watch-policy') as typeof import('
 /** Every path counts as a Windows drive seen from WSL. */
 const onWslDrive = (): boolean => true;
 
-const SHARED_DB = '/mnt/c/src/app/.codegraph/codegraph.db';
+const SHARED_DB = '/mnt/c/src/app/.sleuth/sleuth.db';
 
 /** A node:sqlite-shaped I/O error (SQLITE_IOERR_LOCK). */
 function ioError(): Error {
@@ -82,10 +82,10 @@ describe('toWslSharedIndexError', () => {
     const err = toWslSharedIndexError(original, SHARED_DB, { isWsl: true });
     expect(err).toBeInstanceOf(WslSharedIndexError);
     expect(err!.name).toBe('WslSharedIndexError');
-    expect(err!.message).toContain('disk I/O error on the CodeGraph index at /mnt/c/src/app/.codegraph\n');
+    expect(err!.message).toContain('disk I/O error on the SleuthGraph index at /mnt/c/src/app/.sleuth\n');
     expect(err!.message).toContain("Windows and WSL can't share one index on a Windows drive");
-    expect(err!.message).toContain('CODEGRAPH_DIR=.codegraph-wsl');
-    expect(err!.message).toContain('codegraph init');
+    expect(err!.message).toContain('SLEUTH_DIR=.sleuth-wsl');
+    expect(err!.message).toContain('sleuth init');
     // The original stays reachable, and its SQLite codes still read the same.
     expect(err!.cause).toBe(original);
     expect(err!.errcode).toBe(3850);
@@ -102,16 +102,16 @@ describe('toWslSharedIndexError', () => {
   });
 
   it('leaves the error alone on a native WSL path', () => {
-    expect(toWslSharedIndexError(ioError(), '/home/me/app/.codegraph/codegraph.db', { isWsl: true })).toBeNull();
+    expect(toWslSharedIndexError(ioError(), '/home/me/app/.sleuth/sleuth.db', { isWsl: true })).toBeNull();
   });
 
   it('does not treat /mnt/wsl (a Linux mount) as a Windows drive', () => {
-    expect(toWslSharedIndexError(ioError(), '/mnt/wsl/app/.codegraph/codegraph.db', { isWsl: true })).toBeNull();
+    expect(toWslSharedIndexError(ioError(), '/mnt/wsl/app/.sleuth/sleuth.db', { isWsl: true })).toBeNull();
   });
 
   it('leaves the error alone when WSL already has its own index directory', () => {
-    // The advice would be wrong: CODEGRAPH_DIR is already split.
-    expect(toWslSharedIndexError(ioError(), '/mnt/c/src/app/.codegraph-wsl/codegraph.db', { isWsl: true })).toBeNull();
+    // The advice would be wrong: SLEUTH_DIR is already split.
+    expect(toWslSharedIndexError(ioError(), '/mnt/c/src/app/.sleuth-wsl/sleuth.db', { isWsl: true })).toBeNull();
   });
 
   it('leaves other SQLite errors alone', () => {
@@ -130,86 +130,86 @@ describe('toWslSharedIndexError', () => {
 async function makeProject(dir: string): Promise<void> {
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'src', 'sample.ts'), 'export function parseToken() { return 1; }\n');
-  (await CodeGraph.init(dir, { index: true })).close();
+  (await SleuthGraph.init(dir, { index: true })).close();
 }
 
 describe('the data directory on a Windows drive under WSL', () => {
   let root: string;
-  const prevDir = process.env.CODEGRAPH_DIR;
+  const prevDir = process.env.SLEUTH_DIR;
 
   beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-wsl-dir-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-wsl-dir-'));
     fs.mkdirSync(path.join(root, 'src'));
     fs.writeFileSync(path.join(root, 'src', 'sample.ts'), 'export function parseToken() { return 1; }\n');
-    delete process.env.CODEGRAPH_DIR;
+    delete process.env.SLEUTH_DIR;
   });
 
   afterEach(() => {
     __setWslWindowsDriveForTests(null);
-    if (prevDir === undefined) delete process.env.CODEGRAPH_DIR;
-    else process.env.CODEGRAPH_DIR = prevDir;
+    if (prevDir === undefined) delete process.env.SLEUTH_DIR;
+    else process.env.SLEUTH_DIR = prevDir;
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it('gives a fresh project its own .codegraph-wsl', async () => {
+  it('gives a fresh project its own .sleuth-wsl', async () => {
     __setWslWindowsDriveForTests(onWslDrive);
-    expect(codeGraphDirNameFor(root)).toBe('.codegraph-wsl');
-    const cg = await CodeGraph.init(root, { index: true });
+    expect(sleuthGraphDirNameFor(root)).toBe('.sleuth-wsl');
+    const cg = await SleuthGraph.init(root, { index: true });
     cg.close();
-    expect(fs.existsSync(path.join(root, '.codegraph-wsl', 'codegraph.db'))).toBe(true);
-    expect(fs.existsSync(path.join(root, '.codegraph'))).toBe(false);
-    // It keeps itself out of git like .codegraph does.
-    expect(fs.readFileSync(path.join(root, '.codegraph-wsl', '.gitignore'), 'utf8')).toMatch(/^\*$/m);
-    expect(findNearestCodeGraphRoot(path.join(root, 'src'))).toBe(root);
+    expect(fs.existsSync(path.join(root, '.sleuth-wsl', 'sleuth.db'))).toBe(true);
+    expect(fs.existsSync(path.join(root, '.sleuth'))).toBe(false);
+    // It keeps itself out of git like .sleuth does.
+    expect(fs.readFileSync(path.join(root, '.sleuth-wsl', '.gitignore'), 'utf8')).toMatch(/^\*$/m);
+    expect(findNearestSleuthGraphRoot(path.join(root, 'src'))).toBe(root);
   });
 
-  it('keeps an index already built in .codegraph, without a re-index', async () => {
-    const built = await CodeGraph.init(root, { index: true });
+  it('keeps an index already built in .sleuth, without a re-index', async () => {
+    const built = await SleuthGraph.init(root, { index: true });
     const nodes = built.getStats().nodeCount;
     built.close();
     __setWslWindowsDriveForTests(onWslDrive);
-    expect(getCodeGraphDir(root)).toBe(path.join(root, '.codegraph'));
+    expect(getSleuthGraphDir(root)).toBe(path.join(root, '.sleuth'));
     expect(isInitialized(root)).toBe(true);
-    const reopened = CodeGraph.openSync(root);
+    const reopened = SleuthGraph.openSync(root);
     expect(reopened.getStats().nodeCount).toBe(nodes);
     reopened.close();
-    expect(fs.existsSync(path.join(root, '.codegraph-wsl'))).toBe(false);
+    expect(fs.existsSync(path.join(root, '.sleuth-wsl'))).toBe(false);
   });
 
-  it('stays on .codegraph-wsl after Windows builds a .codegraph beside it', async () => {
+  it('stays on .sleuth-wsl after Windows builds a .sleuth beside it', async () => {
     __setWslWindowsDriveForTests(onWslDrive);
-    (await CodeGraph.init(root, { index: true })).close();
-    // Windows-native CodeGraph indexes the same tree afterwards.
+    (await SleuthGraph.init(root, { index: true })).close();
+    // Windows-native SleuthGraph indexes the same tree afterwards.
     __setWslWindowsDriveForTests(() => false);
-    (await CodeGraph.init(root, { index: true })).close();
-    expect(fs.existsSync(path.join(root, '.codegraph', 'codegraph.db'))).toBe(true);
+    (await SleuthGraph.init(root, { index: true })).close();
+    expect(fs.existsSync(path.join(root, '.sleuth', 'sleuth.db'))).toBe(true);
     __setWslWindowsDriveForTests(onWslDrive);
-    expect(codeGraphDirNameFor(root)).toBe('.codegraph-wsl');
+    expect(sleuthGraphDirNameFor(root)).toBe('.sleuth-wsl');
   });
 
-  it('does not count a .codegraph with no database as an index', () => {
+  it('does not count a .sleuth with no database as an index', () => {
     __setWslWindowsDriveForTests(onWslDrive);
-    fs.mkdirSync(path.join(root, '.codegraph'));
-    expect(codeGraphDirNameFor(root)).toBe('.codegraph-wsl');
+    fs.mkdirSync(path.join(root, '.sleuth'));
+    expect(sleuthGraphDirNameFor(root)).toBe('.sleuth-wsl');
   });
 
-  it('lets CODEGRAPH_DIR decide', () => {
+  it('lets SLEUTH_DIR decide', () => {
     __setWslWindowsDriveForTests(onWslDrive);
-    process.env.CODEGRAPH_DIR = '.codegraph-custom';
-    expect(codeGraphDirNameFor(root)).toBe('.codegraph-custom');
-    process.env.CODEGRAPH_DIR = '.codegraph';
-    expect(codeGraphDirNameFor(root)).toBe('.codegraph');
+    process.env.SLEUTH_DIR = '.sleuth-custom';
+    expect(sleuthGraphDirNameFor(root)).toBe('.sleuth-custom');
+    process.env.SLEUTH_DIR = '.sleuth';
+    expect(sleuthGraphDirNameFor(root)).toBe('.sleuth');
   });
 
-  it('keeps .codegraph off a Windows drive', () => {
+  it('keeps .sleuth off a Windows drive', () => {
     __setWslWindowsDriveForTests(() => false);
-    expect(codeGraphDirNameFor(root)).toBe('.codegraph');
+    expect(sleuthGraphDirNameFor(root)).toBe('.sleuth');
   });
 
   // Real detection: only a Linux kernel can be WSL.
-  it.runIf(process.platform !== 'linux')('keeps .codegraph off Linux with real detection', () => {
+  it.runIf(process.platform !== 'linux')('keeps .sleuth off Linux with real detection', () => {
     expect(isWslWindowsDrive('/mnt/c/src/app')).toBe(false);
-    expect(codeGraphDirNameFor(root)).toBe('.codegraph');
+    expect(sleuthGraphDirNameFor(root)).toBe('.sleuth');
   });
 });
 
@@ -225,9 +225,9 @@ describe.runIf(process.platform !== 'win32')('a real SQLite I/O error on open', 
   let dbPath: string;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-wsl-shared-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-wsl-shared-'));
     await makeProject(root);
-    dbPath = path.join(root, '.codegraph', 'codegraph.db');
+    dbPath = path.join(root, '.sleuth', 'sleuth.db');
     breakSharedMemory(dbPath);
   });
 
@@ -249,7 +249,7 @@ describe.runIf(process.platform !== 'win32')('a real SQLite I/O error on open', 
     const cause = (thrown as WslSharedIndexError).cause as { errcode?: number; message?: string };
     expect(cause.errcode! & 0xff).toBe(10);
     expect(cause.message).toBe('disk I/O error');
-    expect((thrown as Error).message).toContain('CODEGRAPH_DIR=.codegraph-wsl');
+    expect((thrown as Error).message).toContain('SLEUTH_DIR=.sleuth-wsl');
   });
 
   it('stays the raw SQLite error everywhere else', () => {
@@ -280,26 +280,26 @@ describe.runIf(process.platform !== 'win32')('a real SQLite I/O error on open', 
 
     const expectGuidance = (result: { isError?: boolean; content: Array<{ text: string }> }) => {
       expect(result.isError).not.toBe(true);
-      expect(result.content[0]!.text).toContain('CODEGRAPH_DIR=.codegraph-wsl');
+      expect(result.content[0]!.text).toContain('SLEUTH_DIR=.sleuth-wsl');
       expect(result.content[0]!.text).toContain('If you are an AI agent');
-      expect(result.content[0]!.text).not.toContain('No CodeGraph project is loaded');
+      expect(result.content[0]!.text).not.toContain('No SleuthGraph project is loaded');
     };
 
     it('answers a default-project call with the fix, not "no project loaded"', async () => {
       engine = new BuiltMCPEngine({ watch: false });
       await engine.ensureInitialized(root);
-      expectGuidance(await engine.getToolHandler().execute('codegraph_explore', { query: 'parseToken' }));
+      expectGuidance(await engine.getToolHandler().execute('sleuth_explore', { query: 'parseToken' }));
     });
 
     it('keeps the fix on the per-call retry path', async () => {
       engine = new BuiltMCPEngine({ watch: false });
       engine.retryInitializeSync(root);
-      expectGuidance(await engine.getToolHandler().execute('codegraph_search', { query: 'parseToken' }));
+      expectGuidance(await engine.getToolHandler().execute('sleuth_search', { query: 'parseToken' }));
     });
 
     it('answers an explicit projectPath with the fix', async () => {
       engine = new BuiltMCPEngine({ watch: false });
-      expectGuidance(await engine.getToolHandler().execute('codegraph_search', { query: 'parseToken', projectPath: root }));
+      expectGuidance(await engine.getToolHandler().execute('sleuth_search', { query: 'parseToken', projectPath: root }));
     });
 
     it('serves normally once the index opens again', async () => {
@@ -307,7 +307,7 @@ describe.runIf(process.platform !== 'win32')('a real SQLite I/O error on open', 
       engine.retryInitializeSync(root);
       fs.rmSync(`${dbPath}-shm`, { force: true });
       engine.retryInitializeSync(root);
-      const result = await engine.getToolHandler().execute('codegraph_search', { query: 'parseToken' });
+      const result = await engine.getToolHandler().execute('sleuth_search', { query: 'parseToken' });
       expect(result.isError).not.toBe(true);
       expect(result.content[0]!.text).toContain('parseToken');
     });
@@ -316,12 +316,12 @@ describe.runIf(process.platform !== 'win32')('a real SQLite I/O error on open', 
 
 describe('ToolHandler answers the shared-index error success-shaped', () => {
   let root: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-wsl-tools-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-wsl-tools-'));
     await makeProject(root);
-    cg = CodeGraph.openSync(root);
+    cg = SleuthGraph.openSync(root);
   });
 
   afterEach(() => {
@@ -331,32 +331,32 @@ describe('ToolHandler answers the shared-index error success-shaped', () => {
 
   it('when a query fails mid-session', async () => {
     cg.searchNodes = () => { throw sharedIndexError(); };
-    const result = await new ToolHandler(cg).execute('codegraph_search', { query: 'parseToken' });
+    const result = await new ToolHandler(cg).execute('sleuth_search', { query: 'parseToken' });
     expect(result.isError).not.toBe(true);
-    expect(result.content[0]!.text).toContain('CODEGRAPH_DIR=.codegraph-wsl');
+    expect(result.content[0]!.text).toContain('SLEUTH_DIR=.sleuth-wsl');
   });
 
   it('on the worker dispatch path', async () => {
     cg.searchNodes = () => { throw sharedIndexError(); };
-    const result = await new ToolHandler(cg).executeReadTool('codegraph_search', { query: 'parseToken' });
+    const result = await new ToolHandler(cg).executeReadTool('sleuth_search', { query: 'parseToken' });
     expect(result.isError).not.toBe(true);
-    expect(result.content[0]!.text).toContain('CODEGRAPH_DIR=.codegraph-wsl');
+    expect(result.content[0]!.text).toContain('SLEUTH_DIR=.sleuth-wsl');
   });
 
   it('keeps a genuine malfunction an error', async () => {
     cg.searchNodes = () => { throw new Error('disk I/O error'); };
-    const result = await new ToolHandler(cg).execute('codegraph_search', { query: 'parseToken' });
+    const result = await new ToolHandler(cg).execute('sleuth_search', { query: 'parseToken' });
     expect(result.isError).toBe(true);
   });
 
   it('forgets a recorded open failure once a default project loads', async () => {
     const handler = new ToolHandler(null);
     handler.setDefaultOpenFailure(sharedIndexError());
-    expect((await handler.execute('codegraph_search', { query: 'parseToken' })).content[0]!.text)
-      .toContain('CODEGRAPH_DIR=.codegraph-wsl');
-    handler.setDefaultCodeGraph(cg);
-    const result = await handler.execute('codegraph_search', { query: 'parseToken' });
-    expect(result.content[0]!.text).not.toContain('CODEGRAPH_DIR');
+    expect((await handler.execute('sleuth_search', { query: 'parseToken' })).content[0]!.text)
+      .toContain('SLEUTH_DIR=.sleuth-wsl');
+    handler.setDefaultSleuthGraph(cg);
+    const result = await handler.execute('sleuth_search', { query: 'parseToken' });
+    expect(result.content[0]!.text).not.toContain('SLEUTH_DIR');
     expect(result.content[0]!.text).toContain('parseToken');
   });
 });

@@ -1,11 +1,11 @@
 /**
- * `codegraph context` CLI command (#1611).
+ * `sleuth context` CLI command (#1611).
  *
- * The usage header has advertised `codegraph context <task>  Build context for
+ * The usage header has advertised `sleuth context <task>  Build context for
  * a task` since the first release, and the ContextBuilder behind the public
  * `buildContext` API has always shipped in the package — but the command was
  * never registered with commander, so external integrations built against the
- * documented contract (`codegraph context --path <root> --format json
+ * documented contract (`sleuth context --path <root> --format json
  * --max-nodes 8 --no-code <task>`, e.g. Memorix) got `unknown command
  * 'context'` and fell back to their own heuristics.
  *
@@ -18,11 +18,11 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
-const ENV = { ...process.env, CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_WASM_RELAUNCHED: '1' };
+const ENV = { ...process.env, SLEUTH_NO_DAEMON: '1', SLEUTH_WASM_RELAUNCHED: '1' };
 
 function runContext(cwd: string, extraArgs: string[], taskParts: string[] = ['parseToken', 'expiry', 'handling']): string {
   return execFileSync(process.execPath, [BIN, 'context', ...extraArgs, '-p', cwd, ...taskParts], {
@@ -32,18 +32,18 @@ function runContext(cwd: string, extraArgs: string[], taskParts: string[] = ['pa
   });
 }
 
-describe('codegraph context — registered CLI command (#1611)', () => {
+describe('sleuth context — registered CLI command (#1611)', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-context-cmd-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-context-cmd-'));
     fs.mkdirSync(path.join(tempDir, 'src'));
     fs.writeFileSync(
       path.join(tempDir, 'src/auth.ts'),
       'export function parseToken(t: string){ return parseTokenExpiry(t) + t.trim().length; }\n' +
         'export function parseTokenExpiry(t: string){ return Date.parse(t); }\n',
     );
-    const cg = CodeGraph.initSync(tempDir);
+    const cg = SleuthGraph.initSync(tempDir);
     await cg.indexAll();
     cg.close();
   });
@@ -82,7 +82,7 @@ describe('codegraph context — registered CLI command (#1611)', () => {
   });
 
   it('fails cleanly on an uninitialized project', () => {
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-context-empty-'));
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-context-empty-'));
     try {
       execFileSync(process.execPath, [BIN, 'context', '-p', empty, 'some', 'task'], {
         encoding: 'utf-8',

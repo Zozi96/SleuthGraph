@@ -35,7 +35,7 @@ beforeAll(async () => {
 
 // Create a temporary directory for each test
 function createTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-pr19-test-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-pr19-test-'));
 }
 
 // Clean up temporary directory
@@ -219,7 +219,7 @@ export const fetchData = async () => {
 
 // =============================================================================
 // Graph Traversal 'both' Direction Fix
-// (requires better-sqlite3 - will use CodeGraph integration)
+// (requires better-sqlite3 - will use SleuthGraph integration)
 // =============================================================================
 
 describe('Graph Traversal Both Direction', () => {
@@ -234,7 +234,7 @@ describe('Graph Traversal Both Direction', () => {
   });
 
   it.skipIf(!HAS_SQLITE)('should traverse both directions from a node', async () => {
-    const CodeGraph = (await import('../src/index')).default;
+    const SleuthGraph = (await import('../src/index')).default;
 
     const srcDir = path.join(testDir, 'src');
     fs.mkdirSync(srcDir, { recursive: true });
@@ -252,7 +252,7 @@ export function funcB(): void { funcC(); }
 export function funcC(): void { console.log('c'); }
 `);
 
-    const cg = CodeGraph.initSync(testDir, {
+    const cg = SleuthGraph.initSync(testDir, {
       config: { include: ['src/**/*.ts'], exclude: [] },
     });
 
@@ -340,7 +340,7 @@ describe('Database Layer Improvements', () => {
     const { DatabaseConnection } = await import('../src/db');
     const { QueryBuilder } = await import('../src/db/queries');
 
-    const dbPath = path.join(testDir, 'codegraph.db');
+    const dbPath = path.join(testDir, 'sleuth.db');
     const db = DatabaseConnection.initialize(dbPath);
     const queries = new QueryBuilder(db.getDb());
 
@@ -396,7 +396,7 @@ describe('Database Layer Improvements', () => {
     const { DatabaseConnection } = await import('../src/db');
     const { QueryBuilder } = await import('../src/db/queries');
 
-    const dbPath = path.join(testDir, 'codegraph.db');
+    const dbPath = path.join(testDir, 'sleuth.db');
     const db = DatabaseConnection.initialize(dbPath);
     const queries = new QueryBuilder(db.getDb());
 
@@ -427,7 +427,7 @@ describe('Database Layer Improvements', () => {
   it.skipIf(!HAS_SQLITE)('should set performance pragmas on initialization', async () => {
     const { DatabaseConnection } = await import('../src/db');
 
-    const dbPath = path.join(testDir, 'codegraph.db');
+    const dbPath = path.join(testDir, 'sleuth.db');
     const db = DatabaseConnection.initialize(dbPath);
     const rawDb = db.getDb();
 
@@ -451,7 +451,7 @@ describe('Database Layer Improvements', () => {
     const { DatabaseConnection } = await import('../src/db');
     const { QueryBuilder } = await import('../src/db/queries');
 
-    const dbPath = path.join(testDir, 'codegraph.db');
+    const dbPath = path.join(testDir, 'sleuth.db');
     const db = DatabaseConnection.initialize(dbPath);
     const queries = new QueryBuilder(db.getDb());
 
@@ -478,7 +478,7 @@ describe('Resolution Warm Caches', () => {
   });
 
   it.skipIf(!HAS_SQLITE)('should warm caches and use them for lookups', async () => {
-    const CodeGraph = (await import('../src/index')).default;
+    const SleuthGraph = (await import('../src/index')).default;
 
     const srcDir = path.join(testDir, 'src');
     fs.mkdirSync(srcDir, { recursive: true });
@@ -488,7 +488,7 @@ export function myFunc(): void {}
 export function otherFunc(): void { myFunc(); }
 `);
 
-    const cg = CodeGraph.initSync(testDir, {
+    const cg = SleuthGraph.initSync(testDir, {
       config: { include: ['src/**/*.ts'], exclude: [] },
     });
 
@@ -563,7 +563,7 @@ describe('MCP Tool Improvements', () => {
   describe('findSymbol disambiguation', () => {
     it.skipIf(!HAS_SQLITE)('should prefer exact name matches', async () => {
       const { ToolHandler } = await import('../src/mcp/tools');
-      const CodeGraph = (await import('../src/index')).default;
+      const SleuthGraph = (await import('../src/index')).default;
 
       const tmpDir = createTempDir();
       const srcDir = path.join(tmpDir, 'src');
@@ -574,7 +574,7 @@ export function getValue(): number { return 1; }
 export function getValueFromCache(): number { return 2; }
 `);
 
-      const cg = CodeGraph.initSync(tmpDir, {
+      const cg = SleuthGraph.initSync(tmpDir, {
         config: { include: ['src/**/*.ts'], exclude: [] },
       });
       await cg.indexAll();
@@ -594,7 +594,7 @@ export function getValueFromCache(): number { return 2; }
 
     it.skipIf(!HAS_SQLITE)('should return all definitions when multiple symbols share the same name', async () => {
       const { ToolHandler } = await import('../src/mcp/tools');
-      const CodeGraph = (await import('../src/index')).default;
+      const SleuthGraph = (await import('../src/index')).default;
 
       const tmpDir = createTempDir();
       const srcDir = path.join(tmpDir, 'src');
@@ -608,7 +608,7 @@ export function handle(): void {}
 export function handle(): void {}
 `);
 
-      const cg = CodeGraph.initSync(tmpDir, {
+      const cg = SleuthGraph.initSync(tmpDir, {
         config: { include: ['src/**/*.ts'], exclude: [] },
       });
       await cg.indexAll();
@@ -617,7 +617,7 @@ export function handle(): void {}
       const findSymbolMatches = (handler as any).findSymbolMatches.bind(handler);
 
       // Both same-named definitions are returned (no longer one + a dead-end
-      // note) so codegraph_node can hand back every overload and the agent never
+      // note) so sleuth_node can hand back every overload and the agent never
       // Reads to find the one it wanted.
       const matches = findSymbolMatches(cg, 'handle');
       expect(matches.length).toBe(2);
@@ -630,14 +630,14 @@ export function handle(): void {}
 
     it.skipIf(!HAS_SQLITE)('should return no matches when symbol is not found', async () => {
       const { ToolHandler } = await import('../src/mcp/tools');
-      const CodeGraph = (await import('../src/index')).default;
+      const SleuthGraph = (await import('../src/index')).default;
 
       const tmpDir = createTempDir();
       const srcDir = path.join(tmpDir, 'src');
       fs.mkdirSync(srcDir, { recursive: true });
       fs.writeFileSync(path.join(srcDir, 'a.ts'), `export function foo(): void {}`);
 
-      const cg = CodeGraph.initSync(tmpDir, {
+      const cg = SleuthGraph.initSync(tmpDir, {
         config: { include: ['src/**/*.ts'], exclude: [] },
       });
       await cg.indexAll();
@@ -670,18 +670,18 @@ describe('CLI uninit', () => {
     cleanupTempDir(testDir);
   });
 
-  it.skipIf(!HAS_SQLITE)('should uninitialize a project via CodeGraph.uninitialize()', async () => {
-    const CodeGraph = (await import('../src/index')).default;
+  it.skipIf(!HAS_SQLITE)('should uninitialize a project via SleuthGraph.uninitialize()', async () => {
+    const SleuthGraph = (await import('../src/index')).default;
 
     // Initialize
-    const cg = CodeGraph.initSync(testDir);
-    expect(CodeGraph.isInitialized(testDir)).toBe(true);
+    const cg = SleuthGraph.initSync(testDir);
+    expect(SleuthGraph.isInitialized(testDir)).toBe(true);
 
     // Uninitialize
     cg.uninitialize();
 
-    // .codegraph directory should be removed
-    expect(CodeGraph.isInitialized(testDir)).toBe(false);
+    // .sleuth directory should be removed
+    expect(SleuthGraph.isInitialized(testDir)).toBe(false);
   });
 });
 

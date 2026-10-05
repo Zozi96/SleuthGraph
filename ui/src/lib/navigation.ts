@@ -118,7 +118,7 @@ function query(params: URLSearchParams): string {
   return text ? `?${text}` : '';
 }
 
-/** The `codegraph ui` address space: the hash is the route. */
+/** The `sleuth ui` address space: the hash is the route. */
 export const hashNavigation: NavigationDriver = {
   symbolHref(id, opts = {}) {
     const params = new URLSearchParams();

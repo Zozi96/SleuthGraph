@@ -210,7 +210,7 @@
    * the file no longer has those lines. So in this mode the margins go away and
    * the source stays: current bytes are correct by construction, and a call arc
    * drawn between two lines that have moved is the one thing here that could be
-   * confidently wrong. Parity with `codegraph_node`, which serves a drifted
+   * confidently wrong. Parity with `sleuth_node`, which serves a drifted
    * file whole and current rather than slicing it (issue #1474).
    */
   let driftMode = $derived(payload?.drift === true);

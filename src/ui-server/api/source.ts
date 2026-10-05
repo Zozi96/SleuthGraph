@@ -16,13 +16,13 @@
  * which would be served under the requested name and look perfectly plausible.
  * So the bytes are hashed and compared against `files.content_hash`, and on a
  * mismatch the slice is omitted with `drift: true` — the same call
- * `codegraph_node` makes when it says "changed on disk after the last index
+ * `sleuth_node` makes when it says "changed on disk after the last index
  * sync".
  *
  * A caller that has ALREADY decided the index's numbering is off — a viewer
  * about to draw a drift banner — asks with `ondrift=current` and gets the
  * file's CURRENT lines instead of nothing. That is the other half of
- * `codegraph_node`'s behaviour (issue #1474): a drifted file is served whole
+ * `sleuth_node`'s behaviour (issue #1474): a drifted file is served whole
  * and current rather than omitted, because current bytes are correct by
  * construction. `showing` says which of the two came back, on every response,
  * so nothing has to infer it from the presence of `lines`.
@@ -37,7 +37,7 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { FileRecord } from '../../types';
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import { resolveProjectFile } from '../security';
 import { indexedHashInput } from '../../file-limits';
 import { highlightLines, type HighlightResult } from '../highlight';
@@ -68,7 +68,7 @@ export const MAX_SOURCE_LINES = 4000;
  * itself handed us).
  */
 export function findIndexedFile(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   requested: string
 ): { record: FileRecord; storedPath: string } | null {
   const posix = toRequestPath(requested);
@@ -109,7 +109,7 @@ export function toRequestPath(requested: string): string {
  * @throws {ApiError} `not-found` when it is fine but not in the index.
  */
 export function resolveRequestedFile(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   requested: string
 ): { record: FileRecord; storedPath: string; absolute: string } {
@@ -124,7 +124,7 @@ export function resolveRequestedFile(
 
 export function notIndexedError(file: string): ApiError {
   return notFound(
-    `${file} is not in this CodeGraph index.`,
+    `${file} is not in this SleuthGraph index.`,
     'The viewer only reads files the index knows about. If the file is new, ' +
       'it appears after the next sync; if it is excluded (gitignored, generated, ' +
       'or too large to parse), it will not appear at all.'
@@ -168,7 +168,7 @@ export function splitLines(content: string): string[] {
  * answer to it than the bytes we indexed.
  */
 export function readIndexedFileText(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   requested: string,
   maxBytes: number
@@ -338,7 +338,7 @@ export function parseOnDrift(query: URLSearchParams): OnDrift {
 }
 
 export async function buildSource(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   query: URLSearchParams
 ): Promise<SourceResult> {

@@ -12,7 +12,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { laravelResolver } from '../src/resolution/frameworks/laravel';
 
 const extractNames = (src: string, file = 'routes/web.php') =>
@@ -84,7 +84,7 @@ describe('Laravel route paths across files (the mount a routes file is served un
   });
 
   function project(files: Record<string, string>): string {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-laravel-paths-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-laravel-paths-'));
     roots.push(root);
     const all: Record<string, string> = {
       artisan: '#!/usr/bin/env php\n<?php\n',
@@ -100,7 +100,7 @@ describe('Laravel route paths across files (the mount a routes file is served un
   }
 
   async function routeNames(root: string): Promise<string[]> {
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       return cg.getNodesByKind('route').map((n) => n.name).sort();
     } finally {
@@ -208,7 +208,7 @@ Route::prefix('b')->group(base_path('routes/shared.php'));
       'routes/admin.php': "<?php\nRoute::get('users', [PageController::class, 'list']);\n",
       [provider]: "<?php\nRoute::prefix('admin')->group(base_path('routes/admin.php'));\n",
     });
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const names = () => cg.getNodesByKind('route').map((n) => n.name);
       expect(names()).toEqual(['GET /admin/users']);
@@ -229,7 +229,7 @@ Route::prefix('b')->group(base_path('routes/shared.php'));
       'resources/js/pages.js': "export async function loadPages() {\n  return await fetch('/api/pages');\n}\n",
       'package.json': JSON.stringify({ dependencies: { vue: '^3.0.0' } }),
     });
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const route = cg.getNodesByKind('route').find((n) => n.name === 'GET /api/pages');
       expect(route).toBeDefined();

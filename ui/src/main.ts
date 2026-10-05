@@ -11,6 +11,6 @@ import { mount } from 'svelte';
 import App from './App.svelte';
 
 const target = document.getElementById('app');
-if (!target) throw new Error('codegraph ui: #app host element is missing from index.html');
+if (!target) throw new Error('sleuth ui: #app host element is missing from index.html');
 
 export default mount(App, { target });

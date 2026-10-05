@@ -23,16 +23,16 @@
  * consistent in both directions.
  *
  * Detection:
- *   - `CODEGRAPH_ASCII=1`  -> ASCII (escape hatch for any terminal)
- *   - `CODEGRAPH_UNICODE=1` -> Unicode (opt-in on any terminal)
+ *   - `SLEUTH_ASCII=1`  -> ASCII (escape hatch for any terminal)
+ *   - `SLEUTH_UNICODE=1` -> Unicode (opt-in on any terminal)
  *   - Windows              -> mirror is-unicode-supported (see above)
  *   - Linux kernel console (`TERM=linux`) -> ASCII
  *   - Everything else      -> Unicode
  */
 
 export function supportsUnicode(): boolean {
-  if (process.env.CODEGRAPH_ASCII === '1') return false;
-  if (process.env.CODEGRAPH_UNICODE === '1') return true;
+  if (process.env.SLEUTH_ASCII === '1') return false;
+  if (process.env.SLEUTH_UNICODE === '1') return true;
   if (process.platform === 'win32') {
     const env = process.env;
     return Boolean(
@@ -117,13 +117,13 @@ export function getGlyphs(): Glyphs {
  * CODEPAGE on Windows; OEM codepages (CP437, CP936, ...) mojibake UTF-8
  * there even inside Windows Terminal, whose ConPTY still decodes app output
  * with the session codepage (#168). So the raw path stays ASCII on every
- * Windows terminal unless the user opts in via CODEGRAPH_UNICODE=1 —
+ * Windows terminal unless the user opts in via SLEUTH_UNICODE=1 —
  * independent of `supportsUnicode()`, which governs the codepage-immune
  * main-thread writes (`process.stdout` uses the wide-char console API).
  */
 export function supportsUnicodeRawWrites(): boolean {
-  if (process.env.CODEGRAPH_ASCII === '1') return false;
-  if (process.env.CODEGRAPH_UNICODE === '1') return true;
+  if (process.env.SLEUTH_ASCII === '1') return false;
+  if (process.env.SLEUTH_UNICODE === '1') return true;
   if (process.platform === 'win32') return false;
   return process.env.TERM !== 'linux';
 }

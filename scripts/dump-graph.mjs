@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Dump a .codegraph/codegraph.db graph by NATURAL KEYS (no rowids, no
+ * Dump a .sleuth/sleuth.db graph by NATURAL KEYS (no rowids, no
  * timestamps), sorted — two dumps diff clean iff the graphs are semantically
  * identical. The byte-identical gate used by every perf/kernel PR:
  *
@@ -26,7 +26,7 @@ if (!arg) {
 }
 let dbPath = arg;
 if (fs.statSync(arg).isDirectory()) {
-  dbPath = path.join(arg, '.codegraph', 'codegraph.db');
+  dbPath = path.join(arg, '.sleuth', 'sleuth.db');
 }
 const db = new DatabaseSync(dbPath, { readOnly: true });
 

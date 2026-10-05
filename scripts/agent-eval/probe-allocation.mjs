@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deterministic per-file budget-share probe for `codegraph_explore` (CG-6).
+ * Deterministic per-file budget-share probe for `sleuth_explore` (CG-6).
  *
  * `probe-explore.mjs` prints what explore returned. This prints how the response
  * was DIVIDED — which files won the byte envelope and in what proportion — and
@@ -9,7 +9,7 @@
  * the exact use-case must concentrate the budget on the code that answers it, not
  * on a generated CRUD layer (or an eval script) that merely name-collides.
  *
- * The numbers come from the CG-4 diagnostic (`CODEGRAPH_EXPLORE_DEBUG`), read back
+ * The numbers come from the CG-4 diagnostic (`SLEUTH_EXPLORE_DEBUG`), read back
  * from a JSONL sidecar, so the probe measures the shipping allocator rather than
  * re-deriving shares from the markdown.
  *
@@ -60,13 +60,13 @@ async function loadDist() {
   const idx = await import(pathToFileURL(distIndex).href);
   const tools = await import(pathToFileURL(join(REPO_ROOT, 'dist/mcp/tools.js')).href);
   // esModuleInterop: dynamic import of CJS yields { default: module.exports, ...named }
-  const CodeGraph = idx.default?.default ?? idx.default ?? idx.CodeGraph;
+  const SleuthGraph = idx.default?.default ?? idx.default ?? idx.SleuthGraph;
   const ToolHandler = tools.ToolHandler ?? tools.default?.ToolHandler;
-  if (typeof CodeGraph?.openSync !== 'function' || typeof ToolHandler !== 'function') {
-    console.error('could not resolve CodeGraph/ToolHandler from dist/');
+  if (typeof SleuthGraph?.openSync !== 'function' || typeof ToolHandler !== 'function') {
+    console.error('could not resolve SleuthGraph/ToolHandler from dist/');
     process.exit(2);
   }
-  return { CodeGraph, ToolHandler };
+  return { SleuthGraph, ToolHandler };
 }
 
 /** `internal/gen/**` → /^internal\/gen\/.*$/ . Supports `**`, `*` and literals. */
@@ -94,32 +94,32 @@ const groupOf = (path, groups) => {
  * Run one explore call with the diagnostic pointed at a sidecar, and return the
  * report plus the response text.
  */
-async function runExplore({ CodeGraph, ToolHandler }, repoPath, query, sidecar) {
-  const cg = CodeGraph.openSync(repoPath);
-  const prior = process.env.CODEGRAPH_EXPLORE_DEBUG;
-  process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+async function runExplore({ SleuthGraph, ToolHandler }, repoPath, query, sidecar) {
+  const cg = SleuthGraph.openSync(repoPath);
+  const prior = process.env.SLEUTH_EXPLORE_DEBUG;
+  process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
   try {
-    const res = await new ToolHandler(cg).execute('codegraph_explore', { query });
+    const res = await new ToolHandler(cg).execute('sleuth_explore', { query });
     const text = res.content?.[0]?.text ?? '';
     const lines = readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
     if (lines.length === 0) throw new Error('diagnostic produced no report');
     return { report: JSON.parse(lines[lines.length - 1]), text };
   } finally {
-    if (prior === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-    else process.env.CODEGRAPH_EXPLORE_DEBUG = prior;
+    if (prior === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+    else process.env.SLEUTH_EXPLORE_DEBUG = prior;
     try { cg.close?.(); } catch {}
   }
 }
 
 /** Copy a fixture tree to a fresh temp dir and index it — hermetic per run. */
-async function materializeFixture({ CodeGraph }, fixturePath) {
+async function materializeFixture({ SleuthGraph }, fixturePath) {
   const src = resolve(REPO_ROOT, fixturePath);
   if (!existsSync(src)) throw new Error(`fixture tree not found: ${src}`);
   const dir = mkdtempSync(join(tmpdir(), 'cg-alloc-'));
   cpSync(src, dir, { recursive: true });
   // A stray index inside the checked-in tree would be copied in and reused.
-  rmSync(join(dir, '.codegraph'), { recursive: true, force: true });
-  const cg = CodeGraph.initSync(dir);
+  rmSync(join(dir, '.sleuth'), { recursive: true, force: true });
+  const cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
   cg.close?.();
   return dir;
@@ -280,8 +280,8 @@ async function main() {
       temps.push(repoPath);
     } else {
       repoPath = resolve(REPO_ROOT, fixture.path);
-      if (!existsSync(join(repoPath, '.codegraph'))) {
-        console.error(`${fixture.id}: ${repoPath} has no .codegraph index — run \`codegraph init\` there first.`);
+      if (!existsSync(join(repoPath, '.sleuth'))) {
+        console.error(`${fixture.id}: ${repoPath} has no .sleuth index — run \`sleuth init\` there first.`);
         process.exit(2);
       }
     }

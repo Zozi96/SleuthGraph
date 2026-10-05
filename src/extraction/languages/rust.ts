@@ -35,7 +35,7 @@ function extractRustReturnType(node: SyntaxNode, source: string): string | undef
 /**
  * The implementing type's simple name for an `impl` block, read from the
  * grammar's `type` field (#1588). Mirrored byte-for-byte by the native
- * kernel's `impl_type_name` (codegraph-kernel/src/rustlang.rs) — change both.
+ * kernel's `impl_type_name` (sleuth-kernel/src/rustlang.rs) — change both.
  *
  * `impl<T> Source for BufSource<T>`, `impl<'a> Iterator for Parents<'a>`,
  * `impl Trait for &Foo`, `impl Trait for m::Foo` all yield the implementing

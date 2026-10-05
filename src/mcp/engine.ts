@@ -1,6 +1,6 @@
 /**
  * MCP shared engine — the heavyweight, *shared* state for an MCP server:
- * the project's {@link CodeGraph} instance, file watcher, and the
+ * the project's {@link SleuthGraph} instance, file watcher, and the
  * {@link ToolHandler} cache for cross-project queries.
  *
  * One engine, many sessions:
@@ -12,7 +12,7 @@
 
 import * as os from 'os';
 import * as path from 'path';
-import type CodeGraph from '../index';
+import type SleuthGraph from '../index';
 import { resolveServerRoot } from '../directory';
 import { ToolHandler } from './tools';
 import { WslSharedIndexError } from '../db/wsl-shared-index';
@@ -21,13 +21,13 @@ import { QueryPool, resolvePoolSize } from './query-pool';
 import { endFreshnessMeasurements } from './index-freshness';
 import { acquireProject, ProjectLease } from './project-lifecycle';
 
-// Lazy-load the heavy CodeGraph chain (sqlite + query/graph/context layers) OFF
+// Lazy-load the heavy SleuthGraph chain (sqlite + query/graph/context layers) OFF
 // the MCP startup path. It's only needed once a tool actually opens a project —
 // not to answer initialize/tools-list — so deferring it lets `serve --mcp` (and
 // the daemon it spawns) bind + register tools in ~Node-startup time instead of
 // ~800ms, closing the "No such tool available" cold-start race that made headless
 // agents flounder. require() is sync + cached on the CommonJS build.
-const loadCodeGraph = (): typeof import('../index').default =>
+const loadSleuthGraph = (): typeof import('../index').default =>
   (require('../index') as typeof import('../index')).default;
 
 /** How often the per-tool-call retry may re-run the sub-project down-scan. */
@@ -45,11 +45,11 @@ export interface MCPEngineOptions {
   /**
    * Whether to off-load read-tool dispatch to a worker-thread pool. Both daemon
    * and direct sessions can issue concurrent calls on one event loop.
-   * `CODEGRAPH_QUERY_POOL_SIZE=0` disables it in either mode.
+   * `SLEUTH_QUERY_POOL_SIZE=0` disables it in either mode.
    */
   queryPool?: boolean;
   /**
-   * Worker cap when `CODEGRAPH_QUERY_POOL_SIZE` is unset. A direct (single-client)
+   * Worker cap when `SLEUTH_QUERY_POOL_SIZE` is unset. A direct (single-client)
    * session sets a small cap so every session doesn't hold one worker per core;
    * the shared daemon leaves it unset and scales with the machine.
    */
@@ -69,10 +69,10 @@ export interface MCPEngineOptions {
  * connect never double-open the SQLite file.
  */
 export class MCPEngine {
-  private cg: CodeGraph | null = null;
+  private cg: SleuthGraph | null = null;
   private toolHandler: ToolHandler;
   // Project root we resolved to. Null until `ensureInitialized` succeeds
-  // (or null forever if no .codegraph/ ever turned up — that's a valid
+  // (or null forever if no .sleuth/ ever turned up — that's a valid
   // state for the engine, since cross-project queries still work).
   private projectPath: string | null = null;
   // Set on first `ensureInitialized` so subsequent sessions don't redo work.
@@ -84,7 +84,7 @@ export class MCPEngine {
   /** Set when this engine holds writer.pid (#1740). */
   private writerLockRoot: string | null = null;
   // Retained synchronization ownership for each cached explicit project.
-  private explicitProjects = new Map<CodeGraph, ProjectLease>();
+  private explicitProjects = new Map<SleuthGraph, ProjectLease>();
   private defaultLease: ProjectLease | null = null;
   private opts: Required<Omit<MCPEngineOptions, 'writerLockRoot' | 'queryPoolDefaultMax'>> & Pick<MCPEngineOptions, 'queryPoolDefaultMax'>;
   private closed = false;
@@ -101,7 +101,7 @@ export class MCPEngine {
         // Explicit projects and read-only fallbacks also hold SQLite handles.
         // Fence them before opening, just like the default daemon project.
         assertNoRebuild(root);
-        if (this.opts.readOnly) return loadCodeGraph().openSync(root, { readOnly: true });
+        if (this.opts.readOnly) return loadSleuthGraph().openSync(root, { readOnly: true });
         if (!this.opts.watch) return open();
         const lease = acquireProject(root, open, this.watchOptions());
         this.explicitProjects.set(lease.cg, lease);
@@ -111,7 +111,7 @@ export class MCPEngine {
       release: (cg) => this.releaseExplicitProject(cg),
     });
     // A tool call found the default project's database replaced on disk (a
-    // `codegraph index` rebuild) and reopened it (#1902). Reconcile the new
+    // `sleuth index` rebuild) and reopened it (#1902). Reconcile the new
     // file with the usual catch-up — `sync()` serializes on the index mutex,
     // so it never overlaps an in-flight watcher sync. Only when this engine is
     // watching, i.e. it is the project's writer: a read-only engine (writer
@@ -131,28 +131,28 @@ export class MCPEngine {
 
   /**
    * Start the worker-thread query pool after resolving the default project
-   * (which may be absent). Honors `CODEGRAPH_QUERY_POOL_SIZE`; best-effort:
+   * (which may be absent). Honors `SLEUTH_QUERY_POOL_SIZE`; best-effort:
    * if workers can't spawn on this platform the ToolHandler keeps serving reads
    * in-process, so the pool can only help, never break, tool calls.
    */
   private maybeStartPool(root: string | null): void {
     if (this.opts.readOnly || !this.opts.queryPool || this.queryPool || this.closed) return;
-    const envSize = process.env.CODEGRAPH_QUERY_POOL_SIZE;
+    const envSize = process.env.SLEUTH_QUERY_POOL_SIZE;
     let size = resolvePoolSize(envSize, os.cpus().length);
     if ((envSize === undefined || envSize === '') && this.opts.queryPoolDefaultMax !== undefined) {
       size = Math.min(size, this.opts.queryPoolDefaultMax);
     }
     if (size <= 0) {
-      process.stderr.write('[CodeGraph MCP] Query pool disabled (CODEGRAPH_QUERY_POOL_SIZE=0); serving reads in-process.\n');
+      process.stderr.write('[SleuthGraph MCP] Query pool disabled (SLEUTH_QUERY_POOL_SIZE=0); serving reads in-process.\n');
       return;
     }
     try {
       this.queryPool = new QueryPool({ root, size });
       this.toolHandler.setQueryPool(this.queryPool);
-      process.stderr.write(`[CodeGraph MCP] Query pool: up to ${size} worker thread(s) for concurrent reads.\n`);
+      process.stderr.write(`[SleuthGraph MCP] Query pool: up to ${size} worker thread(s) for concurrent reads.\n`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`[CodeGraph MCP] Query pool unavailable (${msg}); serving reads in-process.\n`);
+      process.stderr.write(`[SleuthGraph MCP] Query pool unavailable (${msg}); serving reads in-process.\n`);
       this.queryPool = null;
     }
   }
@@ -183,13 +183,13 @@ export class MCPEngine {
     return this.toolHandler;
   }
 
-  /** Whether the default project's CodeGraph is open. */
-  hasDefaultCodeGraph(): boolean {
-    return this.toolHandler.hasDefaultCodeGraph();
+  /** Whether the default project's SleuthGraph is open. */
+  hasDefaultSleuthGraph(): boolean {
+    return this.toolHandler.hasDefaultSleuthGraph();
   }
 
   /**
-   * Walk up from `searchFrom` to find the nearest `.codegraph/` and open it.
+   * Walk up from `searchFrom` to find the nearest `.sleuth/` and open it.
    * Idempotent: concurrent callers share one in-flight init; subsequent
    * callers after success are no-ops.
    *
@@ -199,7 +199,7 @@ export class MCPEngine {
    */
   async ensureInitialized(searchFrom: string): Promise<void> {
     if (this.closed) return;
-    if (this.toolHandler.hasDefaultCodeGraph()) return;
+    if (this.toolHandler.hasDefaultSleuthGraph()) return;
     if (this.initPromise) {
       try { await this.initPromise; } catch { /* let caller retry */ }
       return;
@@ -223,11 +223,11 @@ export class MCPEngine {
    */
   retryInitializeSync(searchFrom: string): void {
     if (this.closed) return;
-    if (this.toolHandler.hasDefaultCodeGraph()) return;
+    if (this.toolHandler.hasDefaultSleuthGraph()) return;
     this.toolHandler.setDefaultProjectHint(searchFrom);
     // Same resolution `doInitialize` used: up-walk, then the bounded workspace
     // down-scan (#1606) — this retry is exactly the path that picks up a
-    // project (root or child) `codegraph init`'d after the server started. The
+    // project (root or child) `sleuth init`'d after the server started. The
     // down-scan is throttled so the persistent no-default state doesn't pay a
     // directory walk on every tool call; the up-walk always runs.
     const scanDue = Date.now() - this.lastRetrySubScanAt >= RETRY_SUBSCAN_TTL_MS;
@@ -246,9 +246,9 @@ export class MCPEngine {
         this.cg = null;
       }
       assertNoRebuild(resolvedRoot);
-      this.cg = loadCodeGraph().openSync(resolvedRoot, { readOnly: this.opts.readOnly });
+      this.cg = loadSleuthGraph().openSync(resolvedRoot, { readOnly: this.opts.readOnly });
       this.projectPath = resolvedRoot;
-      this.toolHandler.setDefaultCodeGraph(this.cg);
+      this.toolHandler.setDefaultSleuthGraph(this.cg);
       this.startWatching();
       this.catchUpSync();
       this.maybeStartPool(resolvedRoot);
@@ -273,7 +273,7 @@ export class MCPEngine {
     // Detach + terminate the worker pool first so no tool call routes to a
     // worker mid-teardown; outstanding pool calls resolve with graceful guidance.
     // Stopping waits for the workers to end — the pool's, and any
-    // `codegraph_status` change count still measuring: the daemon exits right
+    // `sleuth_status` change count still measuring: the daemon exits right
     // after, and exiting while a worker is still starting up can crash the
     // process.
     this.toolHandler.setQueryPool(null);
@@ -299,7 +299,7 @@ export class MCPEngine {
     return this.stopPromise;
   }
 
-  private releaseExplicitProject(cg: CodeGraph): void | Promise<void> {
+  private releaseExplicitProject(cg: SleuthGraph): void | Promise<void> {
     const lease = this.explicitProjects.get(cg);
     this.explicitProjects.delete(cg);
     if (lease) return lease.release();
@@ -307,35 +307,35 @@ export class MCPEngine {
   }
 
   /** Watch options shared by the default project and explicit projects. */
-  private watchOptions(): Parameters<CodeGraph['watch']>[0] {
+  private watchOptions(): Parameters<SleuthGraph['watch']>[0] {
     // Optional override for the debounce window via env var (issue #403).
     // Useful for workspaces with bursty writes (formatter-on-save chains,
     // large generated outputs) where the 2s default fires too often. Clamped
     // to [100ms, 60s]; out-of-range / non-numeric values fall back to the
     // FileWatcher default. We log the active value so it's discoverable.
-    const debounceMs = parseDebounceEnv(process.env.CODEGRAPH_WATCH_DEBOUNCE_MS);
+    const debounceMs = parseDebounceEnv(process.env.SLEUTH_WATCH_DEBOUNCE_MS);
     if (debounceMs !== undefined) {
-      process.stderr.write(`[CodeGraph MCP] File watcher debounce: ${debounceMs}ms (CODEGRAPH_WATCH_DEBOUNCE_MS)\n`);
+      process.stderr.write(`[SleuthGraph MCP] File watcher debounce: ${debounceMs}ms (SLEUTH_WATCH_DEBOUNCE_MS)\n`);
     }
     return {
       debounceMs,
       onSyncComplete: (result) => {
         if (result.filesChanged > 0) {
           process.stderr.write(
-            `[CodeGraph MCP] Auto-synced ${result.filesChanged} file(s) in ${result.durationMs}ms\n`
+            `[SleuthGraph MCP] Auto-synced ${result.filesChanged} file(s) in ${result.durationMs}ms\n`
           );
         }
       },
       onSyncError: (err) => {
-        process.stderr.write(`[CodeGraph MCP] Auto-sync error: ${err.message}\n`);
+        process.stderr.write(`[SleuthGraph MCP] Auto-sync error: ${err.message}\n`);
       },
       onDegraded: (reason) => {
         // Live watching gave up permanently (watch-resource exhaustion or a
         // write lock held past the retry budget). Say so loudly and ONCE — the
         // graph will no longer auto-update, so a long-running MCP session must
         // not keep assuming it's fresh. The reason already names the remedy
-        // (`codegraph sync` / git sync hooks).
-        process.stderr.write(`[CodeGraph MCP] File watcher degraded — ${reason}\n`);
+        // (`sleuth sync` / git sync hooks).
+        process.stderr.write(`[SleuthGraph MCP] File watcher degraded — ${reason}\n`);
       },
     };
   }
@@ -347,8 +347,8 @@ export class MCPEngine {
     // down-scan may adopt a SINGLE indexed sub-project as the default (#1606 —
     // the workspace-container shape where only children are indexed). Zero or
     // several candidates → no default project, but SAY so (#1607): the silent
-    // variant of this state read as "CodeGraph is broken" and was diagnosable
-    // only by knowing to look for a missing ~/.codegraph/daemons/ entry.
+    // variant of this state read as "SleuthGraph is broken" and was diagnosable
+    // only by knowing to look for a missing ~/.sleuth/daemons/ entry.
     const res = resolveServerRoot(searchFrom);
     const resolvedRoot = res.root;
     if (!resolvedRoot) {
@@ -358,12 +358,12 @@ export class MCPEngine {
       this.projectPath = searchFrom;
       this.toolHandler.setKnownSubprojects(res.candidates, searchFrom);
       process.stderr.write(
-        `[CodeGraph MCP] No .codegraph/ at or above ${searchFrom}: no default project, live sync disabled until an indexed project is accessed via projectPath.\n`
+        `[SleuthGraph MCP] No .sleuth/ at or above ${searchFrom}: no default project, live sync disabled until an indexed project is accessed via projectPath.\n`
       );
       if (res.candidates.length > 0) {
         const rels = res.candidates.map((c) => path.relative(searchFrom, c) || '.');
         process.stderr.write(
-          `[CodeGraph MCP] Indexed sub-projects found: ${rels.join(', ')}. Pass \`projectPath\` per call, or launch with --path.\n`
+          `[SleuthGraph MCP] Indexed sub-projects found: ${rels.join(', ')}. Pass \`projectPath\` per call, or launch with --path.\n`
         );
       }
       this.maybeStartPool(null);
@@ -374,16 +374,16 @@ export class MCPEngine {
     this.projectPath = resolvedRoot;
     try {
       assertNoRebuild(resolvedRoot);
-      const opened = await loadCodeGraph().open(resolvedRoot, { readOnly: this.opts.readOnly });
+      const opened = await loadSleuthGraph().open(resolvedRoot, { readOnly: this.opts.readOnly });
       if (this.closed) { opened.close(); return; }
       this.cg = opened;
-      this.toolHandler.setDefaultCodeGraph(this.cg);
+      this.toolHandler.setDefaultSleuthGraph(this.cg);
       this.startWatching();
       this.catchUpSync();
       this.maybeStartPool(resolvedRoot);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`[CodeGraph MCP] Failed to open project at ${resolvedRoot}: ${msg}\n`);
+      process.stderr.write(`[SleuthGraph MCP] Failed to open project at ${resolvedRoot}: ${msg}\n`);
       // The agent otherwise hears only "no project loaded" (#995).
       this.toolHandler.setDefaultOpenFailure(err instanceof WslSharedIndexError ? err : null);
     }
@@ -393,12 +393,12 @@ export class MCPEngine {
   private logSubprojectAdoption(searchFrom: string, root: string): void {
     const rel = path.relative(searchFrom, root) || root;
     process.stderr.write(
-      `[CodeGraph MCP] No .codegraph/ at ${searchFrom}; adopted the single indexed sub-project ${rel} as the default project.\n`
+      `[SleuthGraph MCP] No .sleuth/ at ${searchFrom}; adopted the single indexed sub-project ${rel} as the default project.\n`
     );
   }
 
   /**
-   * Start file watching on the active CodeGraph instance. Idempotent — the
+   * Start file watching on the active SleuthGraph instance. Idempotent — the
    * watcher is per-engine, not per-session, which is why the daemon path
    * collapses N inotify sets to one. The wording of the disabled-reason log
    * exactly matches the prior in-tree implementation so log-driven dashboards
@@ -411,7 +411,7 @@ export class MCPEngine {
     this.defaultLease = acquireProject(opened.getProjectRoot(), () => opened, this.watchOptions());
     this.cg = this.defaultLease.cg;
     if (this.cg !== opened) opened.close();
-    this.toolHandler.setDefaultCodeGraph(this.cg);
+    this.toolHandler.setDefaultSleuthGraph(this.cg);
     this.watcherStarted = true;
   }
 
@@ -439,19 +439,19 @@ export class MCPEngine {
       .then((result) => {
         const changed = result.filesAdded + result.filesModified + result.filesRemoved;
         if (changed > 0) {
-          process.stderr.write(`[CodeGraph MCP] Caught up ${changed} file(s) changed since last run\n`);
+          process.stderr.write(`[SleuthGraph MCP] Caught up ${changed} file(s) changed since last run\n`);
         }
       })
       .catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`[CodeGraph MCP] Catch-up sync failed: ${msg}\n`);
+        process.stderr.write(`[SleuthGraph MCP] Catch-up sync failed: ${msg}\n`);
       });
     this.toolHandler.setCatchUpGate(p);
   }
 }
 
 /**
- * Parse and clamp the CODEGRAPH_WATCH_DEBOUNCE_MS env override.
+ * Parse and clamp the SLEUTH_WATCH_DEBOUNCE_MS env override.
  *
  * Issue #403: workspaces with bursty writes (formatter-on-save, multi-file
  * refactors) sometimes want a longer quiet window before sync. Returns

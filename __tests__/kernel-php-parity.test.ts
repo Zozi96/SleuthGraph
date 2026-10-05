@@ -1,7 +1,7 @@
 /**
  * Kernel↔wasm PHP extraction parity (R7b of the kernel migration).
  *
- * Asserts the native walker (codegraph-kernel/src/php.rs) produces the SAME
+ * Asserts the native walker (sleuth-kernel/src/php.rs) produces the SAME
  * ExtractionResult as the wasm TreeSitterExtractor — nodes, edges, and
  * unresolved refs compared as canonicalized multisets — over the checked-in
  * torture fixtures:
@@ -27,7 +27,7 @@
  * full-repo sweep lives in scripts/kernel-parity.mjs (monolog /
  * laravel-framework / symfony for the §5 gate); this suite keeps the invariant
  * alive in `npm test`. Skips when no kernel binary is staged;
- * CODEGRAPH_KERNEL_EXPECT=1 turns that into a failure (kernel-scaffold.test.ts).
+ * SLEUTH_KERNEL_EXPECT=1 turns that into a failure (kernel-scaffold.test.ts).
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
@@ -41,10 +41,10 @@ import type { ExtractionResult } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 
@@ -62,7 +62,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel PHP extraction parity', () => {
@@ -85,14 +85,14 @@ describe.skipIf(!kernelBuilt)('kernel PHP extraction parity', () => {
   });
 
   function assertParity(filePath: string, source: string, minNodes = 3): void {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, 'php');
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, 'php');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -127,8 +127,8 @@ describe.skipIf(!kernelBuilt)('kernel PHP extraction parity', () => {
 
   it('trait-use implements refs carry filePath through the v2 ref-flag wire path', () => {
     const src = '<?php\nclass W {\n  use SoftDeletes;\n}\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract('src/W.php', src, 'php');
     expect(viaKernel).not.toBeNull();
     const impl = viaKernel!.unresolvedReferences.find((r) => r.referenceKind === 'implements');
@@ -138,12 +138,12 @@ describe.skipIf(!kernelBuilt)('kernel PHP extraction parity', () => {
 
   it('files with parse errors defer to the wasm extractor (recovery is encoding-dependent)', () => {
     const broken = '<?php\nfunction f( {\n  return }} 12 (\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/broken.php', broken, 'php')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/broken.php', broken, 'php');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'file')).toBe(true);
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 import { buildScreens } from '../src/ui-server/api/screens';
 import { buildSteps } from '../src/ui-server/api/steps';
@@ -497,7 +497,7 @@ describe('expo-router: end-to-end', () => {
         '}\n'
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     const routes = cg.getNodesByKind('route');
@@ -717,7 +717,7 @@ export default function ReviewScreen() {
 `
     );
 
-    const cg = CodeGraph.initSync(tmpDir);
+    const cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
 
     // The escape route the walk used to take really is in the graph.

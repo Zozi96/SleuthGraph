@@ -2,24 +2,24 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 async function index(files: Record<string, string> = {}) {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-empty-explore-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-empty-explore-'));
   for (const [name, source] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
     fs.writeFileSync(path.join(dir, name), source);
   }
-  cg = CodeGraph.initSync(dir);
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 }
 
 async function explore(query: string) {
-  const result = await new ToolHandler(cg).execute('codegraph_explore', { query });
+  const result = await new ToolHandler(cg).execute('sleuth_explore', { query });
   expect(result.isError).toBeFalsy();
   return result.content[0]!.text;
 }
@@ -42,7 +42,7 @@ describe('empty explore diagnostics (#1904)', () => {
     expect(text).toMatch(/No lexical matches[^\n]*`signing`/);
     // The file name is indexed, even though no relevant subgraph was returned.
     expect(text).toMatch(/Matched indexed words[^\n]*`users`/);
-    expect(text).toContain('codegraph_explore');
+    expect(text).toContain('sleuth_explore');
     expect(text).not.toMatch(/use (?:Read|grep)/i);
   });
 
@@ -76,7 +76,7 @@ describe('empty explore diagnostics (#1904)', () => {
     const text = await explore('how');
     expect(text).toContain('No relevant code found');
     expect(text).toMatch(/Matched indexed words[^\n]*`how`/);
-    expect(text).toContain('Candidates to retry with codegraph_explore');
+    expect(text).toContain('Candidates to retry with sleuth_explore');
     expect(text).toContain('`explainHowThingsWork`');
     expect(await explore('explainHowThingsWork')).toContain('return 1');
   });
@@ -111,7 +111,7 @@ describe('empty explore diagnostics (#1904)', () => {
     await index(registration);
     const text = await explore('"???"');
     expect(text).toContain('No relevant code found');
-    expect(text).toContain('codegraph_explore');
+    expect(text).toContain('sleuth_explore');
     const miss = cg.getExploreMissDiagnostics('未知词 " OR * ' + 'z'.repeat(80));
     expect(miss.unmatched).toContain('未知词');
     expect(miss.limited).toBe(true);

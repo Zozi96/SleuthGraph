@@ -1,9 +1,9 @@
 /**
- * `@colbymchenry/codegraph-ui` — the package's own test (task CG-61).
+ * `@zozi96/sleuthgraph-ui` — the package's own test (task CG-61).
  *
  * A minimal Svelte host mounts the three headline components from the package
  * entry against a MOCK adapter and asserts what lands in the document. That is
- * the whole promise of the package in one file: CodeGraph Pro renders these
+ * the whole promise of the package in one file: SleuthGraph Pro renders these
  * same components over its own in-process engine reads, so if a screen can be
  * drawn from an object literal here, it can be drawn from a graph there.
  *
@@ -24,7 +24,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   ArchitectureMap,
-  CodegraphUi,
+  SleuthgraphUi,
   FlowStrip,
   SearchPalette,
   SymbolView,
@@ -417,7 +417,7 @@ function mockAdapter(): { adapter: GraphAdapter; calls: string[] } {
         // nothing.
         readOnly: true,
         readOnlyReason: 'This host does not store trails.',
-        directory: '.codegraph/ui/trails',
+        directory: '.sleuth/ui/trails',
         skipped: 0,
         bounded: false,
       }),
@@ -501,7 +501,7 @@ async function render(
   }
 }
 
-describe('@colbymchenry/codegraph-ui — a host renders the package', () => {
+describe('@zozi96/sleuthgraph-ui — a host renders the package', () => {
   it('SymbolView draws callers, source and the callee rail from a mock adapter', async () => {
     const { adapter, calls } = mockAdapter();
     setGraphAdapter(adapter);
@@ -638,19 +638,19 @@ describe('@colbymchenry/codegraph-ui — a host renders the package', () => {
     expect(text).toContain('This host does not store trails.');
   });
 
-  it('CodegraphUi installs the adapter before its children ask for data', async () => {
+  it('SleuthgraphUi installs the adapter before its children ask for data', async () => {
     const { adapter, calls } = mockAdapter();
     // NOT installed by hand — the provider is the only thing that installs it.
     expect(getGraphAdapter()).not.toBe(adapter);
 
-    mounted = mount(CodegraphUi, { target: host, props: { adapter } }) as Record<string, unknown>;
+    mounted = mount(SleuthgraphUi, { target: host, props: { adapter } }) as Record<string, unknown>;
     flushSync();
     expect(getGraphAdapter()).toBe(adapter);
     expect(calls).toEqual([]);
   });
 });
 
-describe('@colbymchenry/codegraph-ui — the seams', () => {
+describe('@zozi96/sleuthgraph-ui — the seams', () => {
   it('a host navigation driver replaces every href the components build', () => {
     const seen: string[] = [];
     const driver: NavigationDriver = {
@@ -752,7 +752,7 @@ describe('@colbymchenry/codegraph-ui — the seams', () => {
   });
 });
 
-describe('@colbymchenry/codegraph-ui — the published shape', () => {
+describe('@zozi96/sleuthgraph-ui — the published shape', () => {
   const manifest = JSON.parse(
     readFileSync(join(ROOT, 'ui', 'package.json'), 'utf8')
   ) as Record<string, any>;
@@ -765,7 +765,7 @@ describe('@colbymchenry/codegraph-ui — the published shape', () => {
   });
 
   it('is named, scoped and not publishable by accident', () => {
-    expect(manifest.name).toBe('@colbymchenry/codegraph-ui');
+    expect(manifest.name).toBe('@zozi96/sleuthgraph-ui');
     // The package is PREPARED, not published (CG-61). `private` is the guard:
     // npm refuses to publish it until the maintainer deliberately removes this.
     expect(manifest.private).toBe(true);

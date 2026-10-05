@@ -10,11 +10,11 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 describe('Python self-calls do not resolve through a same-named import', () => {
   const dirs: string[] = [];
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
 
   afterEach(() => {
     cg?.close();
@@ -23,13 +23,13 @@ describe('Python self-calls do not resolve through a same-named import', () => {
   });
 
   async function callsIn(files: Record<string, string>): Promise<string[]> {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-py-self-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-py-self-'));
     dirs.push(dir);
     for (const [rel, content] of Object.entries(files)) {
       fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
       fs.writeFileSync(path.join(dir, rel), content);
     }
-    cg = await CodeGraph.init(dir, { index: true });
+    cg = await SleuthGraph.init(dir, { index: true });
     const rows = (cg as any).db.db
       .prepare(
         `SELECT s.qualified_name s, t.qualified_name t, t.file_path f FROM edges e

@@ -1,14 +1,14 @@
 /**
- * The browser viewer (`codegraph ui`, alias `web`) ships in the package but is
+ * The browser viewer (`sleuth ui`, alias `web`) ships in the package but is
  * not part of a release yet: it has been exercised on Expo apps, not on API,
  * Laravel, Spring, Angular or Swift projects. Until it launches, both spellings
- * are refused before any startup work unless `CODEGRAPH_UI=1` is set, which
+ * are refused before any startup work unless `SLEUTH_UI=1` is set, which
  * keeps it usable for the people testing it. Dependency-free on purpose: the
  * entry point checks this before loading anything else.
  */
 
 /** Setting this to `1` enables the viewer commands. */
-export const VIEWER_ENV = 'CODEGRAPH_UI';
+export const VIEWER_ENV = 'SLEUTH_UI';
 
 const VIEWER_COMMANDS = new Set(['ui', 'web']);
 /** The program-level flags, which take no value and may precede the command. */

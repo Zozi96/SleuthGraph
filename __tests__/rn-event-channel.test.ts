@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 /**
  * End-to-end synthesizer test: write a fixture project with a native ObjC
@@ -46,7 +46,7 @@ emitter.addListener('locationUpdate', onLocation);
 `
     );
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
 
     const db = (cg as any).db.db;
@@ -101,7 +101,7 @@ export function onMessage(listener: (m: any) => void) {
 `
     );
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
 
     const db = (cg as any).db.db;
@@ -143,7 +143,7 @@ export function onMessage(listener: (m: any) => void) {
       "function onBattery() {}\n" +
       "emitter.addListener('myWrapperBatteryEvent', onBattery);\n");
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const rows = db.prepare(
@@ -206,7 +206,7 @@ function tick() {}
 `
     );
 
-    const cg = await CodeGraph.init(dir, { silent: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const rows = db
@@ -240,7 +240,7 @@ describe('RN event channel — event names held in constants', () => {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
     fs.writeFileSync(path.join(dir, rel), content);
   };
-  const channel = (cg: CodeGraph) =>
+  const channel = (cg: SleuthGraph) =>
     ((cg as any).db.db
       .prepare(
         `SELECT s.name s, t.name t, json_extract(e.metadata,'$.event') event FROM edges e
@@ -270,7 +270,7 @@ export default class State {
   _handleNativeStateUpdate(state: unknown) { return state; }
 }
 `);
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       expect(channel(cg)).toEqual(['connectionChanged -> _handleNativeStateUpdate (netInfo.networkStatusDidChange)']);
     } finally {
@@ -301,7 +301,7 @@ export function onDone(e) { return e; }
 emitter.addListener('downloadProgress', onProgress);
 emitter.addListener('downloadDone', onDone);
 `);
-    const cg = await CodeGraph.init(dir, { index: true });
+    const cg = await SleuthGraph.init(dir, { index: true });
     try {
       expect(channel(cg)).toEqual(['finish -> onDone (downloadDone)', 'report -> onProgress (downloadProgress)']);
     } finally {

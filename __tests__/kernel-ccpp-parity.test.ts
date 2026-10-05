@@ -1,7 +1,7 @@
 /**
  * Kernel↔wasm C/C++ extraction parity (R7a of the kernel migration).
  *
- * Asserts the native walker (codegraph-kernel/src/ccpp/) produces the SAME
+ * Asserts the native walker (sleuth-kernel/src/ccpp/) produces the SAME
  * ExtractionResult as the wasm TreeSitterExtractor — nodes, edges, and
  * unresolved refs compared as canonicalized multisets — over:
  *   - the checked-in torture fixtures (torture.c / torture.cpp / torture.hpp:
@@ -18,7 +18,7 @@
  * asserted below. The full-repo sweep lives in scripts/kernel-parity.mjs
  * (redis/git/fmt et al., run for the §5 gate); this suite keeps the invariant
  * alive in `npm test`. Skips when no kernel binary is staged;
- * CODEGRAPH_KERNEL_EXPECT=1 turns that into a failure (kernel-scaffold.test.ts).
+ * SLEUTH_KERNEL_EXPECT=1 turns that into a failure (kernel-scaffold.test.ts).
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
@@ -32,10 +32,10 @@ import type { ExtractionResult, Language } from '../src/types';
 const KERNEL_PATH = path.join(
   __dirname,
   '..',
-  'codegraph-kernel',
+  'sleuth-kernel',
   'prebuilds',
   `${process.platform}-${process.arch}`,
-  'codegraph-kernel.node'
+  'sleuth-kernel.node'
 );
 const kernelBuilt = fs.existsSync(KERNEL_PATH);
 
@@ -53,7 +53,7 @@ function canon(result: ExtractionResult): { nodes: string[]; edges: string[]; re
   };
 }
 
-const ENV_KEYS = ['CODEGRAPH_KERNEL', 'CODEGRAPH_KERNEL_LANGS'] as const;
+const ENV_KEYS = ['SLEUTH_KERNEL', 'SLEUTH_KERNEL_LANGS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 describe.skipIf(!kernelBuilt)('kernel C/C++ extraction parity', () => {
@@ -76,14 +76,14 @@ describe.skipIf(!kernelBuilt)('kernel C/C++ extraction parity', () => {
   });
 
   function assertParity(filePath: string, source: string, language: Language, minNodes = 3): void {
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     const viaKernel = tryKernelExtract(filePath, source, language);
     expect(viaKernel, `kernel extraction failed for ${filePath}`).not.toBeNull();
 
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource(filePath, source, language);
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
 
     const k = canon(viaKernel!);
     const w = canon(viaWasm);
@@ -156,9 +156,9 @@ describe.skipIf(!kernelBuilt)('kernel C/C++ extraction parity', () => {
     const source = fs.readFileSync(file, 'utf8');
     assertParity('fixtures/torture-macros-ctors.cpp', source, 'cpp');
     // Pin the shapes the resolver relies on, so parity is never empty-vs-empty.
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const result = extractFromSource('fixtures/torture-macros-ctors.cpp', source, 'cpp');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(result.nodes.filter((n) => n.kind === 'constant').map((n) => n.qualifiedName).sort()).toEqual([
       'TRACE_POINT',
       'app::APP_LOG',
@@ -196,9 +196,9 @@ describe.skipIf(!kernelBuilt)('kernel C/C++ extraction parity', () => {
     const file = path.join(FIXTURE_DIR, 'torture-macros.c');
     const source = fs.readFileSync(file, 'utf8');
     assertParity('fixtures/torture-macros.c', source, 'c');
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const result = extractFromSource('fixtures/torture-macros.c', source, 'c');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(result.nodes.filter((n) => n.kind === 'constant').map((n) => n.name).sort()).toEqual([
       'LOCAL_TRACE',
       'MAX',
@@ -254,14 +254,14 @@ describe.skipIf(!kernelBuilt)('kernel C/C++ extraction parity', () => {
       'int read_it(const It &it) { return it.operator *(); }',
       '',
     ].join('\n');
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/op.cpp', source, 'cpp')).toBeNull();
     // The seam still serves the file — through the wasm path, where the
     // operator-call recovery emits the `it.operator*` ref.
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/op.cpp', source, 'cpp');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(
       viaWasm.unresolvedReferences.some((r) => r.referenceName === 'it.operator*')
     ).toBe(true);
@@ -269,12 +269,12 @@ describe.skipIf(!kernelBuilt)('kernel C/C++ extraction parity', () => {
 
   it('files with parse errors defer to the wasm extractor (recovery is encoding-dependent)', () => {
     const broken = 'void f( {\n  return }} 12 (\n';
-    process.env.CODEGRAPH_KERNEL_LANGS = 'all';
-    delete process.env.CODEGRAPH_KERNEL;
+    process.env.SLEUTH_KERNEL_LANGS = 'all';
+    delete process.env.SLEUTH_KERNEL;
     expect(tryKernelExtract('src/broken.c', broken, 'c')).toBeNull();
-    process.env.CODEGRAPH_KERNEL = '0';
+    process.env.SLEUTH_KERNEL = '0';
     const viaWasm = extractFromSource('src/broken.c', broken, 'c');
-    delete process.env.CODEGRAPH_KERNEL;
+    delete process.env.SLEUTH_KERNEL;
     expect(viaWasm.nodes.some((n) => n.kind === 'file')).toBe(true);
   });
 });

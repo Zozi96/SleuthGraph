@@ -9,7 +9,7 @@
  *
  * No auto-flush, no static wait — the response is instant and the agent
  * decides whether to Read the specific stale file. These tests exercise
- * the full real path: real CodeGraph index + real ToolHandler.execute().
+ * the full real path: real SleuthGraph index + real ToolHandler.execute().
  *
  * **Event delivery uses a synthetic seam** (`__emitWatchEventForTests`): the
  * real native fs.watch (FSEvents/inotify) delivery is non-deterministic under
@@ -24,7 +24,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import { __emitWatchEventForTests, __setFsWatchForTests } from '../src/sync/watcher';
 
@@ -48,21 +48,21 @@ function waitFor(condition: () => boolean, timeoutMs = 2000, intervalMs = 25): P
  * cleared the entry before the response was built. A sync that never settles
  * leaves each entry pending (marked as indexing once it starts).
  */
-function holdWatcherSync(cg: CodeGraph): void {
+function holdWatcherSync(cg: SleuthGraph): void {
   vi.spyOn(cg, 'sync').mockReturnValue(new Promise<never>(() => {}));
 }
 
 describe('MCP staleness banner', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-stale-banner-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-stale-banner-'));
     fs.mkdirSync(path.join(testDir, 'src'));
     // Three isolated files with no cross-references — keeps each test's
     // "which path does the response mention?" assertion unambiguous. If the
-    // files shared imports/calls, codegraph_search responses would surface
+    // files shared imports/calls, sleuth_search responses would surface
     // multiple file paths and the banner-vs-footer split would be racy.
     fs.writeFileSync(
       path.join(testDir, 'src', 'alpha-only.ts'),
@@ -77,7 +77,7 @@ describe('MCP staleness banner', () => {
       'export function charlieOnly() { return 3; }\n',
     );
 
-    cg = CodeGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   });
@@ -122,7 +122,7 @@ describe('MCP staleness banner', () => {
     // and the small window before the pending-file Map is populated).
     await waitFor(() => cg.getPendingFiles().some((p) => p.path === 'src/alpha-only.ts'));
 
-    const res = await handler.execute('codegraph_search', { query: 'alphaOnly' });
+    const res = await handler.execute('sleuth_search', { query: 'alphaOnly' });
     expect(res.isError).toBeFalsy();
     const text = res.content[0].text;
 
@@ -150,7 +150,7 @@ describe('MCP staleness banner', () => {
     __emitWatchEventForTests(testDir, 'src/bravo-only.ts');
     await waitFor(() => cg.getPendingFiles().some((p) => p.path === 'src/bravo-only.ts'));
 
-    const res = await handler.execute('codegraph_search', { query: 'alphaOnly' });
+    const res = await handler.execute('sleuth_search', { query: 'alphaOnly' });
     const text = res.content[0].text;
 
     expect(text.startsWith('⚠️')).toBe(false);
@@ -170,13 +170,13 @@ describe('MCP staleness banner', () => {
     // Wait through debounce (200ms) + sync; pendingFiles drains back to empty.
     await waitFor(() => cg.getPendingFiles().length === 0, 3000);
 
-    const res = await handler.execute('codegraph_search', { query: 'alphaOnly' });
+    const res = await handler.execute('sleuth_search', { query: 'alphaOnly' });
     const text = res.content[0].text;
     expect(text.startsWith('⚠️')).toBe(false);
     expect(text).not.toMatch(/elsewhere in this project are pending index sync/);
   });
 
-  it('lists pending files under "Pending sync" in codegraph_status', async () => {
+  it('lists pending files under "Pending sync" in sleuth_status', async () => {
     holdWatcherSync(cg);
     cg.watch({ debounceMs: 4000, inertForTests: true });
     await cg.waitUntilWatcherReady();
@@ -188,7 +188,7 @@ describe('MCP staleness banner', () => {
     __emitWatchEventForTests(testDir, 'src/charlie-only.ts');
     await waitFor(() => cg.getPendingFiles().some((p) => p.path === 'src/charlie-only.ts'));
 
-    const res = await handler.execute('codegraph_status', {});
+    const res = await handler.execute('sleuth_status', {});
     const text = res.content[0].text;
     expect(text).toContain('**Pending sync:');
     expect(text).toContain('src/charlie-only.ts');
@@ -203,7 +203,7 @@ describe('MCP staleness banner', () => {
   it('prepends a whole-index degraded banner once live watching has permanently stopped (#876)', async () => {
     degradeWatcher();
 
-    const res = await handler.execute('codegraph_search', { query: 'alphaOnly' });
+    const res = await handler.execute('sleuth_search', { query: 'alphaOnly' });
     expect(res.isError).toBeFalsy();
     const text = res.content[0].text;
 
@@ -214,10 +214,10 @@ describe('MCP staleness banner', () => {
     expect(text).toMatch(/alphaOnly/); // the real result still follows the banner
   });
 
-  it('surfaces the degraded state as its own section in codegraph_status (#876)', async () => {
+  it('surfaces the degraded state as its own section in sleuth_status (#876)', async () => {
     degradeWatcher();
 
-    const res = await handler.execute('codegraph_status', {});
+    const res = await handler.execute('sleuth_status', {});
     const text = res.content[0].text;
     expect(text).toContain('**Auto-sync disabled:');
     expect(text).toContain('OS watch/file limit exhausted');
@@ -229,11 +229,11 @@ describe('MCP staleness banner', () => {
     vi.spyOn(cg, 'isWatcherDegraded').mockReturnValue(true);
     vi.spyOn(cg, 'isWatcherRecovering').mockReturnValue(true);
 
-    const search = await handler.execute('codegraph_search', { query: 'alphaOnly' });
+    const search = await handler.execute('sleuth_search', { query: 'alphaOnly' });
     expect(search.content[0].text).toMatch(/auto-sync is RECOVERING/);
     expect(search.content[0].text).not.toMatch(/auto-sync is DISABLED/);
 
-    const status = await handler.execute('codegraph_status', {});
+    const status = await handler.execute('sleuth_status', {});
     expect(status.content[0].text).toContain('**Auto-sync recovering:**');
     expect(status.content[0].text).not.toContain('**Auto-sync disabled:**');
   });
@@ -241,21 +241,21 @@ describe('MCP staleness banner', () => {
   it('asks the owned watcher to re-arm on the next MCP tool call (#1959)', async () => {
     const rearm = vi.spyOn(cg, 'rearmWatcherAfterLockContention').mockReturnValue(false);
 
-    await handler.execute('codegraph_status', {});
+    await handler.execute('sleuth_status', {});
     expect(rearm).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('MCP staleness banner — matching whole paths (#1968)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-stale-paths-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-stale-paths-'));
     fs.mkdirSync(path.join(testDir, 'src'));
     fs.writeFileSync(path.join(testDir, 'src', 'app.tsx'), 'export function appView() { return 1; }\n');
-    cg = CodeGraph.initSync(testDir, { config: { include: ['**/*.ts', '**/*.tsx'], exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include: ['**/*.ts', '**/*.tsx'], exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
     holdWatcherSync(cg);
@@ -277,7 +277,7 @@ describe('MCP staleness banner — matching whole paths (#1968)', () => {
 
   it('does not name a pending file whose path only starts a path the response shows', async () => {
     await pend('src/app.ts'); // the response shows src/app.tsx
-    const text = (await handler.execute('codegraph_search', { query: 'appView' })).content[0].text;
+    const text = (await handler.execute('sleuth_search', { query: 'appView' })).content[0].text;
     expect(text).toContain('src/app.tsx');
     expect(text.startsWith('⚠️')).toBe(false);
     expect(text).toMatch(/elsewhere in this project are pending index sync/);
@@ -285,7 +285,7 @@ describe('MCP staleness banner — matching whole paths (#1968)', () => {
 
   it('does not name a pending file whose path only ends a path the response shows', async () => {
     await pend('app.tsx'); // the response shows src/app.tsx
-    const text = (await handler.execute('codegraph_search', { query: 'appView' })).content[0].text;
+    const text = (await handler.execute('sleuth_search', { query: 'appView' })).content[0].text;
     expect(text.startsWith('⚠️')).toBe(false);
     expect(text).toMatch(/elsewhere in this project are pending index sync/);
   });
@@ -309,7 +309,7 @@ describe('MCP staleness banner — matching whole paths (#1968)', () => {
     // A directory can also have a filename-like component; use a root suffix
     // for that case so the pending file and directory can coexist on disk.
     await pend(shown.includes('/child') ? 'child.ts' : 'src/app.ts');
-    const text = (await handler.execute('codegraph_search', { query: 'otherView' })).content[0].text;
+    const text = (await handler.execute('sleuth_search', { query: 'otherView' })).content[0].text;
     expect(text).toContain(shown);
     expect(text.startsWith('⚠️')).toBe(false);
     expect(text).toMatch(/elsewhere in this project are pending index sync/);
@@ -344,7 +344,7 @@ describe('MCP staleness banner — matching whole paths (#1968)', () => {
       fs.writeFileSync(path.join(testDir, rel), 'export function specialView() { return 3; }\n');
       await cg.indexAll();
       await pend(rel);
-      const text = (await handler.execute('codegraph_search', { query: 'specialView' })).content[0].text;
+      const text = (await handler.execute('sleuth_search', { query: 'specialView' })).content[0].text;
       expect(text.startsWith('⚠️')).toBe(true);
       expect(text).toContain(rel);
     },
@@ -352,7 +352,7 @@ describe('MCP staleness banner — matching whole paths (#1968)', () => {
 
   it('still names a pending file the response shows', async () => {
     await pend('src/app.tsx');
-    const text = (await handler.execute('codegraph_search', { query: 'appView' })).content[0].text;
+    const text = (await handler.execute('sleuth_search', { query: 'appView' })).content[0].text;
     expect(text.startsWith('⚠️')).toBe(true);
   });
 });

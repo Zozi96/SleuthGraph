@@ -10,7 +10,7 @@ function write(file: string, content = file): void {
   fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
   fs.writeFileSync(path.join(root, file), content);
 }
-const engineOutputs = ['dist/bin/codegraph.js', 'dist/db/schema.sql',
+const engineOutputs = ['dist/bin/sleuth.js', 'dist/db/schema.sql',
   'dist/extraction/wasm/typescript.wasm', 'dist/resolution/resolve-worker.js'];
 const viewerOutputs = ['dist/viewer/index.html', 'dist/viewer/assets/app.js', 'dist/viewer/assets/app.css'];
 function build(part: 'engine' | 'viewer'): void {
@@ -20,9 +20,9 @@ function build(part: 'engine' | 'viewer'): void {
 function setup(): void { ensureTestDist(root, build); }
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-test-build-'));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-test-build-'));
   builds = [];
-  for (const file of ['src/bin/codegraph.ts', 'src/db/schema.sql',
+  for (const file of ['src/bin/sleuth.ts', 'src/db/schema.sql',
     'src/extraction/wasm/typescript.wasm', 'tsconfig.json', 'package.json',
     'package-lock.json', 'scripts/check-ui-build.mjs', 'ui/src/App.svelte',
     'ui/vite.config.ts', 'ui/svelte.config.js', 'ui/tsconfig.json', 'ui/package.json', 'ui/index.html']) write(file);
@@ -48,7 +48,7 @@ describe('test dist prerequisites', () => {
   });
 
   it.each([
-    ['src/bin/codegraph.ts', ['engine']],
+    ['src/bin/sleuth.ts', ['engine']],
     ['src/db/schema.sql', ['engine']],
     ['src/extraction/wasm/typescript.wasm', ['engine']],
     ['tsconfig.json', ['engine', 'viewer']],
@@ -88,7 +88,7 @@ describe('test dist prerequisites', () => {
 
   it('reports build errors directly and retries instead of recording partial success', () => {
     expect(() => ensureTestDist(root, () => {
-      write('dist/bin/codegraph.js');
+      write('dist/bin/sleuth.js');
       throw new Error('compiler diagnostic');
     })).toThrow('[test setup] engine build failed: compiler diagnostic');
     expect(fs.existsSync(path.join(root, 'dist/.test-build-engine.json'))).toBe(false);

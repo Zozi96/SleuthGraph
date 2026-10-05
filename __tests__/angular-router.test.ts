@@ -12,7 +12,7 @@ import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { commandsHref, localizeDefault, parseAngularRoutes, staticString } from '../src/resolution/frameworks/angular-router';
 import { buildScreens } from '../src/ui-server/api/screens';
 import { buildSteps } from '../src/ui-server/api/steps';
@@ -133,7 +133,7 @@ ${body}
 `;
 
 describe('an Angular app, indexed', () => {
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let root: string;
   beforeAll(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-angular-'));
@@ -221,7 +221,7 @@ export class AdminRoutingModule {}
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    cg = await CodeGraph.init(root, { index: true });
+    cg = await SleuthGraph.init(root, { index: true });
   });
   afterAll(() => cg.close());
 
@@ -324,17 +324,17 @@ describe('an Angular workspace split across libraries', () => {
     for (const r of roots.splice(0)) fs.rmSync(r, { recursive: true, force: true });
   });
 
-  async function project(files: Record<string, string>): Promise<CodeGraph> {
+  async function project(files: Record<string, string>): Promise<SleuthGraph> {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-angular-ws-'));
     roots.push(root);
     for (const [rel, content] of Object.entries(files)) {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    return CodeGraph.init(root, { index: true });
+    return SleuthGraph.init(root, { index: true });
   }
-  const routeNames = (cg: CodeGraph) => cg.getNodesByKind('route').map((n) => n.name).sort();
-  const navs = (cg: CodeGraph) =>
+  const routeNames = (cg: SleuthGraph) => cg.getNodesByKind('route').map((n) => n.name).sort();
+  const navs = (cg: SleuthGraph) =>
     cg
       .getNodesByKind('route')
       .flatMap((r) => cg.getIncomingEdges(r.id).filter((e) => e.kind === 'navigates').map((e) => `${cg.getNode(e.source)!.name} -> ${r.name}`))

@@ -1,18 +1,18 @@
 {
-  "name": "@colbymchenry/codegraph-ui",
+  "name": "@zozi96/sleuthgraph-ui",
   "private": true,
   "version": "1.6.2",
   "type": "module",
-  "description": "The CodeGraph reader as Svelte components: Symbol view, Flow strip and architecture Map behind one data adapter.",
+  "description": "The SleuthGraph reader as Svelte components: Symbol view, Flow strip and architecture Map behind one data adapter.",
   "keywords": [
-    "codegraph",
+    "sleuth",
     "svelte",
     "code-intelligence",
     "knowledge-graph"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/colbymchenry/codegraph.git",
+    "url": "git+https://github.com/Zozi96/SleuthGraph.git",
     "directory": "ui"
   },
   "license": "MIT",

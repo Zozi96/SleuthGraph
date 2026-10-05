@@ -35,7 +35,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler, getExploreOutputBudget } from '../src/mcp/tools';
 import { attributeSourceBytes } from '../src/mcp/explore-diagnostics';
 import { isGeneratedFile, hasGeneratedHeader } from '../src/extraction/generated-detection';
@@ -60,23 +60,23 @@ const startsWithAny = (p: string, prefixes: string[]) => prefixes.some((x) => p.
 
 describe('#1500 — generated Go CRUD beside a hand-written payroll workflow', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
   let response: string;
   /** Delivered source bytes per file, attributed from the final response. */
   let bytes: Map<string, number>;
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1500-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1500-'));
     fs.cpSync(FIXTURE_SRC, testDir, { recursive: true });
     // A stray index in the checked-in tree would be copied in and reused.
-    fs.rmSync(path.join(testDir, '.codegraph'), { recursive: true, force: true });
+    fs.rmSync(path.join(testDir, '.sleuth'), { recursive: true, force: true });
 
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
     handler = new ToolHandler(cg);
 
-    const result = await handler.execute('codegraph_explore', { query: QUERY });
+    const result = await handler.execute('sleuth_explore', { query: QUERY });
     response = result.content?.[0]?.text ?? '';
     bytes = attributeSourceBytes(response);
   }, 120_000);

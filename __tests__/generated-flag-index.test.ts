@@ -17,7 +17,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src';
+import SleuthGraph from '../src';
 import { QueryBuilder } from '../src/db/queries';
 import { createDatabase, type SqliteDatabase } from '../src/db/sqlite-adapter';
 import { runMigrations, getCurrentVersion, CURRENT_SCHEMA_VERSION } from '../src/db/migrations';
@@ -53,7 +53,7 @@ func RunPayrollWorkflow(records []PayrollRecord) error {
 
 describe('generated flag — written at index time', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeAll(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-genflag-'));
@@ -61,7 +61,7 @@ describe('generated flag — written at index time', () => {
     fs.writeFileSync(path.join(dir, 'workflow.go'), HANDWRITTEN_WORKFLOW);
     // A path-convention generated file, so both signals are exercised together.
     fs.writeFileSync(path.join(dir, 'payroll.pb.go'), 'package payroll\n\ntype PayrollProto struct{}\n');
-    cg = await CodeGraph.init(dir, { index: true });
+    cg = await SleuthGraph.init(dir, { index: true });
   });
 
   afterAll(() => {

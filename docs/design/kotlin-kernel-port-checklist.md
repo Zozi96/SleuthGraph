@@ -1,7 +1,7 @@
 # Kotlin kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/kotlin.rs`
-+ the vendored-grammar-C build (codegraph-kernel/grammars/kotlin via build.rs
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/kotlin.rs`
++ the vendored-grammar-C build (sleuth-kernel/grammars/kotlin via build.rs
 cc — the mechanism's first use), all gates passed (bump dumps byte-identical
 old-vs-new ×3 as predicted; parity sweeps 0-diff okio 299/322 / okhttp
 531/580 / kotlinx.coroutines 1031/1082 with exactly the predicted 23/49/51
@@ -31,7 +31,7 @@ kernel** (it pins `tree-sitter >= 0.21, < 0.23`; the kernel links 0.25), and
 the successor crate `tree-sitter-kotlin-ng` is a **different grammar** (8
 fields vs 0, 289 vs 357 symbols, renamed kinds — would break every kotlin.ts
 branch). The port must take the **vendored-grammar-C route**: compile the
-sha-matched 0.3.8 `parser.c`+`scanner.c` inside `codegraph-kernel` via
+sha-matched 0.3.8 `parser.c`+`scanner.c` inside `sleuth-kernel` via
 build.rs — the FIRST language to exercise the mechanism the §4 tracker
 prescribes for vendored grammars (§Grammar prep). (2) **Both-arm parse-error
 incidence is 4.7–8.5%** on the gate repos (fun-interface misparses, phantom
@@ -104,8 +104,8 @@ the fwcd lineage; production wasm sha256 `b5cb00c8…`, 4,052,705 bytes, ABI 14)
   grammar C into the kernel** (the §4 tracker's prescription for
   vendored-grammar languages — kotlin is the first to need it):
   - copy the tag's `src/parser.c`, `src/scanner.c`, and `src/tree_sitter/*.h`
-    to `codegraph-kernel/grammars/kotlin/` (shas above, recorded in a comment);
-  - `codegraph-kernel/build.rs`: `cc::Build` compiling both C files with the
+    to `sleuth-kernel/grammars/kotlin/` (shas above, recorded in a comment);
+  - `sleuth-kernel/build.rs`: `cc::Build` compiling both C files with the
     crate's own flag set (`-Wno-unused-parameter`,
     `-Wno-unused-but-set-variable`, `-Wno-trigraphs`; msvc `-utf-8` — crib
     the tarball's `bindings/rust/build.rs`);
@@ -125,7 +125,7 @@ the fwcd lineage; production wasm sha256 `b5cb00c8…`, 4,052,705 bytes, ABI 14)
 - **Staging plan (bump PR, before any walker exists):** vendor the wasm to
   `src/extraction/wasm/tree-sitter-kotlin.wasm`; `VENDORED_WASM_LANGS +=
   'kotlin'` (grammars.ts:291) with an R7b comment (tag + sha-matched note +
-  "crate unusable — kernel compiles vendored C, see codegraph-kernel/grammars/
+  "crate unusable — kernel compiles vendored C, see sleuth-kernel/grammars/
   kotlin"); the kernel C vendor + build.rs + langs.rs + grammar-parity row can
   land WITH the bump (they're inert until a walker exists) or with the walker —
   but wasm + C must be same-tag from day one. `copy-assets` already globs
@@ -188,7 +188,7 @@ the fwcd lineage; production wasm sha256 `b5cb00c8…`, 4,052,705 bytes, ABI 14)
 3. **The framework extractors themselves need NO port** — regex over raw
    source, run in extractFromSource:6736-6758 after either arm. §Frameworks
    pins their input contracts.
-4. **One walker module** (suggest `codegraph-kernel/src/kotlin.rs`; no crate
+4. **One walker module** (suggest `sleuth-kernel/src/kotlin.rs`; no crate
    collision since there is no kotlin crate dep), registered in langs.rs;
    per-file `has_error()` → `defer:` like every walker. **java.rs is the
    closest crib** (JVM package→namespace node via `extractFilePackage`,
@@ -780,7 +780,7 @@ lines directly above it.
 
 ### Value-reference edges (398-931) — kotlin IS in VALUE_REF_LANGS (401)
 
-Port the full machinery (crib java.rs/go.rs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib java.rs/go.rs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES = 20,000 caps the prune DFS and each reader scan;
 isGeneratedFile skip.
 
@@ -1010,13 +1010,13 @@ unwrap/ungatedModes/addressOfOnly.
   `__tests__/kernel-kotlin-parity.test.ts`.
 - **Parity sweeps** (`scripts/kernel-parity.mjs <dir>`, order-sensitive
   full-object, default `--max-deferral 0.1`):
-  - `/private/tmp/claude-501/-Users-colby-Development-CodeGraph-codegraph/0c11bda1-0b19-4fec-bcd9-d0cb4b2d6e8a/scratchpad/gate-repos/okio` (small, 322 kt/kts files)
+  - `/private/tmp/claude-501/-Users-colby-Development-SleuthGraph-sleuth/0c11bda1-0b19-4fec-bcd9-d0cb4b2d6e8a/scratchpad/gate-repos/okio` (small, 322 kt/kts files)
   - `…/gate-repos/okhttp` (medium, 580)
   - `…/gate-repos/kotlinx.coroutines` (large, 1,082 — **the KMP/expect-actual gate**)
   (cloned fresh at survey; re-clone public OSS if gone — agent-eval policy).
   Expect 0-diff on every NON-deferred file and exactly the §arch-6 deferral
   counts. Then **full-init dump-diffs byte-identical** (kernel arm vs
-  `CODEGRAPH_KERNEL=0`, `dump-graph.mjs`, cmp) on the same three.
+  `SLEUTH_KERNEL=0`, `dump-graph.mjs`, cmp) on the same three.
 - **KMP synthesis spot-check** (tracker row requirement): after the
   kotlinx.coroutines dumps, `select count(*) from edges where
   json_extract(metadata,'$.synthesizedBy')='kotlin-expect-actual'` equal
@@ -1025,7 +1025,7 @@ unwrap/ungatedModes/addressOfOnly.
   fixture (a `fun interface` file — asserts kernel `defer:` + wasm-served
   output matches `extract-funiface.txt` shape) + a phantom-error fixture
   (single-line class body — kernel defers despite the complete CST); full
-  suite ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  suite ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'kotlin'`** (kernel/index.ts:37) only after ALL of
   the above; changelog rides the existing kernel entry.
 - Post-route perf sanity: gate repos ride the raw path (§arch-2); a

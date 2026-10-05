@@ -32,7 +32,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import type { ExploreDiagnosticReport } from '../src/mcp/explore-diagnostics';
 
@@ -181,15 +181,15 @@ function tierPadding(count: number): Record<string, string> {
 
 // ── Harness ─────────────────────────────────────────────────────────────────
 
-interface Project { dir: string; cg: CodeGraph }
+interface Project { dir: string; cg: SleuthGraph }
 
 async function buildProject(files: Record<string, string>): Promise<Project> {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-merged-spine-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-merged-spine-'));
   for (const [rel, body] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
     fs.writeFileSync(path.join(dir, rel), body);
   }
-  const cg = CodeGraph.initSync(dir);
+  const cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
   return { dir, cg };
 }
@@ -202,16 +202,16 @@ function destroyProject(p?: Project): void {
 
 /** One explore call plus the CG-4 diagnostic for it. */
 async function explore(p: Project, query: string) {
-  const sidecar = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-merged-spine-diag-')), 'r.jsonl');
-  const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-  process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+  const sidecar = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-merged-spine-diag-')), 'r.jsonl');
+  const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+  process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
   let text = '';
   try {
-    const res = await new ToolHandler(p.cg).execute('codegraph_explore', { query });
+    const res = await new ToolHandler(p.cg).execute('sleuth_explore', { query });
     text = res.content?.[0]?.text ?? '';
   } finally {
-    if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-    else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+    if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+    else process.env.SLEUTH_EXPLORE_DEBUG = previous;
   }
   const lines = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
   fs.rmSync(path.dirname(sidecar), { recursive: true, force: true });

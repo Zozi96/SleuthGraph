@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { Worker } from 'worker_threads';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { terminateOnceStarted, workerStarted } from '../src/worker-teardown';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -87,11 +87,11 @@ describe('real workers are never terminated before they have started', () => {
   const startedWhenEnded: boolean[] = [];
 
   beforeEach(async () => {
-    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-worker-start-')));
+    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-worker-start-')));
     fs.writeFileSync(path.join(root, 'app.ts'), 'export function alpha() { return beta(); }\nexport function beta() { return 1; }\n');
-    const cg = await CodeGraph.init(root);
+    const cg = await SleuthGraph.init(root);
     try { await cg.indexAll(); } finally { cg.close(); }
-    dbPath = path.join(root, '.codegraph', 'codegraph.db');
+    dbPath = path.join(root, '.sleuth', 'sleuth.db');
     startedWhenEnded.length = 0;
     // A worker re-emits each message it posts; note which have, and what each
     // had done by the time it was terminated.
@@ -114,7 +114,7 @@ describe('real workers are never terminated before they have started', () => {
   });
 
   it('the resolver pool, torn down while its workers boot', async () => {
-    vi.stubEnv('CODEGRAPH_RESOLVE_WORKERS', '2');
+    vi.stubEnv('SLEUTH_RESOLVE_WORKERS', '2');
     const { ResolverPool } = require('../dist/resolution/resolver-pool') as typeof import('../src/resolution/resolver-pool');
     const pool = ResolverPool.tryCreate(dbPath, root);
     expect(pool).not.toBeNull();

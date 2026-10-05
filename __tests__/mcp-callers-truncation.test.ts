@@ -1,5 +1,5 @@
 /**
- * The MCP `codegraph_callers` / `codegraph_callees` answers say when their
+ * The MCP `sleuth_callers` / `sleuth_callees` answers say when their
  * `limit` cut the list (#1639, #1674). A capped list with no marker reads as
  * the complete set, and an agent under-counts "who calls this" from it.
  */
@@ -7,12 +7,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { ToolHandler } from '../src/mcp/tools';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
 let tmpDir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 let handler: ToolHandler;
 
 const text = async (tool: string, args: Record<string, unknown>): Promise<string> => {
@@ -53,7 +53,7 @@ beforeAll(async () => {
     Array.from({ length: CALLERS }, (_, i) => `export function helper${i}(): number { return ${i}; }`).join('\n') +
       `\nexport function fanout(): number { return ${Array.from({ length: CALLERS }, (_, i) => `helper${i}()`).join(' + ')}; }\n`
   );
-  cg = CodeGraph.initSync(tmpDir);
+  cg = SleuthGraph.initSync(tmpDir);
   await cg.indexAll();
   handler = new ToolHandler(cg);
 });
@@ -63,9 +63,9 @@ afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe('codegraph_callers truncation', () => {
+describe('sleuth_callers truncation', () => {
   it('says how many callers the default limit hid', async () => {
-    const out = await text('codegraph_callers', { symbol: 'warm' });
+    const out = await text('sleuth_callers', { symbol: 'warm' });
     // The importing file counts as a caller too, so the total is at least CALLERS.
     const m = out.match(/Showing 20 of (\d+) callers; pass `limit`/);
     expect(m).not.toBeNull();
@@ -74,29 +74,29 @@ describe('codegraph_callers truncation', () => {
   });
 
   it('is silent when the list is complete', async () => {
-    const out = await text('codegraph_callers', { symbol: 'warm', limit: 100 });
+    const out = await text('sleuth_callers', { symbol: 'warm', limit: 100 });
     expect(out).not.toContain('Showing');
     expect(out.match(/^- caller\d+ /gm)?.length).toBe(CALLERS);
   });
 
   it('marks the cut inside each per-definition section too', async () => {
-    const out = await text('codegraph_callers', { symbol: 'hot' });
+    const out = await text('sleuth_callers', { symbol: 'hot' });
     expect(out).toContain('2 distinct definitions');
     expect(out.match(/- … \+\d+ more \(pass `limit` to widen\)/g)).toHaveLength(2);
-    expect(await text('codegraph_callers', { symbol: 'hot', limit: 100 })).not.toContain('more (pass');
+    expect(await text('sleuth_callers', { symbol: 'hot', limit: 100 })).not.toContain('more (pass');
   });
 });
 
-describe('codegraph_callees truncation', () => {
+describe('sleuth_callees truncation', () => {
   it('says how many callees the default limit hid', async () => {
-    const out = await text('codegraph_callees', { symbol: 'fanout' });
+    const out = await text('sleuth_callees', { symbol: 'fanout' });
     const m = out.match(/Showing 20 of (\d+) callees; pass `limit`/);
     expect(m).not.toBeNull();
     expect(Number(m![1])).toBe(CALLERS);
   });
 
   it('is silent when the list is complete', async () => {
-    const out = await text('codegraph_callees', { symbol: 'fanout', limit: 100 });
+    const out = await text('sleuth_callees', { symbol: 'fanout', limit: 100 });
     expect(out).not.toContain('Showing');
   });
 });

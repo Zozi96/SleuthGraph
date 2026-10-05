@@ -167,7 +167,7 @@ export function replacedTrail(name: string, trails: readonly WireTrail[]): WireT
  * A saved trail as the file it is, ready to be written somewhere a repository
  * will keep it.
  *
- * The trails directory is inside `.codegraph/`, which is gitignored wholesale —
+ * The trails directory is inside `.sleuth/`, which is gitignored wholesale —
  * that is the right default for a scratch walk and the wrong one for a tour
  * worth committing. Exporting is therefore a copy the reader makes on purpose,
  * and this is the same shape the viewer writes: each hop's saved IDENTITY —

@@ -2,20 +2,20 @@
  * Windows + WSL sharing one index on a Windows drive (issue #995).
  *
  * A repo under `/mnt/<drive>/` can be used from both sides: Windows-native
- * CodeGraph and WSL CodeGraph then open the same `.codegraph/codegraph.db`
+ * SleuthGraph and WSL SleuthGraph then open the same `.sleuth/sleuth.db`
  * across the 9p/DrvFs bridge, where SQLite's file locking and its `-shm`
  * shared memory don't hold between the two OSes. WSL's connection fails with a
  * bare "disk I/O error" (SQLITE_IOERR). A private WSL index on the same drive
  * works fine, so a fresh WSL project there already gets its own
- * `.codegraph-wsl` (`codeGraphDirNameFor`). An index already in `.codegraph` —
+ * `.sleuth-wsl` (`sleuthGraphDirNameFor`). An index already in `.sleuth` —
  * built by Windows first, or by WSL before that default — is kept as it is,
  * and when it fails this way the SQLite adapter rewrites the error into the
- * `CODEGRAPH_DIR=.codegraph-wsl` instruction instead of letting it reach the
+ * `SLEUTH_DIR=.sleuth-wsl` instruction instead of letting it reach the
  * user as an unexplained I/O failure.
  */
 
 import * as path from 'path';
-import { DEFAULT_CODEGRAPH_DIR, WSL_CODEGRAPH_DIR } from '../directory';
+import { DEFAULT_SLEUTH_DIR, WSL_SLEUTH_DIR } from '../directory';
 import { isWindowsDriveMount, isWslWindowsDrive } from '../sync/watch-policy';
 
 /** SQLite's primary result code for an I/O failure; extended codes keep it in the low byte. */
@@ -35,7 +35,7 @@ export function isSqliteIoError(err: unknown): boolean {
 }
 
 /**
- * A SQLite I/O error on an index that Windows CodeGraph most likely shares.
+ * A SQLite I/O error on an index that Windows SleuthGraph most likely shares.
  * Keeps the original as `cause` and carries its SQLite codes, so a caller that
  * branches on them sees the same values as before the rewrite.
  */
@@ -46,13 +46,13 @@ export class WslSharedIndexError extends Error {
 
   constructor(original: Error, dataDir: string) {
     super(
-      `${original.message} on the CodeGraph index at ${dataDir}\n` +
+      `${original.message} on the SleuthGraph index at ${dataDir}\n` +
         "This project is on a Windows drive, where SQLite's file locking doesn't work across " +
-        'the Windows/WSL boundary, so this usually means CodeGraph on Windows is using the same ' +
+        'the Windows/WSL boundary, so this usually means SleuthGraph on Windows is using the same ' +
         "index. Windows and WSL can't share one index on a Windows drive; give WSL its own:\n" +
-        `  1. Set CODEGRAPH_DIR=${WSL_CODEGRAPH_DIR} in the WSL environment (your shell profile, ` +
+        `  1. Set SLEUTH_DIR=${WSL_SLEUTH_DIR} in the WSL environment (your shell profile, ` +
         'or the env of the MCP server your agent starts).\n' +
-        `  2. Run "codegraph init" in WSL to build that index. Windows keeps using ${DEFAULT_CODEGRAPH_DIR}.`,
+        `  2. Run "sleuth init" in WSL to build that index. Windows keeps using ${DEFAULT_SLEUTH_DIR}.`,
       { cause: original }
     );
     this.name = 'WslSharedIndexError';
@@ -77,10 +77,10 @@ export interface WslSharedIndexProbe {
  * SQLite I/O error hit the default-named index of a project on a Windows drive
  * under WSL, else `null` (throw `err` unchanged).
  *
- * Only the default `.codegraph` counts: it is the directory Windows CodeGraph
- * opens too. A WSL that already has its own directory (`.codegraph-wsl`, or
- * any `CODEGRAPH_DIR`) hit some other I/O failure, and pointing it at
- * `CODEGRAPH_DIR` would mislead.
+ * Only the default `.sleuth` counts: it is the directory Windows SleuthGraph
+ * opens too. A WSL that already has its own directory (`.sleuth-wsl`, or
+ * any `SLEUTH_DIR`) hit some other I/O failure, and pointing it at
+ * `SLEUTH_DIR` would mislead.
  */
 export function toWslSharedIndexError(
   err: unknown,
@@ -90,7 +90,7 @@ export function toWslSharedIndexError(
   if (err instanceof WslSharedIndexError) return err;
   if (!(err instanceof Error) || !isSqliteIoError(err)) return null;
   const dataDir = path.dirname(dbPath);
-  if (path.basename(dataDir) !== DEFAULT_CODEGRAPH_DIR) return null;
+  if (path.basename(dataDir) !== DEFAULT_SLEUTH_DIR) return null;
   const onWslWindowsDrive = probe.isWsl === undefined
     ? isWslWindowsDrive(dbPath)
     : probe.isWsl && isWindowsDriveMount(dbPath);

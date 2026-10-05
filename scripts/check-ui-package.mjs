@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Finish and verify the `@colbymchenry/codegraph-ui` build (task CG-61).
+ * Finish and verify the `@zozi96/sleuthgraph-ui` build (task CG-61).
  *
  * `svelte-package` compiles the whole of `ui/src`, which is the right input —
- * the components a host imports and the ones `codegraph ui` renders are the
+ * the components a host imports and the ones `sleuth ui` renders are the
  * same files, and splitting them into two trees is how the two screens start
  * to drift. But it means the emitted `dist/` also carries the standalone app's
  * shell, and one of those files is a hazard rather than dead weight:
@@ -145,7 +145,7 @@ for (const name of [
   'TrailBar',
   'SavedTrails',
   'SearchPalette',
-  'CodegraphUi',
+  'SleuthgraphUi',
   'setGraphAdapter',
   'createHttpAdapter',
   'setNavigationDriver',

@@ -4,26 +4,26 @@ import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { Worker } from 'worker_threads';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { measurePendingChanges } from '../src/mcp/index-freshness';
 import { ToolHandler } from '../src/mcp/tools';
 
 describe('MCP status freshness (#1959)', () => {
   let root: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-status-freshness-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-status-freshness-'));
     fs.writeFileSync(path.join(root, 'modify.ts'), 'export const modify = 1;\n');
     fs.writeFileSync(path.join(root, 'remove.ts'), 'export const remove = 1;\n');
     const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
     git('init', '-q');
-    git('config', 'user.name', 'CodeGraph Test');
-    git('config', 'user.email', 'codegraph-test@example.invalid');
+    git('config', 'user.name', 'SleuthGraph Test');
+    git('config', 'user.email', 'sleuth-test@example.invalid');
     git('add', 'modify.ts', 'remove.ts');
     git('commit', '-qm', 'baseline');
-    cg = CodeGraph.initSync(root);
+    cg = SleuthGraph.initSync(root);
     await cg.indexAll();
     handler = new ToolHandler(cg);
   });
@@ -34,7 +34,7 @@ describe('MCP status freshness (#1959)', () => {
   });
 
   it('reports the latest indexed file and exact change counts', async () => {
-    const initial = (await handler.execute('codegraph_status', {})).content[0].text;
+    const initial = (await handler.execute('sleuth_status', {})).content[0].text;
     expect(initial).toMatch(/\*\*Latest file indexed:\*\* \d{4}-\d\d-\d\dT/);
     expect(initial).toContain('**Changes since index:** 0 added, 0 modified, 0 removed');
 
@@ -42,7 +42,7 @@ describe('MCP status freshness (#1959)', () => {
     fs.unlinkSync(path.join(root, 'remove.ts'));
     fs.writeFileSync(path.join(root, 'add.ts'), 'export const added = 1;\n');
 
-    const result = await handler.execute('codegraph_status', {});
+    const result = await handler.execute('sleuth_status', {});
     // Claude Code would show structuredContent in place of this text (#2088).
     expect(result).not.toHaveProperty('structuredContent');
     const changed = result.content[0].text;
@@ -84,7 +84,7 @@ describe('MCP status freshness (#1959)', () => {
     execFileSync('git', ['add', 'modify.ts'], { cwd: root, stdio: 'pipe' });
     execFileSync('git', ['commit', '-qm', 'changed'], { cwd: root, stdio: 'pipe' });
 
-    const status = (await handler.execute('codegraph_status', {})).content[0].text;
+    const status = (await handler.execute('sleuth_status', {})).content[0].text;
     expect(status).toContain('**Changes since index:** 0 added, 1 modified, 0 removed');
   });
 });

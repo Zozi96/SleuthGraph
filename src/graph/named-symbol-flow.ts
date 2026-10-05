@@ -1,7 +1,7 @@
 /**
  * The call path among a bag of named symbols — the one path finder.
  *
- * `codegraph_explore` leads its answer with a "Flow" section: the longest call
+ * `sleuth_explore` leads its answer with a "Flow" section: the longest call
  * chain among the symbols an agent named, riding synthesized dynamic-dispatch
  * edges so a controller reaches its implementation through the interface. The
  * viewer's Flow strip (`/api/flow`, design spec §3.5) draws the same thing as
@@ -32,7 +32,7 @@
  * whole query is two words.
  */
 
-import type CodeGraph from '../index';
+import type SleuthGraph from '../index';
 import type { Node, Edge } from '../types';
 import { isTestFile } from '../search/query-utils';
 
@@ -49,7 +49,7 @@ export { RUST_PATH_PREFIXES, lastQualifierPart, matchesSymbol } from './symbol-l
  * resolve to the top fuzzy FTS hit under the caller's typed label. Closest
  * hits may appear in `note` as a did-you-mean hint when `nodes` is empty.
  */
-export function findAllSymbols(cg: CodeGraph, symbol: string): { nodes: Node[]; note: string } {
+export function findAllSymbols(cg: SleuthGraph, symbol: string): { nodes: Node[]; note: string } {
   // Nix option paths: the declaration is stored as `options.<path>` and
   // config writes carry longer/quoted tails (`<path>."git/config".text`),
   // so a dotted option token (`xdg.configFile`, `launchd.user.agents`) has
@@ -248,7 +248,7 @@ const EMPTY_FLOW = (): NamedSymbolFlow => ({
  * Only used for a directed question, where the candidates are the two ends of
  * "how does X reach Y" and a fixture's `main` is never what was meant. In
  * `named` mode the agent's own co-naming does this job and re-ranking would
- * change what `codegraph_explore` answers.
+ * change what `sleuth_explore` answers.
  */
 function rankForDirected(nodes: readonly Node[]): Node[] {
   return [...nodes].sort(
@@ -281,7 +281,7 @@ export function flowTokens(query: string): string[] {
  * module header. No graph traversal happens here.
  */
 export function resolveNamedTokens(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   query: string,
   opts: NamedSymbolFlowOptions = {}
 ): NamedSymbolFlow {
@@ -400,7 +400,7 @@ const DIRECTED_VISIT_CAP = 12_000;
  * Returns the parent map, so a caller can reconstruct any reached node's path.
  */
 function walkCalls(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   seed: Node,
   named: ReadonlySet<string>,
   maxHops: number,
@@ -453,7 +453,7 @@ function walkCalls(
  * the payload claims to be shortest, only to be a path the graph records.
  */
 function walkBidirectional(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   seed: Node,
   sinks: ReadonlySet<string>,
   maxHops: number
@@ -564,7 +564,7 @@ function chainTo(
  * the two modes mean and why they differ.
  */
 export function resolveNamedSymbolFlow(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   query: string,
   opts: NamedSymbolFlowOptions = {}
 ): NamedSymbolFlow {

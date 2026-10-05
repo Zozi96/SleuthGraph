@@ -2,13 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const fixtureDir = path.join(__dirname, 'fixtures', 'php-import-alias-static');
 
 describe('PHP static calls through import aliases (#1545)', () => {
   let dir: string;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'php-static-alias-'));
@@ -22,7 +22,7 @@ describe('PHP static calls through import aliases (#1545)', () => {
   });
 
   it('attributes callers, callees and impact to SettleService instead of SettleRepository', async () => {
-    cg = await CodeGraph.init(dir, { silent: true });
+    cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const method = (qualifiedName: string) => {
       const node = cg!.searchNodes(qualifiedName.split('::').pop()!)
@@ -56,7 +56,7 @@ describe('PHP static calls through import aliases (#1545)', () => {
   const serviceMethod = 'App\\Services::SettleService::getSettlesToExcel';
 
   const callees = async () => {
-    cg = await CodeGraph.init(dir, { silent: true });
+    cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const excel = cg.searchNodes('excel').map(({ node }) => node)
       .find((n) => n.kind === 'method' && n.filePath === controllerPath)!;

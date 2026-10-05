@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const collections = [
   { name: 'dict_literal', value: '{"answer": "42"}', method: 'get' },
@@ -20,7 +20,7 @@ const collections = [
 ];
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-1652-'));
@@ -65,7 +65,7 @@ def read_unknown(name):
 def read_cache(lRUCache: LRUCache, name):
     return lRUCache.get(name)
 `);
-  cg = await CodeGraph.init(dir, { index: true });
+  cg = await SleuthGraph.init(dir, { index: true });
 });
 
 afterAll(() => {

@@ -18,16 +18,16 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 
 describe('field-name query retrieval (#1196)', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1196-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1196-'));
     fs.mkdirSync(path.join(testDir, 'controller'), { recursive: true });
     fs.mkdirSync(path.join(testDir, 'service'), { recursive: true });
 
@@ -68,7 +68,7 @@ module.exports = { getBillingMethod };
       );
     }
 
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
     handler = new ToolHandler(cg);
   });
@@ -79,7 +79,7 @@ module.exports = { getBillingMethod };
   });
 
   it('a bag of field-name tokens surfaces the files that DEFINE those fields', async () => {
-    const res = await handler.execute('codegraph_explore', {
+    const res = await handler.execute('sleuth_explore', {
       query: 'profileInfo isTrialEligible quotaInfo billingMethod',
     });
     const text = res.content[0]!.text as string;
@@ -95,7 +95,7 @@ module.exports = { getBillingMethod };
   it('exact-name seeding still wins when the token IS a real symbol', async () => {
     // `getBillingMethod` names a real function — the fallback must not
     // dilute or replace exact seeding.
-    const res = await handler.execute('codegraph_explore', { query: 'getBillingMethod' });
+    const res = await handler.execute('sleuth_explore', { query: 'getBillingMethod' });
     const text = res.content[0]!.text as string;
     expect(text).toContain('billing.js');
     expect(text).toContain('getBillingMethod');

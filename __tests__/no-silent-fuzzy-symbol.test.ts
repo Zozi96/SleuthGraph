@@ -11,7 +11,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 beforeAll(async () => {
   await initGrammars();
@@ -45,8 +45,8 @@ function runCli(args: string[], cwd: string): { stdout: string; status: number }
       encoding: 'utf-8',
       env: {
         ...process.env,
-        CODEGRAPH_NO_DAEMON: '1',
-        CODEGRAPH_TELEMETRY: '0',
+        SLEUTH_NO_DAEMON: '1',
+        SLEUTH_TELEMETRY: '0',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -63,7 +63,7 @@ describe.skipIf(!HAS_SQLITE)('no silent fuzzy substitution (#1473) — MCP', () 
   let handler: any;
 
   beforeEach(async () => {
-    projectRoot = tmpRoot('codegraph-1473-mcp-');
+    projectRoot = tmpRoot('sleuth-1473-mcp-');
     const src = path.join(projectRoot, 'src', 'a', 'b', 'c');
     fs.mkdirSync(src, { recursive: true });
     fs.writeFileSync(
@@ -84,9 +84,9 @@ describe.skipIf(!HAS_SQLITE)('no silent fuzzy substitution (#1473) — MCP', () 
       `def fetch():\n    return 1\n\ndef load():\n    return fetch()\n`
     );
 
-    const CodeGraph = (await import('../src/index')).default;
+    const SleuthGraph = (await import('../src/index')).default;
     const { ToolHandler } = await import('../src/mcp/tools');
-    cg = CodeGraph.initSync(projectRoot);
+    cg = SleuthGraph.initSync(projectRoot);
     await cg.indexAll();
     handler = new ToolHandler(cg);
   });
@@ -103,7 +103,7 @@ describe.skipIf(!HAS_SQLITE)('no silent fuzzy substitution (#1473) — MCP', () 
   }
 
   it('callers: missing name is not found (with did-you-mean), not a fuzzy hit labelled as the typed name', async () => {
-    const out = await text('codegraph_callers', { symbol: 'Calls' });
+    const out = await text('sleuth_callers', { symbol: 'Calls' });
     expect(out).toMatch(/Symbol "Calls" not found/);
     expect(out).toMatch(/Did you mean:/);
     expect(out).not.toMatch(/Callees of Calls|Callers of Calls/);
@@ -111,13 +111,13 @@ describe.skipIf(!HAS_SQLITE)('no silent fuzzy substitution (#1473) — MCP', () 
   });
 
   it('callees: missing name does not return another method\'s callees', async () => {
-    const out = await text('codegraph_callees', { symbol: 'Calls' });
+    const out = await text('sleuth_callees', { symbol: 'Calls' });
     expect(out).toMatch(/Symbol "Calls" not found/);
     expect(out).not.toContain('Callees of Calls');
   });
 
   it('impact: missing prefix does not substitute a longer name', async () => {
-    const out = await text('codegraph_impact', { symbol: 'callsEf' });
+    const out = await text('sleuth_impact', { symbol: 'callsEf' });
     expect(out).toMatch(/Symbol "callsEf" not found/);
     expect(out).toMatch(/Did you mean:.*callsEfOnly/);
     // Suggestion only — must not claim impact results for the mistyped name.
@@ -125,13 +125,13 @@ describe.skipIf(!HAS_SQLITE)('no silent fuzzy substitution (#1473) — MCP', () 
   });
 
   it('callers: exact name with zero callers stays empty (no case-sibling substitution)', async () => {
-    const out = await text('codegraph_callers', { symbol: 'Fetch' });
+    const out = await text('sleuth_callers', { symbol: 'Fetch' });
     expect(out).toMatch(/No callers found for "Fetch"/);
     expect(out).not.toContain('load');
   });
 
   it('callers: real exact name still resolves', async () => {
-    const out = await text('codegraph_callers', { symbol: 'ef' });
+    const out = await text('sleuth_callers', { symbol: 'ef' });
     expect(out).toContain('Callers of ef');
     expect(out).toContain('callsEfOnly');
     expect(out).toContain('alsoCallsEf');
@@ -149,7 +149,7 @@ describe.skipIf(!HAS_SQLITE || !fs.existsSync(BIN))('no silent fuzzy substitutio
   let projectRoot: string;
 
   beforeEach(async () => {
-    projectRoot = tmpRoot('codegraph-1473-cli-');
+    projectRoot = tmpRoot('sleuth-1473-cli-');
     const src = path.join(projectRoot, 'src', 'a', 'b', 'c');
     fs.mkdirSync(src, { recursive: true });
     fs.writeFileSync(
@@ -169,8 +169,8 @@ describe.skipIf(!HAS_SQLITE || !fs.existsSync(BIN))('no silent fuzzy substitutio
       `def fetch():\n    return 1\n\ndef load():\n    return fetch()\n`
     );
 
-    const CodeGraph = (await import('../src/index')).default;
-    const cg = CodeGraph.initSync(projectRoot);
+    const SleuthGraph = (await import('../src/index')).default;
+    const cg = SleuthGraph.initSync(projectRoot);
     await cg.indexAll();
     cg.close();
   });

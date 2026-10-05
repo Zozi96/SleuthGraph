@@ -25,7 +25,7 @@
  * listener exists. The detached daemon must never arm this — its stdin is
  * `'ignore'` and its lifecycle is refcount/idle-based.
  *
- * Tune with `CODEGRAPH_STARTUP_HANDSHAKE_TIMEOUT_MS`; `0` disables.
+ * Tune with `SLEUTH_STARTUP_HANDSHAKE_TIMEOUT_MS`; `0` disables.
  */
 
 /**
@@ -38,11 +38,11 @@ const MAX_TIMER_DELAY_MS = 2_147_483_647;
 /** Default wait for the first byte of MCP traffic before assuming orphaned. */
 export const DEFAULT_STARTUP_HANDSHAKE_TIMEOUT_MS = 900_000; // 15 min
 
-export const STARTUP_HANDSHAKE_TIMEOUT_ENV = 'CODEGRAPH_STARTUP_HANDSHAKE_TIMEOUT_MS';
+export const STARTUP_HANDSHAKE_TIMEOUT_ENV = 'SLEUTH_STARTUP_HANDSHAKE_TIMEOUT_MS';
 
 /**
  * Parse the timeout env override. Missing/invalid → default; `<= 0` → `0`
- * (disabled), the same disable convention as `CODEGRAPH_PPID_POLL_MS`. Capped
+ * (disabled), the same disable convention as `SLEUTH_PPID_POLL_MS`. Capped
  * at {@link MAX_TIMER_DELAY_MS}: a larger delay makes Node fire the timer after
  * 1 ms, abandoning a healthy launch at once (#1966).
  */

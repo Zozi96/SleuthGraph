@@ -12,10 +12,10 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 beforeAll(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-1707-'));
@@ -54,7 +54,7 @@ beforeAll(async () => {
       '  run(): string { return this.svc.ping(); }\n' +
       '}\n'
   );
-  cg = await CodeGraph.init(dir, { index: true });
+  cg = await SleuthGraph.init(dir, { index: true });
   cg.resolveReferences();
 });
 

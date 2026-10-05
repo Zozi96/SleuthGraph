@@ -3,17 +3,17 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
-describe('codegraph sync reporting', () => {
+describe('sleuth sync reporting', () => {
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cli-sync-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cli-sync-'));
     fs.writeFileSync(path.join(testDir, 'index.ts'), 'export function original() { return target(); }\nexport function target() { return 1; }');
-    const cg = CodeGraph.initSync(testDir);
+    const cg = SleuthGraph.initSync(testDir);
     try {
       await cg.indexAll();
     } finally {
@@ -31,8 +31,8 @@ describe('codegraph sync reporting', () => {
       timeout: 30_000,
       env: {
         ...process.env,
-        CODEGRAPH_TELEMETRY: '0', DO_NOT_TRACK: '1',
-        CODEGRAPH_NO_PROMPT_HOOK: '1', CODEGRAPH_NO_DAEMON: '1',
+        SLEUTH_TELEMETRY: '0', DO_NOT_TRACK: '1',
+        SLEUTH_NO_PROMPT_HOOK: '1', SLEUTH_NO_DAEMON: '1',
         NODE_NO_WARNINGS: '1', NO_COLOR: '1',
       },
     });
@@ -40,7 +40,7 @@ describe('codegraph sync reporting', () => {
 
   it.each([false, true])('reports pending-reference recovery (quiet=%s)', (quiet) => {
     for (const resolvable of [true, false]) {
-      const cg = CodeGraph.openSync(testDir);
+      const cg = SleuthGraph.openSync(testDir);
       try {
         const queries = (cg as unknown as { queries: import('../src/db/queries').QueryBuilder }).queries;
         const caller = cg.searchNodes('original').find(r => r.node.name === 'original')!.node;
@@ -72,7 +72,7 @@ describe('codegraph sync reporting', () => {
 
   it.each([false, true])('reports contention and recovers after release (quiet=%s)', (quiet) => {
     fs.writeFileSync(path.join(testDir, 'index.ts'), 'export function changedUnderLock() { return 2; }');
-    const lockPath = path.join(testDir, '.codegraph', 'codegraph.lock');
+    const lockPath = path.join(testDir, '.sleuth', 'sleuth.lock');
     fs.writeFileSync(lockPath, String(process.pid));
 
     const locked = sync(quiet);
@@ -86,7 +86,7 @@ describe('codegraph sync reporting', () => {
       expect(locked.stdout + locked.stderr).toMatch(/retry/i);
     }
     expect(fs.readFileSync(lockPath, 'utf8')).toBe(String(process.pid));
-    const before = CodeGraph.openSync(testDir);
+    const before = SleuthGraph.openSync(testDir);
     try {
       expect(before.searchNodes('changedUnderLock')).toHaveLength(0);
     } finally {
@@ -97,7 +97,7 @@ describe('codegraph sync reporting', () => {
     const unlocked = sync(quiet);
     expect(unlocked.error).toBeUndefined();
     expect(unlocked.status).toBe(0);
-    const after = CodeGraph.openSync(testDir);
+    const after = SleuthGraph.openSync(testDir);
     try {
       expect(after.searchNodes('changedUnderLock')).toHaveLength(1);
     } finally {

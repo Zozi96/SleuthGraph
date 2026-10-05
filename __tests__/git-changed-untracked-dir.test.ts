@@ -1,5 +1,5 @@
 /**
- * Regression test for #1213: `codegraph sync` silently skips untracked files
+ * Regression test for #1213: `sleuth sync` silently skips untracked files
  * that live inside an untracked directory.
  *
  * `git status --porcelain` collapses an entirely-untracked directory into a
@@ -22,7 +22,7 @@ describe('getGitChangedFiles — untracked directories (#1213)', () => {
   const dirs: string[] = [];
 
   function makeRepo(): string {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-1213-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-1213-'));
     dirs.push(dir);
     git(dir, ['init']);
     git(dir, ['config', 'user.email', 'test@example.com']);

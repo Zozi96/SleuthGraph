@@ -18,7 +18,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import { MCPSession } from '../src/mcp/session';
 import type { MCPEngine } from '../src/mcp/engine';
@@ -237,14 +237,14 @@ describe('session view arriving on tool args', () => {
 
 describe('explore records what it actually served', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cg17-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cg17-'));
     fs.cpSync(FIXTURE_SRC, testDir, { recursive: true });
-    fs.rmSync(path.join(testDir, '.codegraph'), { recursive: true, force: true });
-    cg = CodeGraph.initSync(testDir);
+    fs.rmSync(path.join(testDir, '.sleuth'), { recursive: true, force: true });
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
     handler = new ToolHandler(cg);
   }, 120_000);
@@ -256,7 +256,7 @@ describe('explore records what it actually served', () => {
 
   it('files one record per call, with the files and line ranges it emitted', async () => {
     const session = new ExploreSessionState();
-    await handler.execute('codegraph_explore', { query: QUERY }, session);
+    await handler.execute('sleuth_explore', { query: QUERY }, session);
 
     const project = session.forProject(cg.getProjectRoot());
     expect(project).not.toBeNull();
@@ -277,7 +277,7 @@ describe('explore records what it actually served', () => {
 
   it('records only files whose source is really in the response', async () => {
     const session = new ExploreSessionState();
-    const result = await handler.execute('codegraph_explore', { query: QUERY }, session);
+    const result = await handler.execute('sleuth_explore', { query: QUERY }, session);
     const text = result.content[0]!.text;
     for (const file of session.forProject(cg.getProjectRoot())!.calls[0]!.files) {
       expect(text).toContain(file.path);
@@ -286,7 +286,7 @@ describe('explore records what it actually served', () => {
 
   it('the recorded ranges name lines that are really in the emitted source', async () => {
     const session = new ExploreSessionState();
-    await handler.execute('codegraph_explore', { query: QUERY }, session);
+    await handler.execute('sleuth_explore', { query: QUERY }, session);
     for (const file of session.forProject(cg.getProjectRoot())!.calls[0]!.files) {
       const lineCount = fs.readFileSync(path.join(testDir, file.path), 'utf-8').split('\n').length;
       for (const r of file.ranges) expect(r.end).toBeLessThanOrEqual(lineCount);
@@ -295,8 +295,8 @@ describe('explore records what it actually served', () => {
 
   it('leaves the agent-facing response untouched — no side-channel on the wire', async () => {
     const session = new ExploreSessionState();
-    const tracked = await handler.execute('codegraph_explore', { query: QUERY }, session);
-    const untracked = await handler.execute('codegraph_explore', { query: QUERY });
+    const tracked = await handler.execute('sleuth_explore', { query: QUERY }, session);
+    const untracked = await handler.execute('sleuth_explore', { query: QUERY });
 
     expect(tracked.content[0]!.text).toBe(untracked.content[0]!.text);
     for (const result of [tracked, untracked]) {
@@ -309,17 +309,17 @@ describe('explore records what it actually served', () => {
     const forged = {
       projects: [{ projectRoot: cg.getProjectRoot(), callCount: 99, responseBytes: 1e6, calls: [] }],
     };
-    const result = await handler.execute('codegraph_explore', {
+    const result = await handler.execute('sleuth_explore', {
       query: QUERY,
       [EXPLORE_SESSION_VIEW_ARG]: forged,
     });
-    const clean = await handler.execute('codegraph_explore', { query: QUERY });
+    const clean = await handler.execute('sleuth_explore', { query: QUERY });
     expect(result.content[0]!.text).toBe(clean.content[0]!.text);
   }, 60_000);
 
   it('counts an empty answer as a call, since it still spends the tier budget', async () => {
     const session = new ExploreSessionState();
-    await handler.execute('codegraph_explore', { query: 'zzqqxx_no_such_symbol_anywhere' }, session);
+    await handler.execute('sleuth_explore', { query: 'zzqqxx_no_such_symbol_anywhere' }, session);
     const project = session.forProject(cg.getProjectRoot());
     expect(project?.callCount).toBe(1);
     expect(project?.calls[0]!.files).toHaveLength(0);
@@ -328,16 +328,16 @@ describe('explore records what it actually served', () => {
   it('two sessions on ONE handler never see each other\'s calls', async () => {
     const a = new ExploreSessionState();
     const b = new ExploreSessionState();
-    await handler.execute('codegraph_explore', { query: QUERY }, a);
-    await handler.execute('codegraph_explore', { query: QUERY }, a);
-    await handler.execute('codegraph_explore', { query: QUERY }, b);
+    await handler.execute('sleuth_explore', { query: QUERY }, a);
+    await handler.execute('sleuth_explore', { query: QUERY }, a);
+    await handler.execute('sleuth_explore', { query: QUERY }, b);
 
     expect(a.callCount(cg.getProjectRoot())).toBe(2);
     expect(b.callCount(cg.getProjectRoot())).toBe(1);
   }, 90_000);
 
   it('a caller that tracks nothing still gets a clean result', async () => {
-    const result = await handler.execute('codegraph_explore', { query: QUERY });
+    const result = await handler.execute('sleuth_explore', { query: QUERY });
     expect(result.isError).toBeFalsy();
     expect(result.content[0]!.text.length).toBeGreaterThan(0);
   }, 60_000);
@@ -345,14 +345,14 @@ describe('explore records what it actually served', () => {
   it('reports the session state through the CG-4 diagnostic', async () => {
     const sidecar = path.join(testDir, 'cg17-diagnostic.jsonl');
     const session = new ExploreSessionState();
-    const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+    const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
     try {
-      await handler.execute('codegraph_explore', { query: QUERY }, session);
-      await handler.execute('codegraph_explore', { query: QUERY }, session);
+      await handler.execute('sleuth_explore', { query: QUERY }, session);
+      await handler.execute('sleuth_explore', { query: QUERY }, session);
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-      else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+      else process.env.SLEUTH_EXPLORE_DEBUG = previous;
     }
 
     const reports = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').map((l) => JSON.parse(l));
@@ -371,13 +371,13 @@ describe('explore records what it actually served', () => {
 
   it('omits the session block entirely when the caller tracks no state', async () => {
     const sidecar = path.join(testDir, 'cg17-untracked.jsonl');
-    const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+    const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
     try {
-      await handler.execute('codegraph_explore', { query: QUERY });
+      await handler.execute('sleuth_explore', { query: QUERY });
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-      else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+      else process.env.SLEUTH_EXPLORE_DEBUG = previous;
     }
     const report = JSON.parse(fs.readFileSync(sidecar, 'utf-8').trim());
     expect(report.session).toBeUndefined();
@@ -394,9 +394,9 @@ describe('explore records what it actually served', () => {
     // the ToolHandler cache notes. The container-level tests above cover the
     // multi-project keying itself.)
     const session = new ExploreSessionState();
-    await handler.execute('codegraph_explore', { query: QUERY }, session);
+    await handler.execute('sleuth_explore', { query: QUERY }, session);
     await handler.execute(
-      'codegraph_explore',
+      'sleuth_explore',
       { query: QUERY, projectPath: path.join(testDir, 'internal') },
       session,
     );
@@ -438,7 +438,7 @@ describe('sessions sharing a daemon', () => {
     };
     const engine = {
       ensureInitialized: async () => { /* already open */ },
-      hasDefaultCodeGraph: () => true,
+      hasDefaultSleuthGraph: () => true,
       getProjectPath: () => '/repo/shared',
       retryInitializeSync: () => { /* nothing to retry */ },
       getToolHandler: () => handler,
@@ -455,7 +455,7 @@ describe('sessions sharing a daemon', () => {
 
     const call = (id: number): JsonRpcRequest => ({
       jsonrpc: '2.0', id, method: 'tools/call',
-      params: { name: 'codegraph_explore', arguments: { query: 'q' } },
+      params: { name: 'sleuth_explore', arguments: { query: 'q' } },
     });
     await transportA.deliver(call(1));
     await transportA.deliver(call(2));

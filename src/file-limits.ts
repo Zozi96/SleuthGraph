@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 
 /**
- * Largest source file CodeGraph will parse or read during resolution. Generated
+ * Largest source file SleuthGraph will parse or read during resolution. Generated
  * bundles, minified sources, and dependency archives above this limit provide no
  * useful symbols; 1 MB covers essentially all hand-written source.
  */
@@ -18,7 +18,7 @@ export const MAX_SOURCE_FILE_SIZE_BYTES = 1024 * 1024;
  * indexed), while crossing the limit in either direction is.
  */
 export function oversizeStamp(size: number): string {
-  return `codegraph:oversize:${size}`;
+  return `sleuth:oversize:${size}`;
 }
 
 /**

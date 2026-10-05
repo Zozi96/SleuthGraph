@@ -11,7 +11,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { extractImportMappings } from '../src/resolution/import-resolver';
 
 const bindings = (source: string) =>
@@ -58,7 +58,7 @@ export function gapCursor(): Command { return () => true; }
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const targets = (file: string) =>
         cg

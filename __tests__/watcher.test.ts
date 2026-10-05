@@ -30,7 +30,7 @@ import {
   __setFsWatchForTests,
   type WatchOptions,
 } from '../src/sync/watcher';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 
 // Keep real filesystem operations, with writable exports for failure injection.
 vi.mock('fs', async (importOriginal) => ({ ...await importOriginal<typeof import('fs')>() }));
@@ -60,11 +60,11 @@ function waitFor(
 
 describe('FileWatcher', () => {
   let testDir: string;
-  const graphs = new Set<CodeGraph>();
+  const graphs = new Set<SleuthGraph>();
   const unitWatchers = new Set<FileWatcher>();
 
-  const initGraph = (...args: Parameters<typeof CodeGraph.initSync>) => {
-    const cg = CodeGraph.initSync(...args);
+  const initGraph = (...args: Parameters<typeof SleuthGraph.initSync>) => {
+    const cg = SleuthGraph.initSync(...args);
     graphs.add(cg);
     return cg;
   };
@@ -82,7 +82,7 @@ describe('FileWatcher', () => {
   };
 
   beforeEach(() => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-watcher-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-watcher-'));
     // Create a source file so the directory isn't empty
     const srcDir = path.join(testDir, 'src');
     fs.mkdirSync(srcDir);
@@ -150,7 +150,7 @@ describe('FileWatcher', () => {
     // uses — recursive on macOS/Windows, per-directory on Linux. Each uses its
     // OWN EMPTY temp dir so exactly one watch is installed and the close-count
     // is deterministic across platforms.
-    const mkEmptyDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-exhaust-'));
+    const mkEmptyDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-exhaust-'));
 
     it('fails to start and degrades when fs.watch setup exhausts watch resources', () => {
       const dir = mkEmptyDir();
@@ -246,7 +246,7 @@ describe('FileWatcher', () => {
         // Empty-but-for-one-subdir temp dir: the root watch succeeds, then the
         // child watch hits the (simulated) inotify budget — the realistic
         // "partial watch installed, then exhausted" shape.
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-inotify-'));
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-inotify-'));
         fs.mkdirSync(path.join(dir, 'sub'));
         const onDegraded = vi.fn();
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -553,7 +553,7 @@ describe('FileWatcher', () => {
     });
 
     it('end-to-end: deleting a subdirectory removes its files from the index via watch sync (#1285)', async () => {
-      // Real CodeGraph as the sync target; the watcher is inert and driven
+      // Real SleuthGraph as the sync target; the watcher is inert and driven
       // by the synthetic event seam for determinism.
       fs.writeFileSync(path.join(testDir, 'root.ts'), 'export const r = 1;');
       const deep = path.join(testDir, 'docs', 'a', 'b');
@@ -587,16 +587,16 @@ describe('FileWatcher', () => {
       watcher.stop();
     });
 
-    it('should ignore .codegraph directory changes', async () => {
+    it('should ignore .sleuth directory changes', async () => {
       const syncFn = vi.fn().mockResolvedValue({ filesChanged: 0, durationMs: 0 });
       const watcher = newWatcher(syncFn, { debounceMs: 200 });
 
       watcher.start();
       await watcher.waitUntilReady();
 
-      // A .codegraph event — FileWatcher's `isAlwaysIgnored` filter must drop
+      // A .sleuth event — FileWatcher's `isAlwaysIgnored` filter must drop
       // it before scheduling sync.
-      __emitWatchEventForTests(testDir, '.codegraph/db.sqlite');
+      __emitWatchEventForTests(testDir, '.sleuth/db.sqlite');
 
       await new Promise((r) => setTimeout(r, 400));
       expect(syncFn).not.toHaveBeenCalled();
@@ -624,10 +624,10 @@ describe('FileWatcher', () => {
 
   describe('scope config refresh (#1590)', () => {
     // The matcher used to be built once in start() and kept for the watcher's
-    // lifetime, so a `codegraph.json` written AFTER the daemon started was
-    // invisible to the live watcher while `codegraph sync` honoured it: the
+    // lifetime, so a `sleuth.json` written AFTER the daemon started was
+    // invisible to the live watcher while `sleuth sync` honoured it: the
     // CLI removed a newly excluded file and the watcher re-added it.
-    it('a codegraph.json edit rebuilds the matcher and forces a full sync', async () => {
+    it('a sleuth.json edit rebuilds the matcher and forces a full sync', async () => {
       const syncFn = vi.fn().mockResolvedValue({ filesChanged: 0, durationMs: 0 });
       const watcher = newWatcher(syncFn, { debounceMs: 100 });
       watcher.start();
@@ -636,8 +636,8 @@ describe('FileWatcher', () => {
       // Scope the project after the watcher is already running.
       fs.mkdirSync(path.join(testDir, 'skipme'));
       fs.writeFileSync(path.join(testDir, 'skipme', 'b.ts'), 'export const b = 1;\n');
-      fs.writeFileSync(path.join(testDir, 'codegraph.json'), JSON.stringify({ exclude: ['skipme/'] }));
-      __emitWatchEventForTests(testDir, 'codegraph.json');
+      fs.writeFileSync(path.join(testDir, 'sleuth.json'), JSON.stringify({ exclude: ['skipme/'] }));
+      __emitWatchEventForTests(testDir, 'sleuth.json');
 
       // The config edit schedules a FULL sync (no scoped path list): only the
       // scan-diff can find the files the new scope drops or admits.
@@ -761,9 +761,9 @@ describe('FileWatcher', () => {
 
       fs.mkdirSync(path.join(testDir, 'skipme'));
       fs.writeFileSync(path.join(testDir, 'skipme', 'b.ts'), 'export const b = 1;\n');
-      const cfg = path.join(testDir, 'codegraph.json');
+      const cfg = path.join(testDir, 'sleuth.json');
       fs.writeFileSync(cfg, JSON.stringify({ exclude: ['skipme/'] }));
-      __emitWatchEventForTests(testDir, 'codegraph.json');
+      __emitWatchEventForTests(testDir, 'sleuth.json');
       await waitFor(() => syncFn.mock.calls.length > 0);
       await new Promise((r) => setTimeout(r, 50));
       __emitWatchEventForTests(testDir, 'skipme/b.ts');
@@ -774,7 +774,7 @@ describe('FileWatcher', () => {
       fs.writeFileSync(cfg, JSON.stringify({}));
       const later = new Date(Date.now() + 5000);
       fs.utimesSync(cfg, later, later);
-      __emitWatchEventForTests(testDir, 'codegraph.json');
+      __emitWatchEventForTests(testDir, 'sleuth.json');
       await waitFor(() => syncFn.mock.calls.length > 1);
       expect(syncFn.mock.calls[1]![0]).toBeUndefined();
       await new Promise((r) => setTimeout(r, 50));
@@ -901,7 +901,7 @@ describe('FileWatcher', () => {
     });
 
     it('should retain pending files and retry when syncFn throws LockUnavailableError (#449)', async () => {
-      // CodeGraph.watch() converts the cross-process lock-failure no-op
+      // SleuthGraph.watch() converts the cross-process lock-failure no-op
       // into LockUnavailableError so the watcher's retry path picks it up
       // instead of falsely clearing pendingFiles. This test exercises the
       // contract directly.
@@ -980,10 +980,10 @@ describe('FileWatcher', () => {
     });
   });
 
-  describe('CodeGraph integration', () => {
-    let cg: CodeGraph;
+  describe('SleuthGraph integration', () => {
+    let cg: SleuthGraph;
 
-    it('should watch and unwatch via CodeGraph API', async () => {
+    it('should watch and unwatch via SleuthGraph API', async () => {
       cg = initGraph(testDir, {
         config: { include: ['**/*.ts'], exclude: [] },
       });
@@ -1086,7 +1086,7 @@ describe('FileWatcher', () => {
       const cg = initGraph(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
       await cg.indexAll();
       const synced = vi.fn();
-      // Observe real OS delivery through the same stream CodeGraph consumes.
+      // Observe real OS delivery through the same stream SleuthGraph consumes.
       // No injected events: a passing negative assertion must see a native event.
       const nativeWatch = fs.watch;
       let events = 0;
@@ -1161,11 +1161,11 @@ describe('FileWatcher', () => {
   });
 
   describe('symlink directory watching (#770)', () => {
-    let cg: CodeGraph | undefined;
+    let cg: SleuthGraph | undefined;
     const externalDirs: string[] = [];
     const watchers: FileWatcher[] = [];
     const external = () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-linked-'));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-linked-'));
       externalDirs.push(dir);
       return dir;
     };
@@ -1306,7 +1306,7 @@ describe('FileWatcher', () => {
     it.runIf(process.platform === 'darwin' || process.platform === 'win32')('caps supplemental recursive streams and degrades on their exhaustion', () => {
       link(external(), path.join(testDir, 'first'));
       link(external(), path.join(testDir, 'second'));
-      vi.stubEnv('CODEGRAPH_MAX_DIR_WATCHES', '1');
+      vi.stubEnv('SLEUTH_MAX_DIR_WATCHES', '1');
       const close = vi.fn();
       const watch = vi.fn(() => {
         const w = new EventEmitter() as fs.FSWatcher;

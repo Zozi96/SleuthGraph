@@ -14,7 +14,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { initGrammars, loadAllGrammars } from '../src/extraction/grammars';
 import { buildScreens } from '../src/ui-server/api/screens';
 import { parseVueRoutes, vueNavVerb, routeNameInExpression } from '../src/resolution/frameworks/vue-router';
@@ -117,7 +117,7 @@ describe('vue-router: navigation call names', () => {
 
 describe('vue-router: a routed app end to end', () => {
   let tmpDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   function write(rel: string, content: string): void {
     const full = path.join(tmpDir, rel);
@@ -215,7 +215,7 @@ describe('vue-router: a routed app end to end', () => {
     );
     // The precision floor: an array's `push` with a string that IS a route.
     write('src/utils/trail.js', 'export function trail() {\n  const paths = []\n  paths.push("/login")\n  return paths\n}\n');
-    cg = CodeGraph.initSync(tmpDir);
+    cg = SleuthGraph.initSync(tmpDir);
     await cg.indexAll();
   });
 
@@ -313,18 +313,18 @@ describe('vue-router: route tables beyond an inline createRouter', () => {
     for (const r of roots.splice(0)) fs.rmSync(r, { recursive: true, force: true });
   });
 
-  async function project(files: Record<string, string>): Promise<CodeGraph> {
+  async function project(files: Record<string, string>): Promise<SleuthGraph> {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-vue-tables-'));
     roots.push(root);
     for (const [rel, content] of Object.entries(files)) {
       fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
       fs.writeFileSync(path.join(root, rel), content);
     }
-    return CodeGraph.init(root, { index: true });
+    return SleuthGraph.init(root, { index: true });
   }
 
-  const routeNames = (cg: CodeGraph): string[] => cg.getNodesByKind('route').map((n) => n.name).sort();
-  const edgesFrom = (cg: CodeGraph, routeName: string, kind: 'calls' | 'references') => {
+  const routeNames = (cg: SleuthGraph): string[] => cg.getNodesByKind('route').map((n) => n.name).sort();
+  const edgesFrom = (cg: SleuthGraph, routeName: string, kind: 'calls' | 'references') => {
     const r = cg.getNodesByKind('route').find((n) => n.name === routeName)!;
     return cg.getOutgoingEdges(r.id).filter((e) => e.kind === kind).map((e) => ({ edge: e, target: cg.getNode(e.target)! }));
   };

@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { SchemaVersion } from '../types';
 import { runMigrations, getCurrentVersion, CURRENT_SCHEMA_VERSION } from './migrations';
-import { getCodeGraphDir, statInode } from '../directory';
+import { getSleuthGraphDir, statInode } from '../directory';
 
 export { SqliteDatabase, SqliteBackend } from './sqlite-adapter';
 
@@ -25,7 +25,7 @@ export { SqliteDatabase, SqliteBackend } from './sqlite-adapter';
  * The 5s window (was 120s) rides out a normal incremental sync; the old
  * 2-minute wait presented as a frozen, hung agent. With WAL, reads never block
  * on a writer, so this timeout only governs cross-process write contention
- * (e.g. the git-hook `codegraph sync` running while the MCP server writes).
+ * (e.g. the git-hook `sleuth sync` running while the MCP server writes).
  */
 function configureConnection(db: SqliteDatabase, readOnly = false): void {
   db.pragma('busy_timeout = 5000');      // MUST be first — see above
@@ -53,9 +53,9 @@ function configureConnection(db: SqliteDatabase, readOnly = false): void {
  * file just grew, killed session after killed session, until the disk filled
  * (25.6 GB observed). 64 MB is far above anything a healthy open ever sees
  * (a clean close deletes the WAL) yet small enough to cap the leak.
- * Override with `CODEGRAPH_WAL_HEAL_MB` (also feeds `journal_size_limit`).
+ * Override with `SLEUTH_WAL_HEAL_MB` (also feeds `journal_size_limit`).
  */
-export const WAL_HEAL_THRESHOLD_BYTES = resolveWalHealBytes(process.env.CODEGRAPH_WAL_HEAL_MB);
+export const WAL_HEAL_THRESHOLD_BYTES = resolveWalHealBytes(process.env.SLEUTH_WAL_HEAL_MB);
 
 /** Resolve the heal threshold from the env override (MB); invalid ⇒ 64 MB. */
 export function resolveWalHealBytes(envVal: string | undefined): number {
@@ -77,7 +77,7 @@ export class DatabaseConnection {
    * `dev:ino` of the DB file at the moment we opened it (or null when the
    * platform/filesystem reports no usable inode). Lets us notice when the file
    * we hold open has been unlinked and REPLACED by a new file at the same path
-   * — a git worktree removed and re-added, or `.codegraph/` deleted and
+   * — a git worktree removed and re-added, or `.sleuth/` deleted and
    * re-`init`ed under a long-lived server — at which point our fd reads a now
    * dead inode forever (#925). See `isReplacedOnDisk`.
    */
@@ -113,7 +113,7 @@ export class DatabaseConnection {
     configureConnection(db);
 
     // Run schema initialization, splitting FTS5 from the rest so
-    // codegraph still works when Node.js was built without FTS5 (#1532).
+    // sleuth still works when Node.js was built without FTS5 (#1532).
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf-8');
 
@@ -138,7 +138,7 @@ export class DatabaseConnection {
         fts5Available = false;
         const msg = err?.message ?? String(err);
         console.warn(
-          `[codegraph] FTS5 not available in this Node.js build (${msg}). ` +
+          `[sleuth] FTS5 not available in this Node.js build (${msg}). ` +
           `Search will fall back to LIKE + fuzzy matching. ` +
           `For full-text search, use a Node.js build with FTS5 enabled.`
         );
@@ -507,7 +507,7 @@ export class DatabaseConnection {
    * SQLite silently keeps the prior mode if WAL can't be enabled — e.g. on
    * filesystems without shared-memory support (some network/virtualized mounts,
    * WSL2 /mnt). So the effective mode can differ
-   * from what `configureConnection` requested. Surfaced in `codegraph status` so
+   * from what `configureConnection` requested. Surfaced in `sleuth status` so
    * a "database is locked" report is triageable: 'wal' ⇒ readers never block on a
    * writer; anything else ⇒ they can. See issue #238.
    */
@@ -672,7 +672,7 @@ export class DatabaseConnection {
       if (this.getWalSizeBytes() <= WAL_HEAL_THRESHOLD_BYTES) break;
     }
     const afterBytes = this.getWalSizeBytes();
-    if (process.env.CODEGRAPH_WAL_VALVE_DEBUG) {
+    if (process.env.SLEUTH_WAL_VALVE_DEBUG) {
       console.error(`[wal-heal] oversized WAL at open: ${Math.round(beforeBytes / (1024 * 1024))}MB -> ${Math.round(afterBytes / (1024 * 1024))}MB`);
     }
     return { healed: afterBytes < beforeBytes, beforeBytes, afterBytes };
@@ -715,7 +715,7 @@ export class DatabaseConnection {
         try {
           const worker = new Worker(workerSource, { eval: true, workerData: { dbPath: this.dbPath, mode } });
           worker.once('message', (m: { row?: Record<string, number> | null; err?: string | null }) => {
-            if (m?.err && process.env.CODEGRAPH_WAL_VALVE_DEBUG) {
+            if (m?.err && process.env.SLEUTH_WAL_VALVE_DEBUG) {
               console.error(`[wal-valve] checkpoint worker (${mode}): ${m.err}`);
             }
             void worker.terminate();
@@ -843,9 +843,9 @@ export class DatabaseConnection {
    * True when the DB file at our path has been REPLACED on disk since we opened
    * it — a different inode now lives at the same path, so the fd we still hold
    * points at a now-unlinked inode that can never receive new writes (#925).
-   * The trigger is removing and recreating `.codegraph/` at the same path under
+   * The trigger is removing and recreating `.sleuth/` at the same path under
    * a long-lived process (`git worktree remove` + re-add, or `rm -rf
-   * .codegraph` + `codegraph init`). Returns false when the inode is unchanged,
+   * .sleuth` + `sleuth init`). Returns false when the inode is unchanged,
    * when the file is momentarily absent (mid-recreate — nothing to reopen onto
    * yet), or when the platform doesn't report a usable inode (Windows can't
    * unlink an open file and its st_ino is unreliable, so this never fires there).
@@ -860,7 +860,7 @@ export class DatabaseConnection {
 /**
  * Default database filename
  */
-export const DATABASE_FILENAME = 'codegraph.db';
+export const DATABASE_FILENAME = 'sleuth.db';
 
 /**
  * SQLite's sidecar files in WAL mode — the write-ahead log and its shared-memory
@@ -873,7 +873,7 @@ const WAL_SIDECAR_SUFFIXES = ['-wal', '-shm'] as const;
  * Get the default database path for a project
  */
 export function getDatabasePath(projectRoot: string): string {
-  return path.join(getCodeGraphDir(projectRoot), DATABASE_FILENAME);
+  return path.join(getSleuthGraphDir(projectRoot), DATABASE_FILENAME);
 }
 
 /**

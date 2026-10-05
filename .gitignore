@@ -52,7 +52,9 @@ npm-debug.log*
 # public engine repo (see the IP boundary in CLAUDE.md)
 docs/business/
 
-# CodeGraph data directories (in test projects)
+# SleuthGraph data directories (in test projects)
+.sleuth/
+# legacy pre-rename index dirs
 .codegraph/
 
 test_frameworks
@@ -69,8 +71,6 @@ release/
 tmux-web/
 
 assets/__pycache__/
-
-assets/generate-waitlist.py
 
 .kommandr/
 

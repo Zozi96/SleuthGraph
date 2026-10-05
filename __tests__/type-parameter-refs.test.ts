@@ -10,24 +10,24 @@ import { describe, it, expect, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 const roots: string[] = [];
 afterAll(() => {
   for (const r of roots.splice(0)) fs.rmSync(r, { recursive: true, force: true });
 });
 
-async function project(files: Record<string, string>): Promise<CodeGraph> {
+async function project(files: Record<string, string>): Promise<SleuthGraph> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cg-type-params-'));
   roots.push(root);
   for (const [rel, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return CodeGraph.init(root, { index: true });
+  return SleuthGraph.init(root, { index: true });
 }
 
-function typeTargets(cg: CodeGraph, name: string): string[] {
+function typeTargets(cg: SleuthGraph, name: string): string[] {
   const from = cg.getNodesByName(name).filter((n) => n.kind === 'function' || n.kind === 'method');
   return cg
     .getOutgoingEdgesFrom(from.map((n) => n.id), ['references', 'type_of', 'returns', 'instantiates'])

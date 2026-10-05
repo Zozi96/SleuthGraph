@@ -137,7 +137,7 @@ class CopilotJetbrainsTarget implements AgentTarget {
     }
     const file = mcpJsonPath();
     const config = parseConfig(readConfigText(file));
-    const alreadyConfigured = !!config.servers?.codegraph;
+    const alreadyConfigured = !!config.servers?.sleuth;
     // The `intellij/` subdir is created by the Copilot plugin itself;
     // fall back to "some JetBrains IDE is installed" for first-time
     // plugin users.
@@ -167,7 +167,7 @@ class CopilotJetbrainsTarget implements AgentTarget {
     if (loc !== 'global') {
       return '# The JetBrains Copilot plugin has no project-local MCP config — use --location=global.\n';
     }
-    const snippet = JSON.stringify({ servers: { codegraph: getMcpServerConfig() } }, null, 2);
+    const snippet = JSON.stringify({ servers: { sleuth: getMcpServerConfig() } }, null, 2);
     return `# Add to ${mcpJsonPath()}\n# (Settings → Tools → GitHub Copilot → Model Context Protocol → Configure)\n\n${snippet}\n`;
   }
 
@@ -184,7 +184,7 @@ function writeMcpEntry(): WriteResult['files'][number] {
   if (!text.trim()) text = '{}\n';
 
   const config = parseConfig(text);
-  const before = config.servers?.codegraph;
+  const before = config.servers?.sleuth;
   const after = getMcpServerConfig();
 
   if (jsonDeepEqual(before, after)) {
@@ -193,7 +193,7 @@ function writeMcpEntry(): WriteResult['files'][number] {
 
   // Surgical edit — preserves comments, formatting, and sibling
   // servers ("servers" is created when missing).
-  const edits = modify(text, ['servers', 'codegraph'], after, {
+  const edits = modify(text, ['servers', 'sleuth'], after, {
     formattingOptions: FORMATTING,
   });
   const updated = applyEdits(text, edits);
@@ -207,9 +207,9 @@ function removeMcpEntry(): WriteResult['files'][number] {
   if (!fs.existsSync(file)) return { path: file, action: 'not-found' };
   const text = readConfigText(file);
   const config = parseConfig(text);
-  if (!config.servers?.codegraph) return { path: file, action: 'not-found' };
+  if (!config.servers?.sleuth) return { path: file, action: 'not-found' };
 
-  let edits = modify(text, ['servers', 'codegraph'], undefined, {
+  let edits = modify(text, ['servers', 'sleuth'], undefined, {
     formattingOptions: FORMATTING,
   });
   let updated = applyEdits(text, edits);

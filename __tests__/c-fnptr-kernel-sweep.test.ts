@@ -2,9 +2,9 @@
  * cFnPtr native extraction sweep — differential gate (task #5 step 2).
  *
  * The synthesizer's extraction sweep has two implementations: the JS regex
- * sweep and the kernel's `cfnptrScanFiles` (codegraph-kernel/src/cfnptr.rs).
+ * sweep and the kernel's `cfnptrScanFiles` (sleuth-kernel/src/cfnptr.rs).
  * They must be record-identical, which this suite pins end-to-end: the same
- * adversarial project is indexed twice — CODEGRAPH_KERNEL_CFNPTR toggled —
+ * adversarial project is indexed twice — SLEUTH_KERNEL_CFNPTR toggled —
  * and the synthesized fn-pointer-dispatch edges must match EXACTLY, including
  * order (edge order is observable through FANOUT_CAP truncation).
  *
@@ -19,7 +19,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { getKernel } from '../src/extraction/kernel/loader';
 
 const kernel = getKernel();
@@ -36,7 +36,7 @@ describe.runIf(nativeAvailable)('cFnPtr sweep: native vs JS differential', () =>
   let dir: string;
   beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cfp-k-')); });
   afterEach(() => {
-    delete process.env.CODEGRAPH_KERNEL_CFNPTR;
+    delete process.env.SLEUTH_KERNEL_CFNPTR;
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -47,8 +47,8 @@ describe.runIf(nativeAvailable)('cFnPtr sweep: native vs JS differential', () =>
   };
 
   const indexAndCollect = async (): Promise<{ edges: EdgeRow[]; nodes: number }> => {
-    fs.rmSync(path.join(dir, '.codegraph'), { recursive: true, force: true });
-    const cg = await CodeGraph.init(dir, { silent: true });
+    fs.rmSync(path.join(dir, '.sleuth'), { recursive: true, force: true });
+    const cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const edges: EdgeRow[] = db
@@ -161,9 +161,9 @@ void fire(struct hook *h, int v) { h->func(v); }
 
   it('indexes to identical fn-pointer-dispatch edges with the sweep native vs JS', async () => {
     writeFixture();
-    process.env.CODEGRAPH_KERNEL_CFNPTR = '0';
+    process.env.SLEUTH_KERNEL_CFNPTR = '0';
     const js = await indexAndCollect();
-    delete process.env.CODEGRAPH_KERNEL_CFNPTR;
+    delete process.env.SLEUTH_KERNEL_CFNPTR;
     const native = await indexAndCollect();
 
     expect(native.nodes).toBe(js.nodes);

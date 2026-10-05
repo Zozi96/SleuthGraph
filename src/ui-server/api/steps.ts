@@ -37,7 +37,7 @@
  * the effect sites are read from the source as it stands.
  */
 
-import type CodeGraph from '../../index';
+import type SleuthGraph from '../../index';
 import type { Edge, Language, Node, UnresolvedReference } from '../../types';
 import { badRequest, intParam, notFound } from './respond';
 import { createSiteReader } from './when';
@@ -428,7 +428,7 @@ function springViewString(expression: string): string | null {
   return first ? null : out;
 }
 
-export async function buildSteps(cg: CodeGraph, projectRoot: string, query: URLSearchParams): Promise<WireStepsPayload> {
+export async function buildSteps(cg: SleuthGraph, projectRoot: string, query: URLSearchParams): Promise<WireStepsPayload> {
   const started = Date.now();
   const depthCap = intParam(query, 'depth', { min: 1, max: MAX_DEPTH, default: DEFAULT_DEPTH });
   const limit = intParam(query, 'limit', { min: 20, max: MAX_LIMIT, default: DEFAULT_LIMIT });
@@ -1595,7 +1595,7 @@ export async function buildSteps(cg: CodeGraph, projectRoot: string, query: URLS
  * screen-like symbol of that name — a route first, then a component or
  * function, then a method — with the rest reported as `ambiguous`.
  */
-function resolveAnchor(cg: CodeGraph, query: URLSearchParams): { anchor: Node; ambiguous: WireNodeRef[] } {
+function resolveAnchor(cg: SleuthGraph, query: URLSearchParams): { anchor: Node; ambiguous: WireNodeRef[] } {
   const id = query.get('anchor');
   if (id !== null && id.trim() !== '') {
     const node = cg.getNode(id);
@@ -1615,7 +1615,7 @@ function resolveAnchor(cg: CodeGraph, query: URLSearchParams): { anchor: Node; a
 }
 
 /** How many distinct parents render this node as a JSX child. Memoised per request. */
-function renderParents(cg: CodeGraph, node: Node, memo: Map<string, number>): number {
+function renderParents(cg: SleuthGraph, node: Node, memo: Map<string, number>): number {
   let parents = memo.get(node.id);
   if (parents === undefined) {
     const incoming = cg.getIncomingEdgesTo([node.id], ['calls']);
@@ -1630,7 +1630,7 @@ function renderParents(cg: CodeGraph, node: Node, memo: Map<string, number>): nu
 }
 
 /** A component rendered by several distinct parents is chrome. */
-function isSharedChrome(cg: CodeGraph, component: Node, memo: Map<string, number>): boolean {
+function isSharedChrome(cg: SleuthGraph, component: Node, memo: Map<string, number>): boolean {
   return renderParents(cg, component, memo) >= SHARED_CHROME_MIN;
 }
 
@@ -1667,7 +1667,7 @@ function basename(p: string): string {
  * { … })` leaves behind (the handler's calls belong to the file scope, the
  * constant spans them).
  */
-function fileScopeEdgesWithin(cg: CodeGraph, node: Node, memo: Map<string, Edge[]>, calls: boolean): Edge[] {
+function fileScopeEdgesWithin(cg: SleuthGraph, node: Node, memo: Map<string, Edge[]>, calls: boolean): Edge[] {
   let refs = memo.get(node.filePath);
   if (refs === undefined) {
     const file = cg.getNodesInFile(node.filePath).find((n) => n.kind === 'file');
@@ -1682,7 +1682,7 @@ function fileScopeEdgesWithin(cg: CodeGraph, node: Node, memo: Map<string, Edge[
 }
 
 /** The file scope's unresolved calls within a value's lines — what a wrapped handler's arrow body leaves on the file node. */
-function fileScopeRefsWithin(cg: CodeGraph, node: Node, memo: Map<string, UnresolvedReference[]>): UnresolvedReference[] {
+function fileScopeRefsWithin(cg: SleuthGraph, node: Node, memo: Map<string, UnresolvedReference[]>): UnresolvedReference[] {
   let refs = memo.get(node.filePath);
   if (refs === undefined) {
     const file = cg.getNodesInFile(node.filePath).find((n) => n.kind === 'file');

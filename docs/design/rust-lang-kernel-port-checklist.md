@@ -3,7 +3,7 @@
 ("rust-lang" in the filename to avoid confusion with the kernel's own
 implementation language.)
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/rustlang.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/rustlang.rs`,
 all gates below passed (parity sweeps 0-diff on ripgrep/tokio/rust-analyzer,
 dump gates byte-identical ×3, DEFAULT_ROUTED += rust). This doc remains the
 quirk reference for the walker. Survey basis: every TS-side branch a
@@ -41,7 +41,7 @@ proof.
    TS (see §Frameworks below) and runs identically after either arm inside
    `extractFromSource` (tree-sitter.ts:6736-6758). Only the tree-sitter-walk
    emissions below move to Rust.
-4. **One walker module** (suggest `codegraph-kernel/src/rustlang.rs` — "rust"
+4. **One walker module** (suggest `sleuth-kernel/src/rustlang.rs` — "rust"
    alone collides with the crate language), registered in `langs.rs`; per-file
    `has_error()` → `defer:` like every walker.
 5. **`.rs` → `rust`** at detectLanguage (grammars.ts:78), no content sniffing,
@@ -392,7 +392,7 @@ DOCSTRING_WRAPPER_TYPES contains no rust wrappers → no climbing. Block
 
 ### Value-reference edges (398-931) — rust IS in VALUE_REF_LANGS (401)
 
-Port the full machinery (crib go.rs/tsjs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib go.rs/tsjs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES=20_000 caps BOTH the prune scan and each reader scan;
 `isGeneratedFile` skip.
 
@@ -517,7 +517,7 @@ inner `array_expression`, but `const CB: fn() = handler;` captures nothing
 - **Parity sweeps** (`scripts/kernel-parity.mjs`, order-sensitive full-object):
   **ripgrep (small), tokio (medium), rust-analyzer (large)** — all three also
   exercise heavy `pub use` re-export hubs and macro use. Then **full-init
-  dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+  dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   `dump-graph.mjs`, cmp) on the same three.
 - **Deferral-rate guard: default `--max-deferral 0.1` and expect FAR under it**
   — rust is not macro-mangled C; parse-error incidence should sit in the
@@ -527,7 +527,7 @@ inner `array_expression`, but `const CB: fn() = handler;` captures nothing
 - Grammar-bump isolation: the vendored v0.24.2 wasm + `=0.24.2` crate pin land
   FIRST with the full suite green (kernel-grammar-parity sha-matches parser.c;
   crate + wasm move together or it fails).
-- Suite green with `CODEGRAPH_KERNEL_EXPECT=1`; unit tests for the walker in
+- Suite green with `SLEUTH_KERNEL_EXPECT=1`; unit tests for the walker in
   `__tests__/kernel-rustlang-parity.test.ts` (or folded into the existing
   parity suites); changelog rides the existing kernel entry.
 - `DEFAULT_ROUTED += rust` (kernel/index.ts:37) only after ALL of the above.

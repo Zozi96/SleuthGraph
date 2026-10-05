@@ -1,5 +1,5 @@
 /**
- * Per-file allocation diagnostic for codegraph_explore (CG-4).
+ * Per-file allocation diagnostic for sleuth_explore (CG-4).
  *
  * The instrument ships in the product binary, so the load-bearing property is
  * NOT what it reports — it's that it reports NOTHING unless asked. An explore
@@ -16,9 +16,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { ToolHandler } from '../src/mcp/tools';
 import { attributeSourceBytes } from '../src/mcp/explore-diagnostics';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 
-const DEBUG_ENV = 'CODEGRAPH_EXPLORE_DEBUG';
+const DEBUG_ENV = 'SLEUTH_EXPLORE_DEBUG';
 
 /** Restore the env var to "unset" — `delete` matters; '' is a distinct case. */
 function clearDebugEnv(): void {
@@ -75,17 +75,17 @@ describe('attributeSourceBytes', () => {
   });
 });
 
-describe('codegraph_explore allocation diagnostic', () => {
+describe('sleuth_explore allocation diagnostic', () => {
   let testDir: string;
   let sidecarDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   const QUERY = 'Session method helper callSession';
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-explore-diag-'));
-    sidecarDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-explore-diag-out-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-explore-diag-'));
+    sidecarDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-explore-diag-out-'));
     const srcDir = path.join(testDir, 'src');
     fs.mkdirSync(srcDir);
 
@@ -115,7 +115,7 @@ describe('codegraph_explore allocation diagnostic', () => {
     }
 
     clearDebugEnv();
-    cg = CodeGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
+    cg = SleuthGraph.initSync(testDir, { config: { include: ['**/*.ts'], exclude: [] } });
     await cg.indexAll();
     handler = new ToolHandler(cg);
   });
@@ -134,7 +134,7 @@ describe('codegraph_explore allocation diagnostic', () => {
   });
 
   const explore = async (): Promise<string> => {
-    const result = await handler.execute('codegraph_explore', { query: QUERY });
+    const result = await handler.execute('sleuth_explore', { query: QUERY });
     return result.content?.[0]?.text ?? '';
   };
 
@@ -192,7 +192,7 @@ describe('codegraph_explore allocation diagnostic', () => {
     await explore();
     const out = writes.join('');
 
-    expect(out).toContain('codegraph explore diagnostic');
+    expect(out).toContain('sleuth explore diagnostic');
     // Totals: envelope vs budget, and the file-selection funnel with its floor.
     expect(out).toMatch(/envelope [\d,]+ chars delivered · [\d,]+ allocated of [\d,]+ budget/);
     expect(out).toMatch(/hard ceiling [\d,]+/);
@@ -222,7 +222,7 @@ describe('codegraph_explore allocation diagnostic', () => {
     expect(rows).toHaveLength(2);
 
     const report = JSON.parse(rows[0]!);
-    expect(report.tool).toBe('codegraph_explore');
+    expect(report.tool).toBe('sleuth_explore');
     expect(report.query).toBe(QUERY);
 
     // Totals the task asks for: envelope vs maxOutputChars, files considered
@@ -280,7 +280,7 @@ describe('codegraph_explore allocation diagnostic', () => {
 
     // A directory is never a valid append target.
     process.env[DEBUG_ENV] = sidecarDir;
-    const result = await handler.execute('codegraph_explore', { query: QUERY });
+    const result = await handler.execute('sleuth_explore', { query: QUERY });
     clearDebugEnv();
 
     expect(result.isError).toBeFalsy();
@@ -290,7 +290,7 @@ describe('codegraph_explore allocation diagnostic', () => {
   it('records a report even when explore finds nothing', async () => {
     const sidecar = path.join(sidecarDir, 'empty.jsonl');
     process.env[DEBUG_ENV] = sidecar;
-    const result = await handler.execute('codegraph_explore', {
+    const result = await handler.execute('sleuth_explore', {
       query: 'zzzznonexistentsymbolzzzz',
     });
     clearDebugEnv();

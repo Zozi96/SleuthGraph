@@ -3,9 +3,9 @@
  * below it, and what a call through it can land on".
  *
  * Three surfaces ask that question. The viewer draws it as a tree above the
- * members outline (design spec §3.10). `codegraph_explore` announces it as an
+ * members outline (design spec §3.10). `sleuth_explore` announces it as an
  * interface-dispatch boundary ("`execute` → runtime dispatch to **611** types
- * implementing `INodeType`"). `codegraph_node` shows the same relations as
+ * implementing `INodeType`"). `sleuth_node` shows the same relations as
  * chips. Three derivations would eventually disagree about the ONE number that
  * matters — how many implementations a call can reach — and a reader holding
  * two of them has no way to tell which is lying. So the walk lives here once,
@@ -31,7 +31,7 @@
  * honesty rule the Flow strip's dashed connectors follow.
  */
 
-import type CodeGraph from '../index';
+import type SleuthGraph from '../index';
 import type { Edge, EdgeKind, Node, NodeKind } from '../types';
 
 /** The two edge kinds that make a type hierarchy. Nothing else is a subtype. */
@@ -85,7 +85,7 @@ const MAX_OVERRIDE_ANCESTORS = 12;
 
 /**
  * Implementations at or above which a call through the type cannot be resolved
- * statically at all — the same threshold `codegraph_explore` uses before it
+ * statically at all — the same threshold `sleuth_explore` uses before it
  * announces an interface-dispatch boundary.
  */
 export const DISPATCH_MIN_IMPLEMENTERS = 8;
@@ -182,7 +182,7 @@ export function canHaveHierarchy(node: Node): boolean {
  * return value rather than on the emptiness of three lists.
  */
 export function buildTypeHierarchy(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   focus: Node,
   options: { overrides?: boolean } = {}
 ): TypeHierarchy | null {
@@ -210,7 +210,7 @@ export function buildTypeHierarchy(
  * first and — within a level — `extends` before `implements`, because the one
  * that carries the implementation is the one a reader wants adjacent.
  */
-function walkAncestors(cg: CodeGraph, focus: Node): HierarchyEntry[] {
+function walkAncestors(cg: SleuthGraph, focus: Node): HierarchyEntry[] {
   const out: HierarchyEntry[] = [];
   const seen = new Set<string>([focus.id]);
   let frontier = [focus.id];
@@ -240,7 +240,7 @@ function walkAncestors(cg: CodeGraph, focus: Node): HierarchyEntry[] {
  * least-relevant end: a reader looking at an interface wants its direct
  * implementations complete before a subclass of a subclass appears at all.
  */
-function walkDescendants(cg: CodeGraph, focus: Node): {
+function walkDescendants(cg: SleuthGraph, focus: Node): {
   entries: HierarchyEntry[];
   directTotal: number;
   directImplementers: number;
@@ -323,7 +323,7 @@ function walkDescendants(cg: CodeGraph, focus: Node): {
 }
 
 /** One batched edge read per level, filtered to the two hierarchy kinds. */
-function hierarchyEdges(cg: CodeGraph, ids: readonly string[], direction: 'up' | 'down'): Edge[] {
+function hierarchyEdges(cg: SleuthGraph, ids: readonly string[], direction: 'up' | 'down'): Edge[] {
   const kinds = [...HIERARCHY_EDGE_KINDS];
   try {
     const edges =
@@ -384,7 +384,7 @@ function sortLevel(level: HierarchyEntry[]): void {
  * Two batched queries total, whatever the ancestor count.
  */
 function matchOverrides(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   focus: Node,
   ancestors: readonly HierarchyEntry[]
 ): Map<string, OverrideMatch> {
@@ -431,7 +431,7 @@ function matchOverrides(
 
 /** Direct `contains` children of the given containers, in the containers' order. */
 function membersOf(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   containerIds: readonly string[]
 ): Array<{ member: Node; ownerId: string }> {
   if (containerIds.length === 0) return [];
@@ -464,7 +464,7 @@ function membersOf(
 
 /**
  * How many distinct types extend or implement this one — the number
- * `codegraph_explore` prints when it announces an interface dispatch and the
+ * `sleuth_explore` prints when it announces an interface dispatch and the
  * number the viewer's fan draws.
  *
  * DISTINCT types, not edges: a class tied to a supertype by both an `extends`
@@ -472,7 +472,7 @@ function membersOf(
  * disagrees with the length of the list beside it is the bug this function
  * exists to prevent.
  */
-export function countImplementers(cg: CodeGraph, typeId: string): number {
+export function countImplementers(cg: SleuthGraph, typeId: string): number {
   try {
     const edges = cg.getIncomingEdgesTo([typeId], [...HIERARCHY_EDGE_KINDS]);
     return new Set(edges.map((e) => e.source)).size;

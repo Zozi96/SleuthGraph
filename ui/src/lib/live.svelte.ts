@@ -17,10 +17,10 @@
  * ## Nothing polls, and nothing loops
  *
  * The transport is `GraphAdapter.events` — an `EventSource` on `/api/events`
- * under `codegraph ui`, whatever a host already has under a host — but the
+ * under `sleuth ui`, whatever a host already has under a host — but the
  * reconnect is NOT the transport's. Left to itself an `EventSource` retries
  * forever at a fixed interval, so a viewer left open against a stopped
- * `codegraph ui` becomes a request every three seconds until the tab is closed.
+ * `sleuth ui` becomes a request every three seconds until the tab is closed.
  * So each `error` closes the stream and schedules ONE reconnect on a backoff
  * that ends: after {@link MAX_ATTEMPTS} consecutive failures the connection
  * gives up and says so, and only a deliberate signal — the tab coming back to
@@ -168,7 +168,7 @@ function open(): void {
   }
   stopped = false;
 
-  // The transport belongs to the adapter, not to this module: `codegraph ui`
+  // The transport belongs to the adapter, not to this module: `sleuth ui`
   // answers it with an EventSource on `/api/events`, and a host that already
   // knows when its index moved answers it with whatever it already has. An
   // adapter with no live channel simply omits `events` — and then nothing here
@@ -293,7 +293,7 @@ export const live = {
    * A host that learns about a sync through its own machinery — a websocket, a
    * webhook, a store it already owns — calls this instead of implementing
    * `GraphAdapter.events`, and every mounted screen refetches exactly as it
-   * does under `codegraph ui`. It is the same code path the stream uses, so
+   * does under `sleuth ui`. It is the same code path the stream uses, so
    * there is no second way for a screen to go stale.
    */
   signal(kind: 'index' | 'disk', detail: LiveSignalDetail = {}): void {

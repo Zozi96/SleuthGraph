@@ -18,7 +18,7 @@ const MAX_MANIFESTS = 24;
  * The resolver is constructed — and every `detect()` runs once — BEFORE any
  * file exists, so that first pass sees no directories to probe and reads only
  * the root manifest. Caching that answer outright made the re-detect after
- * indexing (`CodeGraph.indexAll`) a cache hit on the empty set, and every
+ * indexing (`SleuthGraph.indexAll`) a cache hit on the empty set, and every
  * framework whose dependency lives one directory down stayed undetected: a
  * proshop-shaped repo indexed its React Router routes (extraction is not
  * gated on detection) and then resolved none of its navigation. Re-reading

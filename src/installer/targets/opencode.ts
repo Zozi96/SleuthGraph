@@ -13,7 +13,7 @@
  *     never reads `%APPDATA%`; that layout belonged to the discontinued
  *     Go fork. We previously wrote there on Windows, so opencode never
  *     saw the entry (#535) — install/uninstall now also sweep a stale
- *     codegraph entry out of the legacy `%APPDATA%/opencode` location.
+ *     sleuth entry out of the legacy `%APPDATA%/opencode` location.
  *   - Instructions to `~/.config/opencode/AGENTS.md` (global) or
  *     `./AGENTS.md` (local). opencode reads AGENTS.md for agent
  *     instructions — same convention Codex CLI uses.
@@ -24,7 +24,7 @@
  *     "$schema": "https://opencode.ai/config.json",
  *     "mcp": {
  *       "servers": {
- *         "codegraph": {
+ *         "sleuth": {
  *           "type": "local",
  *           "command": [...],
  *           "disabled": false,
@@ -36,8 +36,8 @@
  *
  * OpenCode 2 puts servers under `mcp.servers` (not `mcp.<name>`), uses
  * `disabled` instead of `enabled`, and defaults tools through Code Mode —
- * `codemode: false` keeps `codegraph_explore` on the provider's native
- * tool list (#1698). Pre-#1698 installs wrote the v1 `mcp.codegraph` +
+ * `codemode: false` keeps `sleuth_explore` on the provider's native
+ * tool list (#1698). Pre-#1698 installs wrote the v1 `mcp.sleuth` +
  * `enabled` shape; re-install migrates, uninstall removes either.
  *
  * Reads + writes go through `jsonc-parser` so any `//` and `/* *\/`
@@ -63,8 +63,8 @@ import {
   upsertInstructionsEntry,
 } from './shared';
 import {
-  CODEGRAPH_SECTION_END,
-  CODEGRAPH_SECTION_START,
+  SLEUTH_SECTION_END,
+  SLEUTH_SECTION_START,
 } from '../instructions-template';
 
 function globalConfigDir(): string {
@@ -134,17 +134,17 @@ function getOpencodeServerEntry(): {
 } {
   return {
     type: 'local',
-    command: ['codegraph', 'serve', '--mcp'],
+    command: ['sleuth', 'serve', '--mcp'],
     disabled: false,
-    // Keep codegraph_explore on the native tool list — OpenCode 2's
+    // Keep sleuth_explore on the native tool list — OpenCode 2's
     // default Code Mode would otherwise hide the one-tool server (#1698).
     codemode: false,
   };
 }
 
 /** True when either the OpenCode 2 native entry or a pre-#1698 v1 entry is present. */
-function hasCodegraphEntry(config: Record<string, any>): boolean {
-  return !!(config.mcp?.servers?.codegraph || config.mcp?.codegraph);
+function hasSleuthgraphEntry(config: Record<string, any>): boolean {
+  return !!(config.mcp?.servers?.sleuth || config.mcp?.sleuth);
 }
 
 const FORMATTING = { tabSize: 2, insertSpaces: true, eol: '\n' };
@@ -161,7 +161,7 @@ class OpencodeTarget implements AgentTarget {
   detect(loc: Location): DetectionResult {
     const file = configPath(loc);
     const config = parseConfig(readConfigText(file));
-    const alreadyConfigured = hasCodegraphEntry(config);
+    const alreadyConfigured = hasSleuthgraphEntry(config);
     // Global: the XDG dir is what current opencode creates on first run; the
     // legacy %APPDATA% dir still counts as "opencode present" so a re-install
     // can sweep the stale pre-#535 entry out of it.
@@ -176,7 +176,7 @@ class OpencodeTarget implements AgentTarget {
     const files: WriteResult['files'] = [];
     files.push(writeMcpEntry(loc));
 
-    // AGENTS.md gets the short marker-fenced CodeGraph block (#704):
+    // AGENTS.md gets the short marker-fenced SleuthGraph block (#704):
     // subagents and non-MCP harnesses read AGENTS.md but never the MCP
     // initialize instructions. Upsert self-heals a stale pre-#529 block.
     files.push(upsertInstructionsEntry(instructionsPath(loc)));
@@ -200,7 +200,7 @@ class OpencodeTarget implements AgentTarget {
     const target = configPath(loc);
     const snippet = JSON.stringify({
       $schema: 'https://opencode.ai/config.json',
-      mcp: { servers: { codegraph: getOpencodeServerEntry() } },
+      mcp: { servers: { sleuth: getOpencodeServerEntry() } },
     }, null, 2);
     return `# Add to ${target}\n\n${snippet}\n`;
   }
@@ -223,9 +223,9 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
   }
 
   const config = parseConfig(text);
-  const before = config.mcp?.servers?.codegraph;
+  const before = config.mcp?.servers?.sleuth;
   const after = getOpencodeServerEntry();
-  const hasLegacy = !!config.mcp?.codegraph;
+  const hasLegacy = !!config.mcp?.sleuth;
 
   // Native entry already matches and no v1 leftover → nothing to do.
   if (jsonDeepEqual(before, after) && !hasLegacy) {
@@ -240,10 +240,10 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
     text = applyEdits(text, schemaEdits);
   }
 
-  // Migrate pre-#1698 `mcp.codegraph` (+ enabled) off the file so OpenCode 2
+  // Migrate pre-#1698 `mcp.sleuth` (+ enabled) off the file so OpenCode 2
   // keeps only the native entry where `codemode` survives normalization.
   if (hasLegacy) {
-    const legacyEdits = modify(text, ['mcp', 'codegraph'], undefined, {
+    const legacyEdits = modify(text, ['mcp', 'sleuth'], undefined, {
       formattingOptions: FORMATTING,
     });
     text = applyEdits(text, legacyEdits);
@@ -251,7 +251,7 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
 
   // Surgical edit — preserves comments, formatting, and order of
   // every key we don't touch.
-  const edits = modify(text, ['mcp', 'servers', 'codegraph'], after, {
+  const edits = modify(text, ['mcp', 'servers', 'sleuth'], after, {
     formattingOptions: FORMATTING,
   });
   const updated = applyEdits(text, edits);
@@ -261,8 +261,8 @@ function writeMcpEntry(loc: Location): WriteResult['files'][number] {
 }
 
 /**
- * Surgically drop our CodeGraph entry from one config file — either the
- * OpenCode 2 native `mcp.servers.codegraph` or a pre-#1698 `mcp.codegraph`.
+ * Surgically drop our SleuthGraph entry from one config file — either the
+ * OpenCode 2 native `mcp.servers.sleuth` or a pre-#1698 `mcp.sleuth`.
  * Leaves sibling servers, comments, and formatting untouched; drops emptied
  * `mcp.servers` / `mcp` wrappers too. Shared by uninstall and the
  * legacy-%APPDATA% sweep.
@@ -271,11 +271,11 @@ function removeMcpEntryAt(file: string): WriteResult['files'][number] {
   if (!fs.existsSync(file)) return { path: file, action: 'not-found' };
   let text = readConfigText(file);
   const config = parseConfig(text);
-  if (!hasCodegraphEntry(config)) return { path: file, action: 'not-found' };
+  if (!hasSleuthgraphEntry(config)) return { path: file, action: 'not-found' };
 
   let updated = text;
-  if (config.mcp?.servers?.codegraph) {
-    const edits = modify(updated, ['mcp', 'servers', 'codegraph'], undefined, {
+  if (config.mcp?.servers?.sleuth) {
+    const edits = modify(updated, ['mcp', 'servers', 'sleuth'], undefined, {
       formattingOptions: FORMATTING,
     });
     updated = applyEdits(updated, edits);
@@ -283,8 +283,8 @@ function removeMcpEntryAt(file: string): WriteResult['files'][number] {
   // Re-parse after the native removal so a file that held BOTH shapes
   // (unusual, but possible mid-migration) still drops the v1 leftover.
   const mid = parseConfig(updated);
-  if (mid.mcp?.codegraph) {
-    const edits = modify(updated, ['mcp', 'codegraph'], undefined, {
+  if (mid.mcp?.sleuth) {
+    const edits = modify(updated, ['mcp', 'sleuth'], undefined, {
       formattingOptions: FORMATTING,
     });
     updated = applyEdits(updated, edits);
@@ -328,19 +328,19 @@ function cleanupLegacyWindowsState(): WriteResult['files'] {
     if (res.action === 'removed') out.push(res);
   }
   const agents = path.join(dir, 'AGENTS.md');
-  const action = removeMarkedSection(agents, CODEGRAPH_SECTION_START, CODEGRAPH_SECTION_END);
+  const action = removeMarkedSection(agents, SLEUTH_SECTION_START, SLEUTH_SECTION_END);
   if (action === 'removed') out.push({ path: agents, action });
   return out;
 }
 
 /**
- * Strip the marker-delimited CodeGraph block from AGENTS.md if a prior
+ * Strip the marker-delimited SleuthGraph block from AGENTS.md if a prior
  * install wrote one. Used by both install (self-heal on upgrade) and
  * uninstall — see issue #529.
  */
 function removeInstructionsEntry(loc: Location): WriteResult['files'][number] {
   const file = instructionsPath(loc);
-  const action = removeMarkedSection(file, CODEGRAPH_SECTION_START, CODEGRAPH_SECTION_END);
+  const action = removeMarkedSection(file, SLEUTH_SECTION_START, SLEUTH_SECTION_END);
   return { path: file, action };
 }
 

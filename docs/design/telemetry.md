@@ -1,12 +1,16 @@
 # Anonymous usage telemetry
 
-Status: implemented — client (`src/telemetry/`), `codegraph telemetry` CLI, MCP + installer
+> **Disabled in the SleuthGraph fork — kept as design record.** The upstream
+> ingest Worker and dashboard this doc describes are not part of this
+> repository, and the client in `src/telemetry/` is a no-op.
+
+Status: implemented — client (`src/telemetry/`), `sleuth telemetry` CLI, MCP + installer
 wiring, `TELEMETRY.md`, ingest Worker (`telemetry-worker/`) storing to its own Cloudflare D1
 database, nightly rollup + retention cron, and the admin dashboard Worker
 (`telemetry-dashboard/`).
-Scope: public `codegraph` engine (CLI + MCP server + installer)
+Scope: public `sleuth` engine (CLI + MCP server + installer)
 
-CodeGraph is a local-first tool whose whole pitch is "your code never leaves your machine."
+SleuthGraph is a local-first tool whose whole pitch is "your code never leaves your machine."
 Telemetry has to be designed so that sentence stays true and provable: a short, auditable list
 of anonymous counters, documented field-by-field, easy to turn off, and impossible to grow
 quietly. This doc is the contract; `TELEMETRY.md` (repo root, user-facing) restates it and the
@@ -16,7 +20,7 @@ implementation must never collect anything not listed there.
 
 Answer, in aggregate and anonymously:
 
-- How many machines actively use codegraph (daily/weekly), and how does that change?
+- How many machines actively use sleuth (daily/weekly), and how does that change?
 - Which agents drive usage (Claude Code, Cursor, Codex, opencode, …) — via MCP `clientInfo`.
 - Which install targets people pick, local vs global, fresh vs upgrade.
 - Which MCP tools and CLI commands get used, how often, and how often they error.
@@ -34,7 +38,7 @@ Answer, in aggregate and anonymously:
 - No hardware fingerprinting — the machine ID is a random UUID, not derived from anything.
 - No per-keystroke / per-call event stream — usage is aggregated locally into daily rollups
   before anything is sent.
-- No telemetry from the `codegraph-pro` fork (see "codegraph-pro rule" below).
+- No telemetry from the `sleuth-pro` fork (see "sleuth-pro rule" below).
 
 ## Principles
 
@@ -58,7 +62,7 @@ Common envelope on every batch (identity revalidated before each request):
 | field | example | notes |
 |---|---|---|
 | `machine_id` | `b3a8…` (UUIDv4) | random, minted at first run, stored in global config |
-| `codegraph_version` | `0.9.12` | from package.json |
+| `sleuth_version` | `0.9.12` | from package.json |
 | `os` / `arch` | `darwin` / `arm64` | `process.platform` / `process.arch` |
 | `node_major` | `22` | major only |
 | `ci` | `false` | `CI` env var present |
@@ -73,7 +77,7 @@ Event types:
   `10k+`), `duration_bucket` (`<10s`, `10-60s`, `1-5m`, `5m+`).
 - **`usage_rollup`** — the workhorse. One event per `(day, kind, name)` per machine,
   aggregated locally. Props: `kind` (`mcp_tool`/`cli_command`), `name`
-  (e.g. `codegraph_explore`, `affected`), `count`, `error_count`, and for MCP:
+  (e.g. `sleuth_explore`, `affected`), `count`, `error_count`, and for MCP:
   `client_name`/`client_version` captured from the `initialize` handshake
   (`src/mcp/session.ts`) and passed through on every `recordUsage` call.
   The prompt hook additionally rolls up its gate DECISION as `cli_command`
@@ -85,7 +89,7 @@ Event types:
   rising `noop-*` share against the `high`/`medium` tiers is the signal that
   the gate (keyword table or segment matching) is missing real questions.
   A `high-*` outcome means context was actually injected — a gate decision
-  whose `codegraph_explore` errored or returned nothing records
+  whose `sleuth_explore` errored or returned nothing records
   `noop-explore-<trigger>` instead (#1143), and a MEDIUM-eligible prompt
   hitting a not-yet-backfilled segment vocabulary records `noop-vocab-empty`
   rather than polluting `noop-unverified` (#1142).
@@ -114,8 +118,8 @@ computed from it directly in SQL.
 Resolution order (first match wins):
 
 1. `DO_NOT_TRACK=1` (community standard — always honored) → off
-2. `CODEGRAPH_TELEMETRY=0|1` → forced off/on for that process
-3. Global config `~/.codegraph/telemetry.json` → stored user choice
+2. `SLEUTH_TELEMETRY=0|1` → forced off/on for that process
+3. Global config `~/.sleuth/telemetry.json` → stored user choice
 4. Default: **on**, gated by the first-run notice below
 
 Surfaces:
@@ -124,13 +128,13 @@ Surfaces:
   "Share anonymous usage data? (no code, paths, or names — see TELEMETRY.md)" — default
   yes. Choice persisted with `consent_source: "installer"`. Re-runs/upgrades respect the
   stored choice and don't re-ask.
-- **Headless paths** (`npx codegraph init`, MCP server — no TTY, never prompt): right
+- **Headless paths** (`npx sleuth init`, MCP server — no TTY, never prompt): right
   before the **first actual send** (recording only buffers locally and stays silent — so
   the installer's explicit toggle always precedes any notice), print one line to
   **stderr** and record `first_run_notice_shown`:
-  `codegraph collects anonymous usage stats (no code or paths) — "codegraph telemetry off" or CODEGRAPH_TELEMETRY=0 disables. Details: TELEMETRY.md`
-- **CLI:** `codegraph telemetry status|on|off` (status prints the machine ID, current
-  state, and what decided it). Deleting `~/.codegraph/telemetry.json` resets everything,
+  `sleuth collects anonymous usage stats (no code or paths) — "sleuth telemetry off" or SLEUTH_TELEMETRY=0 disables. Details: TELEMETRY.md`
+- **CLI:** `sleuth telemetry status|on|off` (status prints the machine ID, current
+  state, and what decided it). Deleting `~/.sleuth/telemetry.json` resets everything,
   including the machine ID. Turning telemetry off stores a null `machine_id` and removes
   both queued and claimed unsent data. Turning it back on mints a new ID; processes
   discard memory from the previous identity even if they missed the off/on transition.
@@ -138,7 +142,7 @@ Surfaces:
   requeue checks current consent and identity again. Config writes use atomic replacement
   so concurrent readers never see a half-written choice.
 
-`~/.codegraph/telemetry.json`:
+`~/.sleuth/telemetry.json`:
 
 ```json
 {
@@ -150,8 +154,8 @@ Surfaces:
 }
 ```
 
-(`~/.codegraph/` is new — today nothing global exists. Coexists by filename if a user ever
-indexes `$HOME` itself, since per-project data lives in `<project>/.codegraph/` with fixed
+(`~/.sleuth/` is new — today nothing global exists. Coexists by filename if a user ever
+indexes `$HOME` itself, since per-project data lives in `<project>/.sleuth/` with fixed
 other filenames.)
 
 ## Client architecture
@@ -162,7 +166,7 @@ New module `src/telemetry/` (single small module, no deps):
   The small consent file is refreshed before recording so another process's opt-out is
   observed. No queue writes or network requests run on this path. MCP tool handlers call
   `telemetry.count('mcp_tool', name, ok)` and move on.
-- **Buffer** — counters persist (debounced, async) to `~/.codegraph/telemetry-queue.jsonl`.
+- **Buffer** — counters persist (debounced, async) to `~/.sleuth/telemetry-queue.jsonl`.
   Hard cap ~256 KB; on overflow drop oldest lines. Corrupt buffer → truncate, never throw.
 - **Flush** — many CLI actions end via `process.exit()`, where `beforeExit` never fires
   and async sends die, so the design is: a tiny **synchronous append** on `process.on('exit')`
@@ -174,7 +178,7 @@ New module `src/telemetry/` (single small module, no deps):
   `https://telemetry.getcodegraph.com/v1/events` with `AbortSignal.timeout(1500)`,
   fire-and-forget: any response (or none) is final — no retry, no error surfaced. The
   queue is claimed by atomic rename so concurrent processes can't double-send (a crashed
-  sender's claim merges back after an hour). `CODEGRAPH_TELEMETRY_DEBUG=1` echoes
+  sender's claim merges back after an hour). `SLEUTH_TELEMETRY_DEBUG=1` echoes
   payloads to stderr for development.
 - **Offline / air-gapped:** flush fails silently, buffer stays within cap, steady state is
   a bounded file and zero noise.
@@ -191,7 +195,7 @@ with the npm package (excluded by the `files` allowlist):
   to D1. Responds `204` on accept (including events dropped by the allowlist) and honest
   `4xx` for malformed/oversized/rate-limited requests — the client treats every response
   as final and never retries.
-- **Storage: our own Cloudflare D1 database** (`codegraph-telemetry`, bound as `env.DB`).
+- **Storage: our own Cloudflare D1 database** (`sleuth-telemetry`, bound as `env.DB`).
   The Worker makes **no outbound requests** — nothing is forwarded to a third-party
   analytics vendor, so there is no vendor-side privacy setting to get wrong and no second
   copy of the data anywhere. The complete stored schema is
@@ -242,12 +246,12 @@ Full documentation is [`telemetry-dashboard/README.md`](../../telemetry-dashboar
 - This Worker *does* read the client IP, solely as a login rate-limit key, never stored or
   logged — the one deliberate difference from the ingest Worker, which never reads it at all.
 
-## codegraph-pro rule (do not lose this in upstream merges)
+## sleuth-pro rule (do not lose this in upstream merges)
 
-The private `codegraph-pro` fork ships inside customer containers whose guarantee is
+The private `sleuth-pro` fork ships inside customer containers whose guarantee is
 "nothing leaves the box" — including telemetry. In the fork, telemetry must be **default-off
 and not enableable by the installer** (compile-time constant or stripped module), and the
-container sets `CODEGRAPH_TELEMETRY=0` as belt-and-braces. This rule lives in the fork's
+container sets `SLEUTH_TELEMETRY=0` as belt-and-braces. This rule lives in the fork's
 CLAUDE.md and must survive every upstream merge.
 
 ## Rollout
@@ -256,7 +260,7 @@ CLAUDE.md and must survive every upstream merge.
 2. Worker + DNS live first (so the first shipping client never 404s), then the dashboard
    Worker over the same D1: weekly active machines, installs by target, usage by
    tool × client, version adoption, languages indexed.
-3. Client module + config + `codegraph telemetry` subcommand + MCP `clientInfo` plumbing.
+3. Client module + config + `sleuth telemetry` subcommand + MCP `clientInfo` plumbing.
 4. Installer toggle + first-run notice. CHANGELOG entry under `[Unreleased]` announcing
    telemetry, the default, and every off-switch. Release.
 

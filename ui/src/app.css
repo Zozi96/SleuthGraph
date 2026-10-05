@@ -1,8 +1,8 @@
 /* =====================================================================
-   codegraph ui — the app's global primitives
+   sleuth ui — the app's global primitives
 
    The design tokens themselves live in `lib/theme.css`, which is also
-   what `@colbymchenry/codegraph-ui` exports for a host to import and
+   what `@zozi96/sleuthgraph-ui` exports for a host to import and
    override. This file is everything ON TOP of them that only the
    standalone viewer needs: the reset, the shell grid, and the handful of
    primitives shared across views.

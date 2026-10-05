@@ -7,11 +7,11 @@
  * (exit 3221225477 / 0xC0000005), with no error and no dump. Bisected on a
  * Windows 11 ARM64 VM (Node 24): `--no-concurrent-marking` alone stops it, and
  * no other concurrency flag does — but that flag makes indexing about a third
- * slower, so CodeGraph avoids the dangerous moments instead.
+ * slower, so SleuthGraph avoids the dangerous moments instead.
  *
  * Measured there, 480 child processes per row, four workers each:
  *
- *   ended while still loading CodeGraph's modules      18 crashed
+ *   ended while still loading SleuthGraph's modules      18 crashed
  *   loaded and allocating, terminated by the owner       4 crashed
  *   loaded and allocating, exiting by itself             1 crashed
  *   loaded and allocating, full collection, then exit    0 crashed

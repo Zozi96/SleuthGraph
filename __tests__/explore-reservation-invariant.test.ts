@@ -32,7 +32,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 import { attributeSourceBytes } from '../src/mcp/explore-diagnostics';
 import type { ExploreDiagnosticReport, ExploreDiagnosticFile } from '../src/mcp/explore-diagnostics';
@@ -66,7 +66,7 @@ interface Probe {
 
 describe('CG-26 — no admitted file is starved, on any render path', () => {
   let testDir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   const probes = {} as Record<Shape, Probe>;
 
   /** Admitted = the allocator reserved bytes for it. */
@@ -75,9 +75,9 @@ describe('CG-26 — no admitted file is starved, on any render path', () => {
   const all = (): Probe[] => Object.values(probes);
 
   beforeAll(async () => {
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cg26-'));
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cg26-'));
     fs.cpSync(FIXTURE_SRC, testDir, { recursive: true });
-    fs.rmSync(path.join(testDir, '.codegraph'), { recursive: true, force: true });
+    fs.rmSync(path.join(testDir, '.sleuth'), { recursive: true, force: true });
 
     const filler = path.join(testDir, 'src', 'generated');
     fs.mkdirSync(filler, { recursive: true });
@@ -89,16 +89,16 @@ describe('CG-26 — no admitted file is starved, on any render path', () => {
       );
     }
 
-    cg = CodeGraph.initSync(testDir);
+    cg = SleuthGraph.initSync(testDir);
     await cg.indexAll();
 
     const sidecar = path.join(testDir, 'explore-diag.jsonl');
-    const previous = process.env.CODEGRAPH_EXPLORE_DEBUG;
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
+    const previous = process.env.SLEUTH_EXPLORE_DEBUG;
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
     try {
       const handler = new ToolHandler(cg);
       for (const [shape, query] of Object.entries(QUERIES) as [Shape, string][]) {
-        const result = await handler.execute('codegraph_explore', { query });
+        const result = await handler.execute('sleuth_explore', { query });
         const response = result.content?.[0]?.text ?? '';
         const written = fs.readFileSync(sidecar, 'utf-8').trim().split('\n').filter(Boolean);
         probes[shape] = {
@@ -108,8 +108,8 @@ describe('CG-26 — no admitted file is starved, on any render path', () => {
         };
       }
     } finally {
-      if (previous === undefined) delete process.env.CODEGRAPH_EXPLORE_DEBUG;
-      else process.env.CODEGRAPH_EXPLORE_DEBUG = previous;
+      if (previous === undefined) delete process.env.SLEUTH_EXPLORE_DEBUG;
+      else process.env.SLEUTH_EXPLORE_DEBUG = previous;
     }
   }, 180_000);
 
@@ -231,7 +231,7 @@ describe('CG-26 — no admitted file is starved, on any render path', () => {
           (f) => f.render === null || (probe.bytes.get(f.path) ?? 0) === 0);
         if (!withheld) continue;
         expect(
-          /Not shown above|omitted for size|codegraph_explore/.test(probe.response),
+          /Not shown above|omitted for size|sleuth_explore/.test(probe.response),
           `${shape} withheld files without saying where to look`,
         ).toBe(true);
       }

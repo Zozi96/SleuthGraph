@@ -47,7 +47,7 @@ export function contentTypeFor(filePath: string): string {
  * Cache policy.
  *
  * Vite content-hashes everything under `assets/`, so those are immutable for a
- * year — a reload of the viewer refetches nothing, and an upgraded CodeGraph
+ * year — a reload of the viewer refetches nothing, and an upgraded SleuthGraph
  * changes the hash and therefore the URL. `index.html` names those hashes, so
  * it must never be cached.
  */

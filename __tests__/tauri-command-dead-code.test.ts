@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { buildDeadCodeReport } from '../src/graph/dead-code';
 import { buildDeadCode } from '../src/ui-server/api/deadcode';
 
 let root: string;
-let cg: CodeGraph | undefined;
+let cg: SleuthGraph | undefined;
 afterEach(() => {
   cg?.close();
   cg = undefined;
@@ -16,7 +16,7 @@ afterEach(() => {
 
 describe('Tauri command dead-code exclusion (#1543)', () => {
   it('counts commands as decorated entry points while retaining unannotated helpers', async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-tauri-dead-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-tauri-dead-'));
     fs.writeFileSync(path.join(root, 'commands.rs'), `
 pub fn reached() {}
 #[tauri::command]
@@ -37,7 +37,7 @@ fn outer_command() { fn nested_helper() {} }
 fn next_function() {}
 `);
     fs.writeFileSync(path.join(root, 'main.rs'), 'mod commands;\nfn main() { commands::reached(); }\n');
-    cg = CodeGraph.initSync(root);
+    cg = SleuthGraph.initSync(root);
     await cg.indexAll();
     const nodes = cg.getNodesInFile('commands.rs');
     for (const name of ['get_mcp_port', 'readSettings', 'outer_command']) {

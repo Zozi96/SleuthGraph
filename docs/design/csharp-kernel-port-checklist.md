@@ -1,17 +1,17 @@
 # C# kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/csharp.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/csharp.rs`,
 all gates passed (parity sweeps 0-diff on serilog 211/216 / Newtonsoft.Json
 914/945 / jellyfin 2104/2105 — every deferral matching §arch-6's predictions;
 full-init dump gates byte-identical ×3; kernel-csharp-parity suite + grammar
-row; suite ×2 under CODEGRAPH_KERNEL_EXPECT=1; DEFAULT_ROUTED += csharp). This
+row; suite ×2 under SLEUTH_KERNEL_EXPECT=1; DEFAULT_ROUTED += csharp). This
 doc remains the quirk reference for the walker. Survey basis: every
 TS-side branch a `.cs` file exercises, with file:line anchors as of **`f1ca991`**
 (HEAD at survey time, clean main). Every grammar-shape claim below was **probed
 against the vendored tree-sitter-c-sharp 0.23.5 wasm**
 (`src/extraction/wasm/tree-sitter-c_sharp.wasm` — note the underscore filename);
 probe scripts + raw outputs live in the survey session scratchpad
-(`/private/tmp/claude-501/-Users-colby-Development-CodeGraph-codegraph/0c11bda1-0b19-4fec-bcd9-d0cb4b2d6e8a/scratchpad/svy-csharp/`:
+(`/private/tmp/claude-501/-Users-colby-Development-SleuthGraph-sleuth/0c11bda1-0b19-4fec-bcd9-d0cb4b2d6e8a/scratchpad/svy-csharp/`:
 `probe1-core.mjs`, `probe2-shapes.mjs`, `probe3-edge.mjs`, `census-wasm.mjs`,
 `error-incidence.mjs`, `blank-impl.mjs` + `probe*-out.txt`). Read WITH
 `docs/design/rust-kernel-migration-plan.md` (§0a recipe, §5 gates) and the
@@ -41,11 +41,11 @@ grammar bump is needed; grammar prep is a Cargo pin + parity-test entry only.
     (`$"""… {Interp(u)} …"""`), raw string literals, and verbatim strings all
     parse clean.
 - **Cargo plan:** add `tree-sitter-c-sharp = "=0.23.5"` to
-  `codegraph-kernel/Cargo.toml` following the exact-pin comment block (the
+  `sleuth-kernel/Cargo.toml` following the exact-pin comment block (the
   `=0.24.2` c/rust rows); crate symbol is **`tree_sitter_c_sharp::LANGUAGE`**
   (a `LanguageFn`, `.into()` like the other 0.23-era crates); register
   `"csharp" => Some(tree_sitter_c_sharp::LANGUAGE.into())` in
-  `codegraph-kernel/src/langs.rs` + add `"csharp"` to `LANGUAGES`. The crate's
+  `sleuth-kernel/src/langs.rs` + add `"csharp"` to `LANGUAGES`. The crate's
   build.rs compiles parser.c **and scanner.c** (both in the tarball) — no extra
   work. `__tests__/kernel-grammar-parity.test.ts` (id-by-id ABI + node-kind +
   field-table compare) is the real gate and needs a csharp row; **no wasm
@@ -80,7 +80,7 @@ grammar bump is needed; grammar prep is a Cargo pin + parity-test entry only.
    raw-path perf number on an ASP.NET repo and conclude the port is broken.
 3. **The framework extractor itself needs NO port** — regex over raw source
    (§Frameworks below), runs in extractFromSource:6736-6758 after either arm.
-4. **One walker module** (suggest `codegraph-kernel/src/csharp.rs`), registered
+4. **One walker module** (suggest `sleuth-kernel/src/csharp.rs`), registered
    in langs.rs; per-file `has_error()` → `defer:` like every walker. **java.rs
    is the skeleton** (§java.rs mapping below) — same namespace-node concept,
    same field/constant split, same static-member/value-ref/fn-ref chassis.
@@ -549,7 +549,7 @@ field (NOT enum members, NOT the namespace node, NOT imports).
 ### Value-reference edges — csharp ∈ VALUE_REF_LANGS (401)
 
 Port the full machinery (crib java.rs:1246 `flush_value_refs` — Java's cases
-are csharp's minus/plus the declarator switch): `CODEGRAPH_VALUE_REFS=0` kill;
+are csharp's minus/plus the declarator switch): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES=20_000 caps the prune scan and each reader scan;
 isGeneratedFile skip.
 
@@ -797,22 +797,22 @@ AspNetCore refs / Program.cs / Startup.cs / controller-source scan.
 - **Parity sweeps** (`scripts/kernel-parity.mjs`, ORDER-sensitive
   full-object): **serilog (small), Newtonsoft.Json (medium), jellyfin
   (large)** — survey clones live at
-  `/private/tmp/claude-501/-Users-colby-Development-CodeGraph-codegraph/765a9532-0a92-43de-8d50-7c8ca1cb345c/scratchpad/{serilog,Newtonsoft.Json,jellyfin}`
+  `/private/tmp/claude-501/-Users-colby-Development-SleuthGraph-sleuth/765a9532-0a92-43de-8d50-7c8ca1cb345c/scratchpad/{serilog,Newtonsoft.Json,jellyfin}`
   (re-clone fresh if gone). Expected deferrals per §arch-6 (2.31% / 3.28% /
   0.05%) — **default `--max-deferral 0.1`, NO c/cpp 0.5 exemption**; a
   double-digit rate means a broken walker, not grammar reality. Then
-  **full-init dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+  **full-init dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   `scripts/dump-graph.mjs`, `cmp`) on the same three. jellyfin is an ASP.NET
   detect() hit — its per-file path is decoded either way (§arch-2); the
   dump gate is arm-vs-arm and unaffected.
 - **Suite**: new `__tests__/kernel-csharp-parity.test.ts` (torture + CRLF +
-  defer fixtures, strict full-object compare, `CODEGRAPH_KERNEL_EXPECT=1`
+  defer fixtures, strict full-object compare, `SLEUTH_KERNEL_EXPECT=1`
   aware); add the csharp row to `__tests__/kernel-grammar-parity.test.ts`
   (crate `tree_sitter_c_sharp::LANGUAGE` vs vendored wasm, id-by-id); existing
   pinned behavior lives in `__tests__/extraction.test.ts` (describe blocks at
   1342 `C# Extraction`, 2548 `C# imports`, 8924 `C# records`) and
   `__tests__/resolution.test.ts` — full suite green ×2 with
-  `CODEGRAPH_KERNEL_EXPECT=1`.
+  `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += csharp`** (src/extraction/kernel/index.ts:37) only
   after ALL of the above; changelog rides the existing kernel entry.
 - Post-route perf sanity: §arch-2 — measure library repos (serilog/

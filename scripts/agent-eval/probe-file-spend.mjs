@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Per-file reservation-vs-delivered sweep for `codegraph_explore` (CG-36).
+ * Per-file reservation-vs-delivered sweep for `sleuth_explore` (CG-36).
  *
  * `probe-suite-envelope.mjs` answers "how much source did the response deliver";
  * this answers the question one level down — "did the bytes go to the files that
@@ -14,7 +14,7 @@
  * spends well over its own. Either alone is legitimate — a small file simply has
  * less to say, and carry-forward is the mechanism that hands its slack down.
  *
- * Numbers come from the CG-4 diagnostic (`CODEGRAPH_EXPLORE_DEBUG`), so this
+ * Numbers come from the CG-4 diagnostic (`SLEUTH_EXPLORE_DEBUG`), so this
  * measures the shipping allocator rather than re-deriving shares from markdown.
  *
  * Usage (needs a current `npm run build`, and full-REBUILT indexes — CG-33):
@@ -22,7 +22,7 @@
  *   node scripts/agent-eval/probe-file-spend.mjs --json > /tmp/new.json
  *   node scripts/agent-eval/probe-file-spend.mjs --baseline /tmp/base.json
  *   node scripts/agent-eval/probe-file-spend.mjs django --all   # every file, not just flags
- *   CORPUS=/tmp/codegraph-corpus node scripts/agent-eval/probe-file-spend.mjs
+ *   CORPUS=/tmp/sleuth-corpus node scripts/agent-eval/probe-file-spend.mjs
  *
  * Exit code is 1 when any repo carries a starvation flag, so this can gate.
  */
@@ -31,7 +31,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const CORPUS = process.env.CORPUS ?? '/tmp/codegraph-corpus';
+const CORPUS = process.env.CORPUS ?? '/tmp/sleuth-corpus';
 
 /** Same six repos and queries the CG-30/CG-31/CG-26 envelope tables use. */
 const SUITE = [
@@ -70,10 +70,10 @@ const pct = (f) => `${(f * 100).toFixed(1)}%`;
 const load = (rel) => import(pathToFileURL(resolve(rel)).href);
 const idx = await load('dist/index.js');
 const toolsMod = await load('dist/mcp/tools.js');
-const CodeGraph = idx.default?.default ?? idx.default ?? idx.CodeGraph;
+const SleuthGraph = idx.default?.default ?? idx.default ?? idx.SleuthGraph;
 const ToolHandler = toolsMod.ToolHandler ?? toolsMod.default?.ToolHandler;
-if (typeof CodeGraph?.openSync !== 'function' || typeof ToolHandler !== 'function') {
-  console.error('could not resolve CodeGraph/ToolHandler from dist/ — run `npm run build`');
+if (typeof SleuthGraph?.openSync !== 'function' || typeof ToolHandler !== 'function') {
+  console.error('could not resolve SleuthGraph/ToolHandler from dist/ — run `npm run build`');
   process.exit(2);
 }
 
@@ -115,15 +115,15 @@ try {
   for (const { id, q } of SUITE) {
     if (only.length > 0 && !only.includes(id)) continue;
     const repo = join(CORPUS, id);
-    if (!existsSync(join(repo, '.codegraph', 'codegraph.db'))) {
+    if (!existsSync(join(repo, '.sleuth', 'sleuth.db'))) {
       say(`${id}: no index at ${repo} — skipped`);
       continue;
     }
     const sidecar = join(tmp, `${id}.jsonl`);
-    process.env.CODEGRAPH_EXPLORE_DEBUG = sidecar;
-    const cg = CodeGraph.openSync(repo);
+    process.env.SLEUTH_EXPLORE_DEBUG = sidecar;
+    const cg = SleuthGraph.openSync(repo);
     const h = new ToolHandler(cg);
-    await h.execute('codegraph_explore', { query: q });
+    await h.execute('sleuth_explore', { query: q });
     try { cg.close?.(); } catch { /* best effort */ }
     const report = JSON.parse(readFileSync(sidecar, 'utf8').trim().split('\n').pop());
     const files = report.files.map((f) => ({

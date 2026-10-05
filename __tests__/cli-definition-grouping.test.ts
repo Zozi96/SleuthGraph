@@ -4,21 +4,21 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { ToolHandler } from '../src/mcp/tools';
 import { lookupSymbolNodes } from '../src/graph/symbol-lookup';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 const COMMANDS = ['callers', 'callees', 'impact'] as const;
 type Command = typeof COMMANDS[number];
 let projectRoot: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 let handler: ToolHandler;
 
 function runCli(command: Command, symbol = 'handle', args: string[] = []) {
   return spawnSync(process.execPath, [BIN, command, '-p', projectRoot, ...args, '--', symbol], {
     encoding: 'utf-8',
-    env: { ...process.env, CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_WASM_RELAUNCHED: '1', NO_COLOR: '1' },
+    env: { ...process.env, SLEUTH_NO_DAEMON: '1', SLEUTH_WASM_RELAUNCHED: '1', NO_COLOR: '1' },
     timeout: 30_000,
   });
 }
@@ -72,7 +72,7 @@ beforeAll(async () => {
   for (let i = 0; i < 55; i++) {
     write(`crowd/def-${i}.js`, "import { shared } from '../shared.js';\nexport function crowded() { shared(); }\n");
   }
-  cg = CodeGraph.initSync(projectRoot);
+  cg = SleuthGraph.initSync(projectRoot);
   await cg.indexAll();
   handler = new ToolHandler(cg);
 }, 30_000);
@@ -134,7 +134,7 @@ describe.each(COMMANDS)('%s definition grouping (#1512)', (command) => {
     expect(out.filteredOut).toBe(false);
     expect(out[resultKey(command)].every((n: any) => n.filePath.startsWith('a/'))).toBe(true);
     const human = runCli(command, 'handle', ['--file', file]).stdout;
-    const mcp = (await handler.execute(`codegraph_${command}`, { symbol: 'handle', file })).content[0]?.text ?? '';
+    const mcp = (await handler.execute(`sleuth_${command}`, { symbol: 'handle', file })).content[0]?.text ?? '';
     for (const text of [human, mcp]) {
       expect(text).not.toContain('b/');
       expect(text).not.toContain('distinct definitions');
@@ -155,7 +155,7 @@ describe.each(COMMANDS)('%s definition grouping (#1512)', (command) => {
     expect(out.note).toBe(note);
     expect(out.definitions).toHaveLength(2);
     expect(runCli(command, 'handle', ['--file', 'missing.js']).stdout).toContain(note);
-    const mcp = await handler.execute(`codegraph_${command}`, { symbol: 'handle', file: 'missing.js' });
+    const mcp = await handler.execute(`sleuth_${command}`, { symbol: 'handle', file: 'missing.js' });
     expect(mcp.content[0]?.text).toContain(note);
   });
 

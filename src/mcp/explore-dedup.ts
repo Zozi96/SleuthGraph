@@ -1,5 +1,5 @@
 /**
- * Cross-call source dedup for `codegraph_explore` (CG-18).
+ * Cross-call source dedup for `sleuth_explore` (CG-18).
  *
  * The session record (CG-17) knows what earlier calls already sent. This module
  * is the algebra that turns that record into a decision for the call being
@@ -8,13 +8,13 @@
  *
  * Three rules shape everything here, and all three come from the same place —
  * an insufficient-feeling response is what sends an agent to Read, and one or
- * two of those early in a session teach it to abandon codegraph entirely
+ * two of those early in a session teach it to abandon sleuth entirely
  * (CLAUDE.md):
  *
  *   1. **A pointer, never a bare omission.** Removed source is replaced by a
  *      back-reference naming the file, the symbols, and the line span, worded so
  *      it is unmistakable that the source was already delivered IN THIS
- *      CONVERSATION and is still current. Silence reads as "codegraph didn't
+ *      CONVERSATION and is still current. Silence reads as "sleuth didn't
  *      find it".
  *   2. **Only prove-it dedup.** A span is withheld only when the file's bytes
  *      are byte-identical to what was served (a content fingerprint, not an
@@ -78,7 +78,7 @@ const ON = new Set(['1', 'true', 'on', 'yes']);
  * default. Read per call (not memoized) so tests and launchers can toggle it.
  */
 export function exploreDedupEnabled(): boolean {
-  const raw = process.env.CODEGRAPH_EXPLORE_DEDUP;
+  const raw = process.env.SLEUTH_EXPLORE_DEDUP;
   if (raw === undefined) return false;
   return ON.has(raw.trim().toLowerCase());
 }

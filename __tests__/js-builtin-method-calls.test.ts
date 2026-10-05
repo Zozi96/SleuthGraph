@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 let dir: string;
-let cg: CodeGraph | undefined;
+let cg: SleuthGraph | undefined;
 afterEach(() => {
   cg?.destroy();
   cg = undefined;
@@ -34,7 +34,7 @@ describe.each(['ts', 'tsx', 'js', 'jsx'])('built-in method calls in %s (#1987)',
     }
     fs.writeFileSync(path.join(dir, `decoys.${ext}`), declarations.join(''));
     fs.writeFileSync(path.join(dir, `calls.${ext}`), calls.join(''));
-    cg = await CodeGraph.init(dir, { index: true });
+    cg = await SleuthGraph.init(dir, { index: true });
     for (const caller of cg.getNodesByKind('function').filter(n => n.filePath === `calls.${ext}`)) {
       expect(cg.getCallees(caller.id).map(c => c.node.qualifiedName), caller.name).toEqual([]);
     }
@@ -57,7 +57,7 @@ ${typed ? `export function useTyped(receiver: Project) {
 ${methods.map(m => `  receiver.${m}();\n`).join('')}
 }` : ''}
 `);
-    cg = await CodeGraph.init(dir, { index: true });
+    cg = await SleuthGraph.init(dir, { index: true });
     for (const name of typed ? ['useConstructed', 'useTyped'] : ['useConstructed']) {
       const caller = cg.getNodesByKind('function').find(n => n.name === name)!;
       expect(cg.getCallees(caller.id).filter(c => c.node.kind === 'method').map(c => c.node.name).sort())
@@ -99,7 +99,7 @@ export const local = { map() {} };
 export function localLiteral() { local.map(); }
 ${typed ? 'export function typed(cart: Cart) { cart.map(); }' : ''}
 `);
-    cg = await CodeGraph.init(dir, { index: true });
+    cg = await SleuthGraph.init(dir, { index: true });
     const callees = (name: string) => {
       const fn = cg!.getNodesByKind('function').find(n => n.name === name)!;
       expect(fn, name).toBeDefined();

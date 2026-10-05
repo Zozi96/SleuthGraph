@@ -1,5 +1,5 @@
 /**
- * Relevance scoring for `codegraph_explore` — CG-10 / #1500.
+ * Relevance scoring for `sleuth_explore` — CG-10 / #1500.
  *
  * The failure this pins: a file that merely NAME-COLLIDES with the query used to
  * score the same per match as the file that answers it, because every match in a
@@ -28,7 +28,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler, RELEVANCE_KIND_WEIGHT } from '../src/mcp/tools';
 import { attributeSourceBytes } from '../src/mcp/explore-diagnostics';
 
@@ -36,19 +36,19 @@ import { attributeSourceBytes } from '../src/mcp/explore-diagnostics';
 async function buildProject(
   prefix: string,
   files: Record<string, string>,
-): Promise<{ dir: string; cg: CodeGraph; handler: ToolHandler }> {
+): Promise<{ dir: string; cg: SleuthGraph; handler: ToolHandler }> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   for (const [rel, body] of Object.entries(files)) {
     const abs = path.join(dir, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, body.trimStart());
   }
-  const cg = CodeGraph.initSync(dir);
+  const cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
   return { dir, cg, handler: new ToolHandler(cg) };
 }
 
-const cleanup = (dir: string, cg?: CodeGraph) => {
+const cleanup = (dir: string, cg?: SleuthGraph) => {
   if (cg) cg.destroy();
   if (dir && fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
 };
@@ -86,7 +86,7 @@ describe('RELEVANCE_KIND_WEIGHT', () => {
 
 describe('explore relevance scoring — incidental name collisions (#1500)', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   // Shape: one file DEFINES the dispatch mechanism; three unrelated scripts each
@@ -102,7 +102,7 @@ function unrelated${n}Helper(value) {
   return value + ${n};
 }
 `;
-    ({ dir, cg, handler } = await buildProject('codegraph-cg10-collide-', {
+    ({ dir, cg, handler } = await buildProject('sleuth-cg10-collide-', {
       'src/dispatcher.js': `
 import { lookupHandler } from './registry.js';
 
@@ -136,7 +136,7 @@ export function lookupHandler(type) {
   afterAll(() => cleanup(dir, cg));
 
   const explore = async (query: string) => {
-    const result = await handler.execute('codegraph_explore', { query });
+    const result = await handler.execute('sleuth_explore', { query });
     const text = result.content?.[0]?.text ?? '';
     return { text, bytes: attributeSourceBytes(text) };
   };
@@ -173,14 +173,14 @@ export function lookupHandler(type) {
 
 describe('explore relevance scoring — generated source is penalized, not tie-broken', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   // The #1500 shape in miniature: the generated layer collides on every query
   // term AND carries more call-graph mass than the hand-written use-case, so a
   // generated-as-tiebreak-only rule leaves it ranked first.
   beforeAll(async () => {
-    ({ dir, cg, handler } = await buildProject('codegraph-cg10-generated-', {
+    ({ dir, cg, handler } = await buildProject('sleuth-cg10-generated-', {
       'go.mod': 'module example.com/billing\n\ngo 1.22\n',
       'internal/usecase/billing/invoice.go': `
 package billing
@@ -271,7 +271,7 @@ func RunInvoiceCycle(month string) InvoiceRow {
   });
 
   it('ranks the hand-written workflow above its generated twin', async () => {
-    const result = await handler.execute('codegraph_explore', {
+    const result = await handler.execute('sleuth_explore', {
       query: 'how does the invoice cycle collect lines and calculate the total',
     });
     const text = result.content?.[0]?.text ?? '';
@@ -290,7 +290,7 @@ func RunInvoiceCycle(month string) InvoiceRow {
 
 describe('explore relevance scoring — test files never buy the envelope', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let handler: ToolHandler;
 
   // A repo-ROOT `test/` directory — the shape express and most of npm/Go use.
@@ -309,7 +309,7 @@ describe('parseRoute ${n}', () => {
   });
 });
 `;
-    ({ dir, cg, handler } = await buildProject('codegraph-cg10-lowvalue-', {
+    ({ dir, cg, handler } = await buildProject('sleuth-cg10-lowvalue-', {
       'lib/router.js': `
 exports.parseRoute = function parseRoute(pathname) {
   const segments = pathname.split('/').filter(Boolean);
@@ -336,7 +336,7 @@ exports.dispatchRoute = function dispatchRoute(pathname) {
   afterAll(() => cleanup(dir, cg));
 
   it('excludes a repo-root test/ directory from the envelope', async () => {
-    const result = await handler.execute('codegraph_explore', {
+    const result = await handler.execute('sleuth_explore', {
       query: 'how does the router parse and dispatch a route',
     });
     const bytes = attributeSourceBytes(result.content?.[0]?.text ?? '');
@@ -347,7 +347,7 @@ exports.dispatchRoute = function dispatchRoute(pathname) {
   });
 
   it('still returns tests when the query is about them', async () => {
-    const result = await handler.execute('codegraph_explore', {
+    const result = await handler.execute('sleuth_explore', {
       query: 'which tests cover parseRoute',
     });
     const text = result.content?.[0]?.text ?? '';

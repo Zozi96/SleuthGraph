@@ -1,28 +1,28 @@
 /**
  * MCP Tool Definitions
  *
- * Defines the tools exposed by the CodeGraph MCP server.
+ * Defines the tools exposed by the SleuthGraph MCP server.
  */
 
-import type CodeGraph from '../index';
+import type SleuthGraph from '../index';
 import type { QueryPool } from './query-pool';
-import { findNearestCodeGraphRoot, isSameIndexRoot } from '../directory';
+import { findNearestSleuthGraphRoot, isSameIndexRoot } from '../directory';
 import { WslSharedIndexError } from '../db/wsl-shared-index';
-// Lazy-load the heavy CodeGraph chain off the MCP startup path — see the same
+// Lazy-load the heavy SleuthGraph chain off the MCP startup path — see the same
 // helper in engine.ts. ToolHandler must load to answer tools/list (static
 // schemas), but it must NOT drag in sqlite/query layers before the daemon binds;
-// CodeGraph is pulled in only when a tool actually opens a project. require() is
+// SleuthGraph is pulled in only when a tool actually opens a project. require() is
 // sync + cached (CommonJS build).
-const loadCodeGraph = (): typeof import('../index').default =>
-  loadCodeGraphForTests ?? (require('../index') as typeof import('../index')).default;
+const loadSleuthGraph = (): typeof import('../index').default =>
+  loadSleuthGraphForTests ?? (require('../index') as typeof import('../index')).default;
 // Test seam (same pattern as the watcher's `__setFsWatchForTests`): vitest's
 // module transform can't service the lazy `require('../index')` above, so
 // in-process tests that exercise a genuine cross-project open (an explicit
 // `projectPath` to a different project — issue #1474's repro shape) inject the
 // already-imported class here. Never set outside tests.
-let loadCodeGraphForTests: typeof import('../index').default | null = null;
-export function __setLoadCodeGraphForTests(cls: typeof import('../index').default | null): void {
-  loadCodeGraphForTests = cls;
+let loadSleuthGraphForTests: typeof import('../index').default | null = null;
+export function __setLoadSleuthGraphForTests(cls: typeof import('../index').default | null): void {
+  loadSleuthGraphForTests = cls;
 }
 import {
   detectWorktreeIndexMismatch,
@@ -83,11 +83,11 @@ import {
 } from './explore-dedup';
 
 /**
- * An expected, recoverable "codegraph can't serve this" condition — most
+ * An expected, recoverable "sleuth can't serve this" condition — most
  * importantly a project with no index. The dispatch catch converts these to
  * SUCCESS-shaped responses (guidance text, NO isError): an `isError: true`
  * early in a session teaches the agent the toolset is broken and it stops
- * calling codegraph entirely (observed repeatedly), which is exactly wrong
+ * calling sleuth entirely (observed repeatedly), which is exactly wrong
  * for conditions the agent can simply work around (use built-in tools for
  * that codebase / pass projectPath). isError is reserved for "stop trying"
  * cases: security refusals ({@link PathRefusalError}) and genuine
@@ -99,14 +99,14 @@ export class NotIndexedError extends Error {}
  * The Windows/WSL shared-index failure (#995) phrased for the agent. It is an
  * expected condition the USER fixes in their environment, so like
  * {@link NotIndexedError} it answers SUCCESS-shaped — never `isError`, which
- * would teach the agent to abandon codegraph for projects that work fine.
+ * would teach the agent to abandon sleuth for projects that work fine.
  */
 function wslSharedIndexGuidance(err: WslSharedIndexError): string {
   return (
     `${err.message}\n\n` +
-    "If you are an AI agent: codegraph can't read this project's index from WSL until the user " +
+    "If you are an AI agent: sleuth can't read this project's index from WSL until the user " +
     'makes that change. Use your built-in tools (Read/Grep/Glob) for this task and pass the message ' +
-    "above on to the user — setting CODEGRAPH_DIR and building the index are the user's decisions, " +
+    "above on to the user — setting SLEUTH_DIR and building the index are the user's decisions, " +
     "so don't do either yourself."
   );
 }
@@ -115,7 +115,7 @@ function wslSharedIndexGuidance(err: WslSharedIndexError): string {
  * A security refusal (sensitive system path). Stays `isError: true` WITHOUT
  * retry guidance — abandoning this path is the desired agent reaction.
  *
- * Defined in `../errors` so non-MCP read sinks (the `codegraph ui` server) can
+ * Defined in `../errors` so non-MCP read sinks (the `sleuth ui` server) can
  * enforce the same refusal without importing this module; re-exported here
  * because this is where every existing caller imports it from.
  */
@@ -145,7 +145,7 @@ const MAX_PATH_LENGTH = 4_096;
 
 
 /**
- * Node kinds that contain other symbols. For these, `codegraph_node` with
+ * Node kinds that contain other symbols. For these, `sleuth_node` with
  * `includeCode=true` returns a structural outline (member names + signatures
  * + line numbers) instead of the full body, which for a large class is a
  * multi-thousand-character wall of source that bloats the agent's context.
@@ -216,7 +216,7 @@ const NOT_A_DEFINITION = new Set(['file', 'import', 'export', 'parameter']);
  * agrees with what explore's named-symbol seeding resolves. Lookup errors
  * answer "none", which leaves the span's pins as they were.
  */
-function filesDefiningSymbol(cg: CodeGraph, symbol: string): string[] {
+function filesDefiningSymbol(cg: SleuthGraph, symbol: string): string[] {
   try {
     const nodes = isQualifiedSymbol(symbol)
       ? cg.getNodesByName(lastQualifierPart(symbol)).filter((n) => matchesSymbol(n, symbol))
@@ -228,7 +228,7 @@ function filesDefiningSymbol(cg: CodeGraph, symbol: string): string[] {
 }
 
 /**
- * Calculate the recommended number of codegraph_explore calls based on project size.
+ * Calculate the recommended number of sleuth_explore calls based on project size.
  * Larger codebases need more exploration calls to cover their surface area,
  * but smaller ones should use fewer to avoid unnecessary overhead.
  */
@@ -241,7 +241,7 @@ export function getExploreBudget(fileCount: number): number {
 }
 
 /**
- * Adaptive output budget for `codegraph_explore`, scaled to project size.
+ * Adaptive output budget for `sleuth_explore`, scaled to project size.
  *
  * Smaller codebases get a tighter total cap, fewer default files, smaller
  * per-file cap, and tighter clustering — so a focused query on a 100-file
@@ -857,22 +857,22 @@ export function allocateExploreBudget(
 }
 
 /**
- * Whether `codegraph_explore` should prefix source lines with their line
+ * Whether `sleuth_explore` should prefix source lines with their line
  * numbers (cat -n style: `<num>\t<code>`).
  *
  * Line numbers let the agent cite `file:line` straight from the explore
  * payload instead of re-Reading the file just to find a line number — the
  * dominant residual cost on precise-tracing questions (#185 follow-up).
  *
- * Defaults ON. Set `CODEGRAPH_EXPLORE_LINENUMS=0` to disable (used by the
+ * Defaults ON. Set `SLEUTH_EXPLORE_LINENUMS=0` to disable (used by the
  * A/B harness to measure the payload-cost vs. read-savings tradeoff).
  */
 function exploreLineNumbersEnabled(): boolean {
-  return process.env.CODEGRAPH_EXPLORE_LINENUMS !== '0';
+  return process.env.SLEUTH_EXPLORE_LINENUMS !== '0';
 }
 
 /**
- * Adaptive explore sizing (default ON). `codegraph_explore` skeletonizes OFF-SPINE
+ * Adaptive explore sizing (default ON). `sleuth_explore` skeletonizes OFF-SPINE
  * polymorphic-sibling files — a file whose class is one of ≥3 interchangeable
  * implementations of a shared interface (e.g. OkHttp's `: Interceptor` classes) —
  * to class + member signatures (bodies elided), keeping the on-spine exemplar full.
@@ -881,10 +881,10 @@ function exploreLineNumbersEnabled(): boolean {
  * search, reads flat). It is PROVABLY INERT elsewhere: distinct pipeline steps (no
  * ≥3-implementer supertype, e.g. Excalidraw's `renderStaticScene`) and on-spine
  * files keep full source — output is byte-identical to shipped on excalidraw /
- * tokio / django / vscode / gin. Set `CODEGRAPH_ADAPTIVE_EXPLORE=0` to disable.
+ * tokio / django / vscode / gin. Set `SLEUTH_ADAPTIVE_EXPLORE=0` to disable.
  */
 function adaptiveExploreEnabled(): boolean {
-  return process.env.CODEGRAPH_ADAPTIVE_EXPLORE !== '0' && process.env.CODEGRAPH_ADAPTIVE_EXPLORE !== 'false';
+  return process.env.SLEUTH_ADAPTIVE_EXPLORE !== '0' && process.env.SLEUTH_ADAPTIVE_EXPLORE !== 'false';
 }
 
 /**
@@ -896,12 +896,12 @@ function adaptiveExploreEnabled(): boolean {
  * for a clean answer, then serve and let the reconcile finish in the background
  * (it yields to the event loop, so a concurrent read still runs).
  *
- * `CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS` overrides the default; `0` restores the
+ * `SLEUTH_CATCHUP_GATE_TIMEOUT_MS` overrides the default; `0` restores the
  * old unbounded-wait behavior (always block until the reconcile completes).
  */
 const DEFAULT_CATCHUP_GATE_TIMEOUT_MS = 3000;
 function resolveCatchUpGateTimeoutMs(): number {
-  const raw = process.env.CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS;
+  const raw = process.env.SLEUTH_CATCHUP_GATE_TIMEOUT_MS;
   if (raw === undefined || raw === '') return DEFAULT_CATCHUP_GATE_TIMEOUT_MS;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0) return DEFAULT_CATCHUP_GATE_TIMEOUT_MS;
@@ -926,7 +926,7 @@ function numberSourceLines(slice: string, firstLineNumber: number): string {
 }
 
 /**
- * Unique line-prefix for a per-file source section in codegraph_explore output.
+ * Unique line-prefix for a per-file source section in sleuth_explore output.
  * Issue #778: tool results dropped ATX headings (`####`, `##`, `###`) for bold
  * labels so Markdown-rendering MCP clients (e.g. the Claude Code VSCode
  * extension) stop blowing every header up to H1–H4. The path is bold + a code
@@ -935,19 +935,19 @@ function numberSourceLines(slice: string, firstLineNumber: number): string {
  * truncation boundary (`handleExplore`) keys off to cut on whole file sections.
  */
 const FILE_SECTION_PREFIX = '**`';
-// Placeholder for codegraph_explore's "Found N symbols across M files." line.
+// Placeholder for sleuth_explore's "Found N symbols across M files." line.
 // The honest N/M can only be known after the final truncation drops trailing
 // sections (#1046), so the header is emitted as this sentinel and substituted
 // at the very end. This bracketed token never occurs in rendered source or a
 // file path, so the final string-replace can't collide.
-const SUMMARY_SENTINEL = '[[codegraph-explore-summary]]';
+const SUMMARY_SENTINEL = '[[sleuth-explore-summary]]';
 function fileSectionHeader(filePath: string, suffix: string): string {
   return suffix
     ? `${FILE_SECTION_PREFIX}${filePath}\`** — ${suffix}`
     : `${FILE_SECTION_PREFIX}${filePath}\`**`;
 }
 
-/** Header of `codegraph_explore`'s trailing pointer list. */
+/** Header of `sleuth_explore`'s trailing pointer list. */
 const POINTER_HEADER = '**Not shown above — explore these names for their source**';
 /** Most files the pointer list ever names one-per-line; the rest are a count. */
 const POINTER_MAX_FILES = 10;
@@ -1146,7 +1146,7 @@ function pointerLineFor(filePath: string, nodes: readonly Node[]): string {
  * traded away, but the agent must still be told that an uncovered area exists
  * and that another explore — not a Read — is how to reach it.
  */
-const EPILOGUE_LOST_NOTE = '> (Trailing pointer list omitted for size. The source above is complete and verbatim — treat it as already Read. For anything this call did not cover, run another codegraph_explore with the specific names rather than reading those files.)';
+const EPILOGUE_LOST_NOTE = '> (Trailing pointer list omitted for size. The source above is complete and verbatim — treat it as already Read. For anything this call did not cover, run another sleuth_explore with the specific names rather than reading those files.)';
 /**
  * The notes that stand in for the epilogue, or close a truncated response, in
  * two wordings each. `complete` says the source above is complete; `trimmed` is
@@ -1159,15 +1159,15 @@ const EPILOGUE_LOST_NOTE = '> (Trailing pointer list omitted for size. The sourc
 export const EXPLORE_FALLBACK_NOTES = {
   lost: {
     complete: EPILOGUE_LOST_NOTE,
-    trimmed: '> (Trailing pointer list omitted for size. The source above is verbatim — treat it as already Read. For symbols its gap markers name, and anything else not covered, run another codegraph_explore with those names rather than reading.)',
+    trimmed: '> (Trailing pointer list omitted for size. The source above is verbatim — treat it as already Read. For symbols its gap markers name, and anything else not covered, run another sleuth_explore with those names rather than reading.)',
   },
   cut: {
-    complete: '\n\n> (Trailing notes omitted for size. The source above is complete and verbatim — treat it as already Read. For anything this call did not cover, run another codegraph_explore with the specific names rather than reading those files.)',
-    trimmed: '\n\n> (Trailing notes omitted for size. The source above is verbatim — treat it as already Read. For symbols its gap markers name, and anything else not covered, run another codegraph_explore with those names rather than reading.)',
+    complete: '\n\n> (Trailing notes omitted for size. The source above is complete and verbatim — treat it as already Read. For anything this call did not cover, run another sleuth_explore with the specific names rather than reading those files.)',
+    trimmed: '\n\n> (Trailing notes omitted for size. The source above is verbatim — treat it as already Read. For symbols its gap markers name, and anything else not covered, run another sleuth_explore with those names rather than reading.)',
   },
   truncated: {
-    complete: '\n\n... (output truncated to budget; the source above is complete and verbatim — treat it as already Read. For any area not covered, run another codegraph_explore with the specific names — do NOT Read these files.)',
-    trimmed: '\n\n... (output truncated to budget; the source above is verbatim — treat it as already Read. For names its gap markers list, or any area not covered, run another codegraph_explore — do NOT Read these files.)',
+    complete: '\n\n... (output truncated to budget; the source above is complete and verbatim — treat it as already Read. For any area not covered, run another sleuth_explore with the specific names — do NOT Read these files.)',
+    trimmed: '\n\n... (output truncated to budget; the source above is verbatim — treat it as already Read. For names its gap markers list, or any area not covered, run another sleuth_explore — do NOT Read these files.)',
   },
 } as const;
 
@@ -1271,7 +1271,7 @@ export function shortestUniqueSuffixes(paths: ReadonlyArray<string>): Map<string
  * deliver. Otherwise the note keeps the guarantee that is still true (every
  * block shown is verbatim; treat it as already Read), names the trimmed files
  * and the most relevant elided symbols as room allows, and sends the agent to
- * another codegraph_explore for them. It never offers Read: explore output must
+ * another sleuth_explore for them. It never offers Read: explore output must
  * not tell the agent to Read (AGENTS.md).
  */
 export function exploreCompletenessNotes(
@@ -1285,7 +1285,7 @@ export function exploreCompletenessNotes(
   const files = filesIncluded === 0 ? 'these files'
     : filesIncluded === 1 ? '1 file' : `${filesIncluded} files`;
   if (trimmed.length === 0) {
-    return [`> **Complete source for ${files} is included above — do NOT re-read them.** If your question also needs files/symbols listed under "Not shown above" (or any area this call didn't cover), make ANOTHER codegraph_explore targeting those names — it returns the same source with line numbers and is cheaper and more complete than reading.`];
+    return [`> **Complete source for ${files} is included above — do NOT re-read them.** If your question also needs files/symbols listed under "Not shown above" (or any area this call didn't cover), make ANOTHER sleuth_explore targeting those names — it returns the same source with line numbers and is cheaper and more complete than reading.`];
   }
   const label = shortestUniqueSuffixes([...knownPaths, ...trimmed.map((t) => t.filePath)]);
   const shownFiles = trimmed.slice(0, TRIMMED_FILES_NAMED).map((t) => `\`${label.get(t.filePath)}\``);
@@ -1302,7 +1302,7 @@ export function exploreCompletenessNotes(
   }
   const head = `> **Verbatim source for ${files} is included above — treat it as already Read.**`;
   const what = 'gap markers and file headers name what was elided';
-  const tail = 'For those, or anything under "Not shown above", make ANOTHER codegraph_explore with those exact names instead of reading the files — it returns their source with line numbers.';
+  const tail = 'For those, or anything under "Not shown above", make ANOTHER sleuth_explore with those exact names instead of reading the files — it returns their source with line numbers.';
   const withFiles = `${head} Trimmed for size: ${trimmedList}; ${what}`;
   const candidates = names.length > 0
     ? [`${withFiles} (e.g. ${names.map((n) => `\`${n}\``).join(', ')}). ${tail}`]
@@ -1413,7 +1413,7 @@ export function formatStaleBanner(stale: PendingFile[]): string {
   });
   return (
     '⚠️ Some files referenced below were edited since the last index sync — ' +
-    'their codegraph entries may be stale:\n' +
+    'their sleuth entries may be stale:\n' +
     lines.join('\n') +
     '\nFor accurate content of those specific files, Read them directly. ' +
     'The rest of this response is fresh.'
@@ -1446,11 +1446,11 @@ export function formatStaleFooter(stale: PendingFile[]): string {
  * `getPendingFiles()` is empty, so the per-file banner above can't fire even
  * though the index is now FROZEN and silently drifting stale. Leads with the
  * agent-actionable instruction (Read directly) and carries the reason, which
- * already names the operator remedy (`codegraph sync` / git hooks).
+ * already names the operator remedy (`sleuth sync` / git hooks).
  */
 export function formatDegradedBanner(reason: string | null): string {
   return (
-    '⚠️ CodeGraph auto-sync is DISABLED — live file watching stopped, so the index is ' +
+    '⚠️ SleuthGraph auto-sync is DISABLED — live file watching stopped, so the index is ' +
     'frozen and any file edited since then is stale here. Read files directly to confirm ' +
     'current content before relying on it.' +
     (reason ? `\n  Reason: ${reason}` : '')
@@ -1460,7 +1460,7 @@ export function formatDegradedBanner(reason: string | null): string {
 /** Re-armed watches are not proof of freshness until their full scan commits. */
 export function formatRecoveringBanner(): string {
   return (
-    '⚠️ CodeGraph auto-sync is RECOVERING — file watching restarted after lock contention, ' +
+    '⚠️ SleuthGraph auto-sync is RECOVERING — file watching restarted after lock contention, ' +
     'but the full index catch-up has not completed. Read files directly to confirm ' +
     'current content before relying on these results.'
   );
@@ -1495,7 +1495,7 @@ export interface ToolDefinition {
  * doesn't advertise `readOnlyHint: true` (issue #1018).
  *
  * The field is purely additive — a client that predates annotations ignores it
- * — so codegraph advertises these even though `initialize` still negotiates the
+ * — so sleuth advertises these even though `initialize` still negotiates the
  * 2024-11-05 protocol version.
  *
  * https://modelcontextprotocol.io/specification/2025-06-18/schema#toolannotations
@@ -1530,7 +1530,7 @@ export interface ToolResult {
   }>;
   isError?: boolean;
   /**
-   * INTERNAL side-channel (CG-17): what a `codegraph_explore` call actually put
+   * INTERNAL side-channel (CG-17): what a `sleuth_explore` call actually put
    * on the wire — files, line ranges, bytes. It rides the result because the
    * call may have run on a query-pool worker, while the session state it feeds
    * lives on the main thread. {@link ToolHandler.execute} records it and DELETES
@@ -1547,11 +1547,11 @@ export interface ToolResult {
  */
 const projectPathProperty: PropertySchema = {
   type: 'string',
-  description: 'Absolute path to the project to query (or any directory inside it) — codegraph uses the nearest .codegraph/ index at or above that path. Omit to use this session\'s default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project).',
+  description: 'Absolute path to the project to query (or any directory inside it) — sleuth uses the nearest .sleuth/ index at or above that path. Omit to use this session\'s default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project).',
 };
 
 /**
- * EVERY codegraph tool is query-only: it reads the pre-built index and never
+ * EVERY sleuth tool is query-only: it reads the pre-built index and never
  * mutates the workspace (indexing is the user's explicit CLI call, never the
  * agent's). Advertising this read-only contract lets clients that gate on it run
  * the tools where a possibly-mutating tool would be blocked — most concretely,
@@ -1569,9 +1569,9 @@ const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
 };
 
 /**
- * All CodeGraph MCP tools
+ * All SleuthGraph MCP tools
  *
- * Designed for minimal context usage - use codegraph_explore as the primary tool
+ * Designed for minimal context usage - use sleuth_explore as the primary tool
  * (one call usually answers the whole question), and only use other tools for
  * targeted follow-up queries.
  *
@@ -1579,8 +1579,8 @@ const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
  */
 export const tools: ToolDefinition[] = [
   {
-    name: 'codegraph_search',
-    description: 'Quick symbol search by name. Returns locations only (no code). Use codegraph_explore instead to get the actual source / understand an area in one call.',
+    name: 'sleuth_search',
+    description: 'Quick symbol search by name. Returns locations only (no code). Use sleuth_explore instead to get the actual source / understand an area in one call.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1605,8 +1605,8 @@ export const tools: ToolDefinition[] = [
     annotations: READ_ONLY_ANNOTATIONS,
   },
   {
-    name: 'codegraph_callers',
-    description: 'List functions that call <symbol>. For the full flow, use codegraph_explore.',
+    name: 'sleuth_callers',
+    description: 'List functions that call <symbol>. For the full flow, use sleuth_explore.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1630,8 +1630,8 @@ export const tools: ToolDefinition[] = [
     annotations: READ_ONLY_ANNOTATIONS,
   },
   {
-    name: 'codegraph_callees',
-    description: 'List functions that <symbol> calls. For the full flow, use codegraph_explore.',
+    name: 'sleuth_callees',
+    description: 'List functions that <symbol> calls. For the full flow, use sleuth_explore.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1655,7 +1655,7 @@ export const tools: ToolDefinition[] = [
     annotations: READ_ONLY_ANNOTATIONS,
   },
   {
-    name: 'codegraph_impact',
+    name: 'sleuth_impact',
     description: 'List symbols affected by changing <symbol>. Use before a refactor.',
     inputSchema: {
       type: 'object',
@@ -1680,8 +1680,8 @@ export const tools: ToolDefinition[] = [
     annotations: READ_ONLY_ANNOTATIONS,
   },
   {
-    name: 'codegraph_node',
-    description: 'Two modes. (1) READ A FILE — use INSTEAD of the Read tool: pass `file` (a path or basename) with no `symbol` and it returns that file\'s current on-disk source with line numbers, exactly the shape Read gives you (`<n>\\t<line>`, safe to Edit from), narrowable with `offset`/`limit` just like Read — PLUS a one-line note of which files depend on it. Same bytes as Read, faster (served from the index), with the blast radius attached. Use it whenever you would Read a source file. (2) ONE SYMBOL you can name — its location, signature, verbatim source (includeCode=true) and caller/callee trail in one call, so before changing it you see what calls it and what your edit would break. For an AMBIGUOUS name it returns EVERY matching definition\'s body in one call (so you never Read a file to find the right overload); pass `file`/`line` to pin one. Use codegraph_explore for several related symbols or the full flow.',
+    name: 'sleuth_node',
+    description: 'Two modes. (1) READ A FILE — use INSTEAD of the Read tool: pass `file` (a path or basename) with no `symbol` and it returns that file\'s current on-disk source with line numbers, exactly the shape Read gives you (`<n>\\t<line>`, safe to Edit from), narrowable with `offset`/`limit` just like Read — PLUS a one-line note of which files depend on it. Same bytes as Read, faster (served from the index), with the blast radius attached. Use it whenever you would Read a source file. (2) ONE SYMBOL you can name — its location, signature, verbatim source (includeCode=true) and caller/callee trail in one call, so before changing it you see what calls it and what your edit would break. For an AMBIGUOUS name it returns EVERY matching definition\'s body in one call (so you never Read a file to find the right overload); pass `file`/`line` to pin one. Use sleuth_explore for several related symbols or the full flow.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1722,14 +1722,14 @@ export const tools: ToolDefinition[] = [
     annotations: READ_ONLY_ANNOTATIONS,
   },
   {
-    name: 'codegraph_explore',
+    name: 'sleuth_explore',
     description: 'PRIMARY TOOL — call FIRST for almost any question OR before an edit: how does X work, architecture, a bug, where/what is X, surveying an area, or the symbols you are about to change. Returns the verbatim source of the relevant symbols grouped by file in ONE capped call (Read-equivalent — treat the shown source as already Read; do NOT re-open those files), plus the call path among them. Query can be a natural-language question OR a bag of symbol/file names. Usually the ONLY call you need — more accurate context, in far fewer tokens and round-trips than a search/Read/Grep loop.',
     inputSchema: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'Symbol names, file names, or short code terms to explore (e.g., "AuthService loginUser session-manager", "GraphTraverser BFS impact traversal.ts"). For a flow question, name the symbols spanning the flow (e.g. "mutateElement renderScene"). A natural-language question works too — no prior codegraph_search needed.',
+          description: 'Symbol names, file names, or short code terms to explore (e.g., "AuthService loginUser session-manager", "GraphTraverser BFS impact traversal.ts"). For a flow question, name the symbols spanning the flow (e.g. "mutateElement renderScene"). A natural-language question works too — no prior sleuth_search needed.',
         },
         maxFiles: {
           type: 'number',
@@ -1746,7 +1746,7 @@ export const tools: ToolDefinition[] = [
     _meta: { 'anthropic/alwaysLoad': true },
   },
   {
-    name: 'codegraph_status',
+    name: 'sleuth_status',
     description: 'Index health check: files, nodes, edges, last indexed time, and added/modified/removed counts. Skip unless debugging.',
     inputSchema: {
       type: 'object',
@@ -1757,7 +1757,7 @@ export const tools: ToolDefinition[] = [
     annotations: READ_ONLY_ANNOTATIONS,
   },
   {
-    name: 'codegraph_files',
+    name: 'sleuth_files',
     description: 'Indexed file tree with language + symbol counts. Faster than Glob for project layout.',
     inputSchema: {
       type: 'object',
@@ -1797,7 +1797,7 @@ export const tools: ToolDefinition[] = [
  *
  * Used for the NO-DEFAULT-PROJECT tool surface (issue #993): when the MCP server
  * has no default project to fall back to — a gateway server started outside any
- * repo, or a monorepo root whose `.codegraph/` indexes live only in sub-projects
+ * repo, or a monorepo root whose `.sleuth/` indexes live only in sub-projects
  * — every call MUST carry an explicit `projectPath`, so the schema should say so.
  * A `required` field is a HIGH-salience channel (MCP clients surface and often
  * validate it), unlike the instructions text the reporter found too weak to stop
@@ -1825,20 +1825,20 @@ function withRequiredProjectPath(defs: ToolDefinition[]): ToolDefinition[] {
 /**
  * Allowlist-filtered tool definitions WITHOUT an engine — the static surface the
  * proxy answers `tools/list` with before any project is open. Mirrors
- * `ToolHandler.getTools()` in the no-CodeGraph case (the dynamic per-repo budget
+ * `ToolHandler.getTools()` in the no-SleuthGraph case (the dynamic per-repo budget
  * note in a description only adds once `cg` is loaded; the schemas are static).
  */
 export function getStaticTools(): ToolDefinition[] {
-  const raw = process.env.CODEGRAPH_MCP_TOOLS;
+  const raw = process.env.SLEUTH_MCP_TOOLS;
   if (!raw || !raw.trim()) {
-    return tools.filter(t => DEFAULT_MCP_TOOLS.has(t.name.replace(/^codegraph_/, '')));
+    return tools.filter(t => DEFAULT_MCP_TOOLS.has(t.name.replace(/^sleuth_/, '')));
   }
-  const allow = new Set(raw.split(',').map(s => s.trim().replace(/^codegraph_/, '')).filter(Boolean));
-  return allow.size ? tools.filter(t => allow.has(t.name.replace(/^codegraph_/, ''))) : tools;
+  const allow = new Set(raw.split(',').map(s => s.trim().replace(/^sleuth_/, '')).filter(Boolean));
+  return allow.size ? tools.filter(t => allow.has(t.name.replace(/^sleuth_/, ''))) : tools;
 }
 
 /**
- * The MCP tools served by DEFAULT (short names). Pared to ONLY `codegraph_explore`
+ * The MCP tools served by DEFAULT (short names). Pared to ONLY `sleuth_explore`
  * — the single tool that reliably earns its place: one capped call returns the
  * verbatim source of the relevant symbols grouped by file. Every other tool is a
  * narrower slice of what explore already does, and presence itself steers
@@ -1846,7 +1846,7 @@ export function getStaticTools(): ToolDefinition[] {
  *
  * The other defined tools (`node`, `search`, `callers`, plus callees/impact/files/
  * status) remain fully functional — handlers stay, the library API and CLI are
- * untouched, and `CODEGRAPH_MCP_TOOLS=explore,node,...` re-enables any of them.
+ * untouched, and `SLEUTH_MCP_TOOLS=explore,node,...` re-enables any of them.
  */
 const DEFAULT_MCP_TOOLS = new Set(['explore']);
 
@@ -1873,12 +1873,12 @@ export const MAX_CACHED_PROJECTS = 8;
  * releases it (#2087). Releasing frees its SQLite handle, its watcher and the
  * writer lock the engine may hold on that project — which otherwise stays held
  * for the whole life of this daemon, locking the project's own daemon and
- * `codegraph index` out. The next call reopens it and catches up.
- * `CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS` overrides it; `0` never releases.
+ * `sleuth index` out. The next call reopens it and catches up.
+ * `SLEUTH_PROJECT_IDLE_TIMEOUT_MS` overrides it; `0` never releases.
  */
 const DEFAULT_PROJECT_IDLE_TIMEOUT_MS = 600_000;
 function resolveProjectIdleTimeoutMs(): number {
-  const raw = process.env.CODEGRAPH_PROJECT_IDLE_TIMEOUT_MS;
+  const raw = process.env.SLEUTH_PROJECT_IDLE_TIMEOUT_MS;
   if (raw === undefined || raw === '') return DEFAULT_PROJECT_IDLE_TIMEOUT_MS;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0) return DEFAULT_PROJECT_IDLE_TIMEOUT_MS;
@@ -1894,22 +1894,22 @@ function resolveProjectIdleTimeoutMs(): number {
  * engine can release shared ownership safely on LRU eviction or shutdown.
  */
 export interface ProjectLifecycle {
-  open(root: string, open: () => CodeGraph): CodeGraph;
-  activate(cg: CodeGraph): Promise<void>;
-  release(cg: CodeGraph): void | Promise<void>;
+  open(root: string, open: () => SleuthGraph): SleuthGraph;
+  activate(cg: SleuthGraph): Promise<void>;
+  release(cg: SleuthGraph): void | Promise<void>;
 }
 
 /**
- * Tool handler that executes tools against a CodeGraph instance
+ * Tool handler that executes tools against a SleuthGraph instance
  *
  * Supports cross-project queries via the projectPath parameter.
  * Other projects are opened on-demand and cached for performance.
  */
 export class ToolHandler {
-  // Cache of opened CodeGraph instances for cross-project queries, keyed by the
+  // Cache of opened SleuthGraph instances for cross-project queries, keyed by the
   // CANONICAL (realpath) index root. Map insertion order doubles as LRU order:
   // a hit re-inserts, and `MAX_CACHED_PROJECTS` bounds the size (#1835).
-  private projectCache: Map<string, CodeGraph> = new Map();
+  private projectCache: Map<string, SleuthGraph> = new Map();
   // When each cached root was last handed to a call, and the one timer that
   // releases the oldest once it has been idle long enough (#2087).
   private projectUsedAt: Map<string, number> = new Map();
@@ -1918,7 +1918,7 @@ export class ToolHandler {
   // CLI and worker-thread handlers, which never own a watcher).
   private projectLifecycle: ProjectLifecycle | null = null;
   // Every concurrent call shares its project's pending catch-up promise.
-  private projectGates: Map<CodeGraph, Promise<void>> = new Map();
+  private projectGates: Map<SleuthGraph, Promise<void>> = new Map();
   private activeCalls = 0;
   private closing = false;
   private pendingCloses = 0;
@@ -1939,7 +1939,7 @@ export class ToolHandler {
   private defaultOpenFailure: WslSharedIndexError | null = null;
   // Per-start-path cache of the git worktree/index mismatch (issue #155). The
   // mismatch is a fixed property of (where the request came from → which
-  // .codegraph/ it resolves to), so the up-to-two `git rev-parse` spawns run
+  // .sleuth/ it resolves to), so the up-to-two `git rev-parse` spawns run
   // once and every later tool call reuses the result — never shelling out to
   // git on the hot path. `undefined` = not computed yet; `null` = no mismatch.
   private worktreeMismatchCache: Map<string, WorktreeIndexMismatch | null> = new Map();
@@ -1958,12 +1958,12 @@ export class ToolHandler {
   private catchUpGate: Promise<void> | null = null;
   // Engine hook fired when `freshen` reopened a replaced database (#1902), so
   // the engine can reconcile the new file with a catch-up sync.
-  private onDatabaseReopened: ((cg: CodeGraph) => void) | null = null;
+  private onDatabaseReopened: ((cg: SleuthGraph) => void) | null = null;
   // Optional worker-thread pool for off-loop read-tool dispatch. When ready +
   // healthy, heavy reads leave the main loop free for the MCP transport.
   private queryPool: QueryPool | null = null;
 
-  constructor(private cg: CodeGraph | null) {}
+  constructor(private cg: SleuthGraph | null) {}
 
   /**
    * Engine-only: attach (or detach with null) the worker-thread query pool. The
@@ -1984,9 +1984,9 @@ export class ToolHandler {
   }
 
   /**
-   * Update the default CodeGraph instance (e.g. after lazy initialization)
+   * Update the default SleuthGraph instance (e.g. after lazy initialization)
    */
-  setDefaultCodeGraph(cg: CodeGraph): void {
+  setDefaultSleuthGraph(cg: SleuthGraph): void {
     this.cg = cg;
     this.defaultOpenFailure = null;
   }
@@ -2021,7 +2021,7 @@ export class ToolHandler {
    * that was replaced on disk (#1902). The engine decides whether a catch-up
    * sync is its to run (only for the instance it watches and writes).
    */
-  setOnDatabaseReopened(fn: ((cg: CodeGraph) => void) | null): void {
+  setOnDatabaseReopened(fn: ((cg: SleuthGraph) => void) | null): void {
     this.onDatabaseReopened = fn;
   }
 
@@ -2053,8 +2053,8 @@ export class ToolHandler {
       ]);
       if (outcome === 'timeout') {
         process.stderr.write(
-          `[CodeGraph MCP] Catch-up reconcile still running after ${timeoutMs}ms; serving this tool call now and finishing the reconcile in the background (#905). ` +
-          `Set CODEGRAPH_CATCHUP_GATE_TIMEOUT_MS=0 to always wait for it.\n`
+          `[SleuthGraph MCP] Catch-up reconcile still running after ${timeoutMs}ms; serving this tool call now and finishing the reconcile in the background (#905). ` +
+          `Set SLEUTH_CATCHUP_GATE_TIMEOUT_MS=0 to always wait for it.\n`
         );
       }
     } finally {
@@ -2092,38 +2092,38 @@ export class ToolHandler {
   }
 
   /**
-   * Whether a default CodeGraph instance is available
+   * Whether a default SleuthGraph instance is available
    */
-  hasDefaultCodeGraph(): boolean {
+  hasDefaultSleuthGraph(): boolean {
     return this.cg !== null;
   }
 
   /**
-   * Optional allowlist of exposed tools, parsed from the CODEGRAPH_MCP_TOOLS
+   * Optional allowlist of exposed tools, parsed from the SLEUTH_MCP_TOOLS
    * env var (comma-separated short names, e.g. "trace,search,node,context").
    * Unset/empty → every tool is exposed. Lets an operator (or an A/B harness)
    * trim the tool surface without rebuilding the client config; the ablated
    * tool is then truly absent from ListTools rather than merely denied on call.
-   * Matching is on the short form, so "node" and "codegraph_node" both work.
+   * Matching is on the short form, so "node" and "sleuth_node" both work.
    */
   private toolAllowlist(): Set<string> | null {
-    const raw = process.env.CODEGRAPH_MCP_TOOLS;
+    const raw = process.env.SLEUTH_MCP_TOOLS;
     if (!raw || !raw.trim()) return null;
-    const short = (s: string) => s.trim().replace(/^codegraph_/, '');
+    const short = (s: string) => s.trim().replace(/^sleuth_/, '');
     const set = new Set(raw.split(',').map(short).filter(Boolean));
     return set.size ? set : null;
   }
 
-  /** Whether a tool name passes the CODEGRAPH_MCP_TOOLS allowlist (if any). */
+  /** Whether a tool name passes the SLEUTH_MCP_TOOLS allowlist (if any). */
   private isToolAllowed(name: string): boolean {
     const allow = this.toolAllowlist();
-    return !allow || allow.has(name.replace(/^codegraph_/, ''));
+    return !allow || allow.has(name.replace(/^sleuth_/, ''));
   }
 
   /**
    * Get tool definitions with dynamic descriptions based on project size.
-   * The codegraph_explore tool description includes a budget recommendation
-   * scaled to the number of indexed files. Honors the CODEGRAPH_MCP_TOOLS
+   * The sleuth_explore tool description includes a budget recommendation
+   * scaled to the number of indexed files. Honors the SLEUTH_MCP_TOOLS
    * allowlist so a trimmed surface is reflected in ListTools.
    */
   getTools(): ToolDefinition[] {
@@ -2132,8 +2132,8 @@ export class ToolHandler {
     // DEFAULT_MCP_TOOLS for the evidence). An allowlist replaces the
     // default entirely, so any defined tool can be re-enabled.
     let visible = allow
-      ? tools.filter(t => allow.has(t.name.replace(/^codegraph_/, '')))
-      : tools.filter(t => DEFAULT_MCP_TOOLS.has(t.name.replace(/^codegraph_/, '')));
+      ? tools.filter(t => allow.has(t.name.replace(/^sleuth_/, '')))
+      : tools.filter(t => DEFAULT_MCP_TOOLS.has(t.name.replace(/^sleuth_/, '')));
     // No default project loaded → no-root-index case (#993): a gateway server
     // started outside any repo, or a monorepo root whose indexes live in
     // sub-projects. With nothing to fall back to, EVERY call needs an explicit
@@ -2159,7 +2159,7 @@ export class ToolHandler {
       // n=2 audits ruled out cutting below 5 tools:
       // - 3-tool gate (search + context + trace): cost regressed on
       //   cobra/ky/sinatra. The agent fell back to raw Reads to cover
-      //   what codegraph_node + codegraph_explore would have answered.
+      //   what sleuth_node + sleuth_explore would have answered.
       // - 1-tool gate (search only): catastrophic regression — express
       //   went from -43% WIN to +107% LOSS. With only search, the agent
       //   can't navigate the call graph structurally and reads everything.
@@ -2175,16 +2175,16 @@ export class ToolHandler {
       // so it deserves the same gating.
       const TINY_REPO_FILE_THRESHOLD = 500;
       const TINY_REPO_CORE_TOOLS = new Set([
-        'codegraph_explore',
-        'codegraph_search',
-        'codegraph_node',
+        'sleuth_explore',
+        'sleuth_search',
+        'sleuth_node',
       ]);
       if (stats.fileCount < TINY_REPO_FILE_THRESHOLD) {
         visible = visible.filter(t => TINY_REPO_CORE_TOOLS.has(t.name));
       }
 
       return visible.map(tool => {
-        if (tool.name === 'codegraph_explore') {
+        if (tool.name === 'sleuth_explore') {
           return {
             ...tool,
             description: `${tool.description} Exploration guidance — advisory only, NOT a quota: ~${budget} focused calls usually cover this project (${stats.fileCount.toLocaleString()} files indexed), and extra calls are never rejected or rate-limited.`,
@@ -2198,32 +2198,32 @@ export class ToolHandler {
   }
 
   /**
-   * Get CodeGraph instance for a project
+   * Get SleuthGraph instance for a project
    *
-   * If projectPath is provided, opens that project's CodeGraph (cached).
-   * Otherwise returns the default CodeGraph instance.
+   * If projectPath is provided, opens that project's SleuthGraph (cached).
+   * Otherwise returns the default SleuthGraph instance.
    *
-   * Walks up parent directories to find the nearest .codegraph/ folder,
+   * Walks up parent directories to find the nearest .sleuth/ folder,
    * similar to how git finds .git/ directories.
    */
-  private getCodeGraph(projectPath?: string): CodeGraph {
+  private getSleuthGraph(projectPath?: string): SleuthGraph {
     if (!projectPath) {
       if (!this.cg) {
         if (this.defaultOpenFailure) throw this.defaultOpenFailure;
         const searched = this.defaultProjectHint ?? process.cwd();
         throw new NotIndexedError(
-          'No CodeGraph project is loaded for this session.\n' +
-          `Searched for a .codegraph/ directory starting from: ${searched}\n` +
+          'No SleuthGraph project is loaded for this session.\n' +
+          `Searched for a .sleuth/ directory starting from: ${searched}\n` +
           this.formatKnownSubprojects() +
           'Either the server root has no index of its own (e.g. a monorepo where only ' +
           "sub-projects are indexed), or the MCP client launched the server outside your " +
           'project without reporting the workspace root. Either way, target the project ' +
           'explicitly:\n' +
           '  • Pass projectPath to the tool call, e.g. projectPath: "/absolute/path/to/your/project" ' +
-          '(any project that has a .codegraph/ — including a sub-project of a monorepo)\n' +
+          '(any project that has a .sleuth/ — including a sub-project of a monorepo)\n' +
           '  • Or add --path to the server\'s MCP config args: ["serve", "--mcp", "--path", "/absolute/path/to/your/project"]\n' +
           'If a project simply has no index, use your built-in tools (Read/Grep/Glob) for THAT ' +
-          "project (the user can run 'codegraph init' there to enable it) — you can still query " +
+          "project (the user can run 'sleuth init' there to enable it) — you can still query " +
           'other indexed projects by projectPath in the same session.'
         );
       }
@@ -2232,7 +2232,7 @@ export class ToolHandler {
 
     // Reject sensitive system directories before opening. Only validate a
     // path that actually exists — a nested or not-yet-created sub-path of a
-    // real project must still be allowed to resolve UP to its .codegraph/
+    // real project must still be allowed to resolve UP to its .sleuth/
     // root below (issue #238), so we don't run the existence-checking
     // validator on paths that are meant to walk up.
     if (existsSync(projectPath)) {
@@ -2242,27 +2242,27 @@ export class ToolHandler {
       }
     }
 
-    // Always RE-RESOLVE the nearest .codegraph/ from the input path. The walk
+    // Always RE-RESOLVE the nearest .sleuth/ from the input path. The walk
     // is cheap (a few existsSync up the tree) and is the only thing that
     // notices a path whose index root CHANGED since it was first seen — most
-    // importantly a git worktree that gained its own .codegraph/ after the
+    // importantly a git worktree that gained its own .sleuth/ after the
     // (long-lived) server first resolved it up to the parent checkout. We used
     // to short-circuit on a `projectCache[projectPath]` entry before resolving,
     // which pinned that first resolution for the server's whole lifetime, so a
     // worktree kept being served the parent checkout's index until restart
     // (#926). The DB connection itself is still cached (by resolved root,
     // below), so re-resolving costs only the stat walk, never a reopen.
-    const resolvedRoot = findNearestCodeGraphRoot(projectPath);
+    const resolvedRoot = findNearestSleuthGraphRoot(projectPath);
     // Two spellings of one root (a symlinked checkout, `/tmp` vs
     // `/private/tmp`) must share one connection and one watcher (#1835).
     const canonicalRoot = resolvedRoot ? canonicalPath(resolvedRoot) : null;
 
     if (!resolvedRoot || !canonicalRoot) {
       throw new NotIndexedError(
-        `The project at ${projectPath} isn't indexed with codegraph (no .codegraph/ directory found ` +
-        'walking up from it), so codegraph cannot query it. Use your built-in tools (Read/Grep/Glob) ' +
-        "for that codebase instead, and don't call codegraph for it again this session. " +
-        "Indexing is the user's decision — they can run 'codegraph init' in that project to enable it."
+        `The project at ${projectPath} isn't indexed with sleuth (no .sleuth/ directory found ` +
+        'walking up from it), so sleuth cannot query it. Use your built-in tools (Read/Grep/Glob) ' +
+        "for that codebase instead, and don't call sleuth for it again this session. " +
+        "Indexing is the user's decision — they can run 'sleuth init' in that project to enable it."
       );
     }
 
@@ -2274,11 +2274,11 @@ export class ToolHandler {
     const nested = this.uncoveredNestedRepo(projectPath, canonicalRoot, cg);
     if (nested) {
       throw new NotIndexedError(
-        `The project at ${projectPath} isn't indexed with codegraph: it is its own git repository ` +
+        `The project at ${projectPath} isn't indexed with sleuth: it is its own git repository ` +
         `(${nested.root}), and the nearest index, at ${canonicalRoot}, holds none of its files ` +
-        '(that repository is excluded from it, e.g. by a .gitignore), so codegraph cannot query it. ' +
-        "Use your built-in tools (Read/Grep/Glob) for that codebase instead, and don't call codegraph " +
-        "for it again this session. Indexing is the user's decision — they can run 'codegraph init' " +
+        '(that repository is excluded from it, e.g. by a .gitignore), so sleuth cannot query it. ' +
+        "Use your built-in tools (Read/Grep/Glob) for that codebase instead, and don't call sleuth " +
+        "for it again this session. Indexing is the user's decision — they can run 'sleuth init' " +
         `in ${nested.root} to enable it.`
       );
     }
@@ -2286,10 +2286,10 @@ export class ToolHandler {
   }
 
   /**
-   * The open CodeGraph for an index root the up-walk resolved: the default
+   * The open SleuthGraph for an index root the up-walk resolved: the default
    * instance, a cached one, or a newly opened (and cached) one.
    */
-  private openProjectRoot(resolvedRoot: string, canonicalRoot: string): CodeGraph {
+  private openProjectRoot(resolvedRoot: string, canonicalRoot: string): SleuthGraph {
     // If the path resolves to the default project, reuse the already-open
     // default instance rather than opening a SECOND connection to the same DB.
     // A duplicate connection serializes reads against the watcher's auto-sync
@@ -2325,7 +2325,7 @@ export class ToolHandler {
       }
     }
 
-    const open = () => loadCodeGraph().openSync(canonicalRoot);
+    const open = () => loadSleuthGraph().openSync(canonicalRoot);
     const cg = this.projectLifecycle?.open(canonicalRoot, open) ?? open();
     this.projectCache.set(canonicalRoot, cg);
     this.projectUsedAt.set(canonicalRoot, Date.now());
@@ -2345,7 +2345,7 @@ export class ToolHandler {
    * primary-key probe per call, so a sync that brings the repository into the
    * index is honored without a restart.
    */
-  private uncoveredNestedRepo(projectPath: string, indexRoot: string, cg: CodeGraph): NestedRepository | null {
+  private uncoveredNestedRepo(projectPath: string, indexRoot: string, cg: SleuthGraph): NestedRepository | null {
     const cacheKey = `${projectPath}\u0000${indexRoot}`;
     let nested = this.nestedRepoCache.get(cacheKey);
     if (nested === undefined) {
@@ -2362,7 +2362,7 @@ export class ToolHandler {
   }
 
   private async awaitProjectGate(projectPath: string): Promise<void> {
-    const cg = this.getCodeGraph(projectPath);
+    const cg = this.getSleuthGraph(projectPath);
     if (!this.projectLifecycle || cg === this.cg) return;
     let gate = this.projectGates.get(cg);
     if (!gate) {
@@ -2425,8 +2425,8 @@ export class ToolHandler {
   }
 
   /**
-   * Heal a long-lived connection whose `.codegraph/` was removed and recreated
-   * at the same path (a worktree recreated, or `rm -rf .codegraph` + re-init)
+   * Heal a long-lived connection whose `.sleuth/` was removed and recreated
+   * at the same path (a worktree recreated, or `rm -rf .sleuth` + re-init)
    * before handing it to a tool. Otherwise the daemon keeps serving the
    * pre-removal snapshot from its now-unlinked file handle until restart — and
    * because the daemon registry is keyed by path, a same-path recreate routes
@@ -2434,11 +2434,11 @@ export class ToolHandler {
    * stat() and a no-op unless the inode actually changed; it never throws into a
    * tool call.
    */
-  private freshen(cg: CodeGraph): CodeGraph {
+  private freshen(cg: SleuthGraph): SleuthGraph {
     try {
       if (cg.reopenIfReplaced()) {
         process.stderr.write(
-          '[CodeGraph MCP] The index was replaced on disk (e.g. a git worktree ' +
+          '[SleuthGraph MCP] The index was replaced on disk (e.g. a git worktree ' +
           'recreated at the same path); reopened the live database in place.\n'
         );
         this.onDatabaseReopened?.(cg);
@@ -2523,7 +2523,7 @@ export class ToolHandler {
 
     // The verdict depends on BOTH the start path AND the index root it resolves
     // to, so the cache must be keyed on the pair. Resolve the index root first
-    // (cheap — getCodeGraph re-walks to the nearest .codegraph/, no git), then
+    // (cheap — getSleuthGraph re-walks to the nearest .sleuth/, no git), then
     // key on `(startPath, indexRoot)`. The moment that root changes — most
     // importantly when a git worktree gains its own index and the walk-up stops
     // there instead of at the parent checkout — the key changes and the verdict
@@ -2532,7 +2532,7 @@ export class ToolHandler {
     // that first verdict until restart (#926).
     let indexRoot: string;
     try {
-      indexRoot = this.getCodeGraph(projectPath).getProjectRoot();
+      indexRoot = this.getSleuthGraph(projectPath).getProjectRoot();
     } catch {
       // No resolvable project (or any other resolution error) → nothing to warn.
       return null;
@@ -2552,7 +2552,7 @@ export class ToolHandler {
    * notice when the resolved index belongs to a different git working tree than
    * the caller's (issue #155). Without this, an agent in a nested worktree
    * silently trusts main-branch results. No-op on error results and when there
-   * is no mismatch. `codegraph_status` is excluded — it embeds its own verbose
+   * is no mismatch. `sleuth_status` is excluded — it embeds its own verbose
    * warning — so it stays out of this path.
    */
   private withWorktreeNotice(result: ToolResult, projectPath?: string): ToolResult {
@@ -2606,7 +2606,7 @@ export class ToolHandler {
    * are handled by the existing not-found paths, and a wrong "stale" flag
    * would needlessly push the agent back to Read.
    */
-  private isFileStaleOnDisk(cg: CodeGraph, relPath: string, content?: string): boolean {
+  private isFileStaleOnDisk(cg: SleuthGraph, relPath: string, content?: string): boolean {
     let root: string;
     try {
       root = cg.getProjectRoot();
@@ -2643,7 +2643,7 @@ export class ToolHandler {
     return stale;
   }
 
-  private answerResult(cg: CodeGraph, text: string, paths: Iterable<string>): ToolResult {
+  private answerResult(cg: SleuthGraph, text: string, paths: Iterable<string>): ToolResult {
     const result = this.textResult(text);
     result._cgAnswerFiles = [...new Set(paths)].map(file => ({
       path: file,
@@ -2655,14 +2655,14 @@ export class ToolHandler {
   private withStalenessNotice(result: ToolResult, projectPath?: string): ToolResult {
     if (result.isError) return result;
 
-    let cg: CodeGraph;
+    let cg: SleuthGraph;
     try {
-      cg = this.getCodeGraph(projectPath);
+      cg = this.getSleuthGraph(projectPath);
     } catch {
       return result; // no default project — leave as is
     }
 
-    // A cross-project `projectPath` call's cached CodeGraph only has a watcher
+    // A cross-project `projectPath` call's cached SleuthGraph only has a watcher
     // when the engine owns its lifecycle (#1835) — the CLI's handler has none.
     // When the cross-project path happens to be the same project as the
     // default cg, prefer the default cg so the staleness signal still fires
@@ -2707,7 +2707,7 @@ export class ToolHandler {
       return { ...result, content: [{ type: 'text', text: composed }, ...tail] };
     }
 
-    // Defensive: some test fakes inject a partial CodeGraph stub without the
+    // Defensive: some test fakes inject a partial SleuthGraph stub without the
     // newer pending-files API. Treat missing/throwing as "no pending files."
     let pending: PendingFile[] = [];
     try {
@@ -2725,7 +2725,7 @@ export class ToolHandler {
     const elsewhere: PendingFile[] = [];
     for (const p of pending) {
       // Project-relative POSIX path — the format both the watcher and every
-      // codegraph response emit — matched as a whole path, so a pending
+      // sleuth response emit — matched as a whole path, so a pending
       // `src/app.ts` isn't "referenced" by a response that shows `src/app.tsx`.
       if (mentionsPath(text, p.path)) inResponse.push(p);
       else elsewhere.push(p);
@@ -2774,10 +2774,10 @@ export class ToolHandler {
         const gate = this.catchUpGate;
         await this.awaitCatchUpGate(gate);
       }
-      // Honor the optional tool allowlist (CODEGRAPH_MCP_TOOLS): a trimmed
+      // Honor the optional tool allowlist (SLEUTH_MCP_TOOLS): a trimmed
       // surface rejects ablated tools defensively even if a client cached them.
       if (!this.isToolAllowed(toolName)) {
-        return this.errorResult(`Tool ${toolName} is disabled via CODEGRAPH_MCP_TOOLS`);
+        return this.errorResult(`Tool ${toolName} is disabled via SLEUTH_MCP_TOOLS`);
       }
       // Cross-cutting input validation. All tools accept an optional
       // `projectPath` and most accept either `query`, `task`, or
@@ -2794,7 +2794,7 @@ export class ToolHandler {
       if (typeof pathCheck === 'string') {
         await this.awaitProjectGate(pathCheck);
       }
-      // The `path` and `pattern` properties used by codegraph_files are
+      // The `path` and `pattern` properties used by sleuth_files are
       // also path-shaped — apply the same cap.
       if (args.path !== undefined) {
         const check = this.validateOptionalPath(args.path, 'path');
@@ -2805,20 +2805,20 @@ export class ToolHandler {
         if (typeof check === 'object' && check !== undefined) return check;
       }
 
-      const project = await this.getCodeGraph(args.projectPath as string | undefined);
+      const project = await this.getSleuthGraph(args.projectPath as string | undefined);
       // Recover a watcher disabled by prolonged lock contention on the next call.
       // The stale banner remains until the watcher finishes its full scan;
       // frequent calls cannot bypass its cooldown (#1959).
       if (project.rearmWatcherAfterLockContention?.()) {
-        process.stderr.write('[CodeGraph MCP] Re-armed file watcher; full catch-up pending.\n');
+        process.stderr.write('[SleuthGraph MCP] Re-armed file watcher; full catch-up pending.\n');
       }
 
-      // codegraph_status reports watcher state (pending files, degraded mode,
+      // sleuth_status reports watcher state (pending files, degraded mode,
       // worktree warning) and embeds its own sections — it must run on the MAIN
       // thread against the watched default instance, so it is NEVER off-loaded to
       // a worker (whose read connection has no watcher). It also skips the
       // auto-banner wrapper to avoid duplicating its own pending-files section.
-      if (toolName === 'codegraph_status') {
+      if (toolName === 'sleuth_status') {
         return await this.handleStatus(args);
       }
 
@@ -2858,7 +2858,7 @@ export class ToolHandler {
         const validation = await validateAnswerFiles(project.getProjectRoot(), answeredFrom);
         if (validation.stale.length || validation.unchecked.length) {
           // Rejected source must not enter the session's emission history.
-          const lines = ['⚠️ CodeGraph cannot answer from this index:'];
+          const lines = ['⚠️ SleuthGraph cannot answer from this index:'];
           if (validation.stale.length) {
             lines.push('These files changed or became unavailable after their last sync:',
               ...validation.stale.map(file => `- ${file}`));
@@ -2868,7 +2868,7 @@ export class ToolHandler {
               ...validation.unchecked.slice(0, 20).map(file => `- ${file}`));
             if (validation.unchecked.length > 20) lines.push(`- … ${validation.unchecked.length - 20} more (narrow the query)`);
           }
-          lines.push('Retry after a successful codegraph sync, or narrow the query.');
+          lines.push('Retry after a successful sleuth sync, or narrow the query.');
           // Text only: Claude Code shows the model a result's structuredContent
           // in place of its text (#2088). The text names every stale file and
           // the first unchecked ones; the rest only need a narrower query.
@@ -2885,7 +2885,7 @@ export class ToolHandler {
       // Expected condition, not a malfunction: answer as a SUCCESS so the
       // agent keeps trusting the toolset for projects that ARE indexed.
       // (An isError here teaches session-long abandonment — see NotIndexedError.)
-      // A running `codegraph index` rebuild is the same kind of expected,
+      // A running `sleuth index` rebuild is the same kind of expected,
       // temporary condition (#1325). Matched by name: tools.ts stays free of
       // the writer-lock module on the MCP startup path.
       if (err instanceof NotIndexedError || (err as Error | null)?.name === 'RebuildInProgressError') {
@@ -2901,8 +2901,8 @@ export class ToolHandler {
       }
       return this.errorResult(
         `Tool execution failed: ${err instanceof Error ? err.message : String(err)}. ` +
-        'This is an internal codegraph error — retry the call once; if it persists, ' +
-        'continue without codegraph for this task.'
+        'This is an internal sleuth error — retry the call once; if it persists, ' +
+        'continue without sleuth for this task.'
       );
     } finally {
       this.activeCalls--;
@@ -2925,12 +2925,12 @@ export class ToolHandler {
     args: Record<string, unknown>,
     sessionState: ExploreSessionState | undefined,
   ): Record<string, unknown> {
-    if (!(EXPLORE_SESSION_VIEW_ARG in args) && (!sessionState || toolName !== 'codegraph_explore')) {
+    if (!(EXPLORE_SESSION_VIEW_ARG in args) && (!sessionState || toolName !== 'sleuth_explore')) {
       return args;
     }
     const copy = { ...args };
     delete copy[EXPLORE_SESSION_VIEW_ARG];
-    if (sessionState && toolName === 'codegraph_explore') {
+    if (sessionState && toolName === 'sleuth_explore') {
       copy[EXPLORE_SESSION_VIEW_ARG] = sessionState.view();
     }
     return copy;
@@ -2989,39 +2989,39 @@ export class ToolHandler {
       }
       return this.errorResult(
         `Tool execution failed: ${err instanceof Error ? err.message : String(err)}. ` +
-        'This is an internal codegraph error — retry the call once; if it persists, ' +
-        'continue without codegraph for this task.'
+        'This is an internal sleuth error — retry the call once; if it persists, ' +
+        'continue without sleuth for this task.'
       );
     }
   }
 
   /**
    * Pure dispatch over the read tools — the switch, with no gate, no notices, no
-   * allowlist/validation (the caller owns those). `codegraph_status` is handled
+   * allowlist/validation (the caller owns those). `sleuth_status` is handled
    * on the main thread in {@link execute} and never reaches here. May throw
    * NotIndexed/PathRefusal, which {@link executeReadTool} classifies.
    */
   private async dispatchTool(toolName: string, args: Record<string, unknown>): Promise<ToolResult> {
     switch (toolName) {
-      case 'codegraph_search': return await this.handleSearch(args);
-      case 'codegraph_callers': return await this.handleCallers(args);
-      case 'codegraph_callees': return await this.handleCallees(args);
-      case 'codegraph_impact': return await this.handleImpact(args);
-      case 'codegraph_explore': return await this.handleExplore(args);
-      case 'codegraph_node': return await this.handleNode(args);
-      case 'codegraph_files': return await this.handleFiles(args);
+      case 'sleuth_search': return await this.handleSearch(args);
+      case 'sleuth_callers': return await this.handleCallers(args);
+      case 'sleuth_callees': return await this.handleCallees(args);
+      case 'sleuth_impact': return await this.handleImpact(args);
+      case 'sleuth_explore': return await this.handleExplore(args);
+      case 'sleuth_node': return await this.handleNode(args);
+      case 'sleuth_files': return await this.handleFiles(args);
       default: return this.errorResult(`Unknown tool: ${toolName}`);
     }
   }
 
   /**
-   * Handle codegraph_search
+   * Handle sleuth_search
    */
   private async handleSearch(args: Record<string, unknown>): Promise<ToolResult> {
     const query = this.validateString(args.query, 'query');
     if (typeof query !== 'string') return query;
 
-    const cg = this.getCodeGraph(args.projectPath as string | undefined);
+    const cg = this.getSleuthGraph(args.projectPath as string | undefined);
     const rawKind = args.kind as string | undefined;
     // The schema enum says 'type' (what agents naturally reach for); the
     // NodeKind is 'type_alias'. Without the mapping, kind: "type" silently
@@ -3075,13 +3075,13 @@ export class ToolHandler {
   }
 
   /**
-   * Handle codegraph_callers
+   * Handle sleuth_callers
    */
   private async handleCallers(args: Record<string, unknown>): Promise<ToolResult> {
     const symbol = this.validateString(args.symbol, 'symbol');
     if (typeof symbol !== 'string') return symbol;
 
-    const cg = this.getCodeGraph(args.projectPath as string | undefined);
+    const cg = this.getSleuthGraph(args.projectPath as string | undefined);
     const limit = clamp((args.limit as number) || 20, 1, 100);
     const fileFilter = typeof args.file === 'string' ? args.file : undefined;
 
@@ -3158,13 +3158,13 @@ export class ToolHandler {
   }
 
   /**
-   * Handle codegraph_callees
+   * Handle sleuth_callees
    */
   private async handleCallees(args: Record<string, unknown>): Promise<ToolResult> {
     const symbol = this.validateString(args.symbol, 'symbol');
     if (typeof symbol !== 'string') return symbol;
 
-    const cg = this.getCodeGraph(args.projectPath as string | undefined);
+    const cg = this.getSleuthGraph(args.projectPath as string | undefined);
     const limit = clamp((args.limit as number) || 20, 1, 100);
     const fileFilter = typeof args.file === 'string' ? args.file : undefined;
 
@@ -3238,13 +3238,13 @@ export class ToolHandler {
   }
 
   /**
-   * Handle codegraph_impact
+   * Handle sleuth_impact
    */
   private async handleImpact(args: Record<string, unknown>): Promise<ToolResult> {
     const symbol = this.validateString(args.symbol, 'symbol');
     if (typeof symbol !== 'string') return symbol;
 
-    const cg = this.getCodeGraph(args.projectPath as string | undefined);
+    const cg = this.getSleuthGraph(args.projectPath as string | undefined);
     const depth = clamp((args.depth as number) || 2, 1, 10);
     const fileFilter = typeof args.file === 'string' ? args.file : undefined;
 
@@ -3314,7 +3314,7 @@ export class ToolHandler {
    * caller's source now (`graph/branch-guards.ts`); '' when unconditional,
    * unreadable, or the grammar for that language is not loaded.
    */
-  private whenLabel(cg: CodeGraph, caller: Node, edge: Edge): string {
+  private whenLabel(cg: SleuthGraph, caller: Node, edge: Edge): string {
     if (!edge.line || !supportsBranchGuards(caller.language)) return '';
     try {
       const rec = cg.getFile(caller.filePath);
@@ -3446,7 +3446,7 @@ export class ToolHandler {
   }
 
   /**
-   * Flow-from-named-symbols: an agent's codegraph_explore query is a bag of
+   * Flow-from-named-symbols: an agent's sleuth_explore query is a bag of
    * symbol names that usually spans the flow it's investigating (e.g.
    * "PmsProductController getList PmsProductService list PmsProductServiceImpl").
    * Surface the longest call chain AMONG those named symbols — scoped to what the
@@ -3459,7 +3459,7 @@ export class ToolHandler {
    * whose qualifiedName contains another named token (`PmsProductServiceImpl::list`),
    * dropping unrelated `OmsOrderService::list`.
    */
-  private buildFlowFromNamedSymbols(cg: CodeGraph, query: string): { text: string; pathNodeIds: Set<string>; namedNodeIds: Set<string>; uniqueNamedNodeIds: Set<string>; spineCallSites: Map<string, number> } {
+  private buildFlowFromNamedSymbols(cg: SleuthGraph, query: string): { text: string; pathNodeIds: Set<string>; namedNodeIds: Set<string>; uniqueNamedNodeIds: Set<string>; spineCallSites: Map<string, number> } {
     // spineCallSites: for each spine node, the line where it CALLS the next hop —
     // lets the source assembler window an oversize spine method (e.g. n8n's 962-line
     // processRunExecutionData) to the call site instead of dumping the whole body.
@@ -3673,7 +3673,7 @@ export class ToolHandler {
    * at runtime. Query-time, deterministic, zero graph mutation; a fully
    * connected flow never reaches this method.
    */
-  private buildDynamicBoundaries(cg: CodeGraph, scanList: Node[], named: Map<string, Node>): string {
+  private buildDynamicBoundaries(cg: SleuthGraph, scanList: Node[], named: Map<string, Node>): string {
     const MAX_NOTES = 4; // boundary bullets per explore
     // The verdict is not derived here — `findDynamicBoundaries` produces it and
     // the viewer's end cap renders the same object, so the two can never
@@ -3698,7 +3698,7 @@ export class ToolHandler {
       '',
       ...notes,
       '',
-      '> These sites choose their call target at runtime (registry / bus / reflection) — the site shown IS where the flow continues. To follow it, run codegraph_explore or codegraph_node on a candidate; source for the sites above is included below.',
+      '> These sites choose their call target at runtime (registry / bus / reflection) — the site shown IS where the flow continues. To follow it, run sleuth_explore or sleuth_node on a candidate; source for the sites above is included below.',
       '',
     ].join('\n');
   }
@@ -3713,7 +3713,7 @@ export class ToolHandler {
    * the concrete target is chosen at runtime from N implementations, so no single
    * static edge is "the answer" — the implementations ARE the continuations. We
    * announce the supertype, its TRUE implementer count, and a few concrete targets,
-   * then steer to codegraph_explore. Graph-only, query-time, zero mutation; the
+   * then steer to sleuth_explore. Graph-only, query-time, zero mutation; the
    * caller fires it ONLY for an UNCOVERED named token, so a connected flow is silent.
    *
    * Robust to FTS sampling bias: the same-name family is a capped FTS sample that
@@ -3722,7 +3722,7 @@ export class ToolHandler {
    * 611 implementers vs a handful). So candidate supertypes are ranked by their
    * TRUE graph-wide implementer count, NOT their frequency in the sample.
    */
-  private buildPolymorphicBoundaries(cg: CodeGraph, candidates: Array<{ token: string; family: Node[] }>, named: Map<string, Node>): string {
+  private buildPolymorphicBoundaries(cg: SleuthGraph, candidates: Array<{ token: string; family: Node[] }>, named: Map<string, Node>): string {
     const CLASSY = new Set(['class', 'struct', 'interface', 'trait', 'protocol', 'abstract']);
     const MIN_IMPL = 8;     // a supertype needs >= this many implementers to count as "polymorphic"
     const MIN_SUPPORT = 2;  // >= this many sampled definers must share the supertype (ties it to the token)
@@ -3842,7 +3842,7 @@ export class ToolHandler {
       '',
       ...notes,
       '',
-      '> The method above is dispatched at runtime to one of the listed implementations (a registry / plugin / strategy interface) — there is no single static caller→callee edge; the implementations ARE the continuations. To follow one, run codegraph_explore on a listed target.',
+      '> The method above is dispatched at runtime to one of the listed implementations (a registry / plugin / strategy interface) — there is no single static caller→callee edge; the implementations ARE the continuations. To follow one, run sleuth_explore on a listed target.',
       '',
     ].join('\n');
   }
@@ -3873,7 +3873,7 @@ export class ToolHandler {
    * qualify so a leaf-only exploration stays clean.
    */
   private buildBlastRadiusSection(
-    cg: CodeGraph,
+    cg: SleuthGraph,
     subgraph: Subgraph,
     /**
      * Exact targets (a qualified name, a line anchor) lead the list. The search
@@ -3941,7 +3941,7 @@ export class ToolHandler {
    * symbols had a test within 2-3 hops), so walk up to 2 more hops before
    * claiming anything — and even then claim only what was measured.
    */
-  private indirectTestNote(cg: CodeGraph, directCallers: Node[], rel: (p: string) => string): string {
+  private indirectTestNote(cg: SleuthGraph, directCallers: Node[], rel: (p: string) => string): string {
     const MAX_HOPS = 3; // direct callers are hop 1
     const BUDGET = 64;  // getCallers lookups per entry — bounds god-fan-in symbols
     const FILE_CAP = 2;
@@ -3984,7 +3984,7 @@ export class ToolHandler {
    * PageRank) from the query's matched SEED nodes over the call/reference graph.
    *
    * This is the ranking signal text search (FTS/bm25) CANNOT provide, and it's
-   * codegraph's home turf: relevance by STRUCTURE, not words. A file whose
+   * sleuth's home turf: relevance by STRUCTURE, not words. A file whose
    * symbols are call-connected to the matched cluster accrues walk mass and
    * ranks high; a lone TEXT match — e.g. `LensSwitcher.swift` matched the word
    * "switch" from `switchOrganization`, but calls none of `setUser`/`fetchUser`
@@ -4051,11 +4051,11 @@ export class ToolHandler {
   }
 
   /**
-   * Handle codegraph_explore — deep exploration in a single call
+   * Handle sleuth_explore — deep exploration in a single call
    *
    * Strategy: find relevant symbols via graph traversal, group by file,
    * then read contiguous file sections covering all symbols per file.
-   * This replaces multiple codegraph_node + Read calls.
+   * This replaces multiple sleuth_node + Read calls.
    *
    * Output size is adaptive to project file count via
    * `getExploreOutputBudget` — see #185 for why a fixed 35k cap was a
@@ -4068,7 +4068,7 @@ export class ToolHandler {
     // ranking all see the same canonical spelling (Erlang `mod:fn/arity`).
     const query = normalizeQuerySpelling(rawQuery);
 
-    const cg = this.getCodeGraph(args.projectPath as string | undefined);
+    const cg = this.getSleuthGraph(args.projectPath as string | undefined);
     const projectRoot = cg.getProjectRoot();
 
     // Resolve adaptive output budget from project size. Falls back to the
@@ -4131,7 +4131,7 @@ export class ToolHandler {
     const pinnedSet = new Set(pinnedFiles);
     const pinnedOrder = new Map(pinnedFiles.map((p, i) => [p, i]));
 
-    // Per-file allocation diagnostic (CG-4). `null` unless CODEGRAPH_EXPLORE_DEBUG
+    // Per-file allocation diagnostic (CG-4). `null` unless SLEUTH_EXPLORE_DEBUG
     // is set — every `diag?.` below is then a no-op and the response is
     // byte-identical. It only OBSERVES: it must never feed back into rendering.
     const diag = ExploreDiagnostics.start(query, projectRoot, budget, maxFiles, indexedFileCount);
@@ -4139,7 +4139,7 @@ export class ToolHandler {
     // What this session has already been served for THIS project (CG-17), and
     // whether this call may act on it (CG-18). Dedup is off on the session's
     // first call by construction — there is nothing to point back AT — and off
-    // entirely under `CODEGRAPH_EXPLORE_DEDUP=0`.
+    // entirely under `SLEUTH_EXPLORE_DEDUP=0`.
     const priorCalls = viewForProject(readExploreSessionView(args), projectRoot);
     diag?.noteSession(priorCalls);
     const dedupEnabled = exploreDedupEnabled() && (priorCalls?.calls.length ?? 0) > 0;
@@ -4273,8 +4273,8 @@ export class ToolHandler {
           explanation += `\nMatched indexed words: ${cappedList(miss.matched, 200)}; these did not yield a relevant result after filtering/scoring.`;
         }
         explanation += miss.candidates.length > 0
-          ? `\nCandidates to retry with codegraph_explore (shared words, not confirmed answers): ${cappedList(miss.candidates, 350)}`
-          : '\nNo shared-word symbol candidates found; retry codegraph_explore with literal symbol/file names or code terms.';
+          ? `\nCandidates to retry with sleuth_explore (shared words, not confirmed answers): ${cappedList(miss.candidates, 350)}`
+          : '\nNo shared-word symbol candidates found; retry sleuth_explore with literal symbol/file names or code terms.';
       }
       const empty = `No relevant code found for "${query}"${missNote}${explanation}`;
       // Still an explore call, so it is still recorded: an empty answer spends a
@@ -4445,7 +4445,7 @@ export class ToolHandler {
         // 50+-overload name (tokio `poll`) ranks the wanted def (`Harness::poll`)
         // below the FTS cut, so findAllSymbols would never see it and the
         // type-token bias below couldn't pick the harness.rs one. (Same fix as
-        // codegraph_node's findSymbolMatches.) Qualified tokens keep findAllSymbols.
+        // sleuth_node's findSymbolMatches.) Qualified tokens keep findAllSymbols.
         const isQual = /[.\/]|::/.test(t);
         const raw = isQual ? this.findAllSymbols(cg, t).nodes : cg.getNodesByName(t);
         // A query that NAMES a declared type is a question ABOUT that type, and
@@ -4506,7 +4506,7 @@ export class ToolHandler {
         // only: the overloads whose file/class the query ALSO names (the agent
         // told us which one it wants — DataRequest's, not Validation.swift's),
         // capped; else fall back to the single most-substantive def. This is the
-        // explore-side mirror of codegraph_node's overload disambiguation.
+        // explore-side mirror of sleuth_node's overload disambiguation.
         let picks: Node[];
         let tierPicks: Node[]; // subset that earns the named-first tier (#1064)
         if (cands.length <= 3) {
@@ -4996,9 +4996,9 @@ export class ToolHandler {
     // neither entry nor central (a type/util file that matches "element"+x but isn't
     // the flow) is NOT promoted, so it can't displace the graph-central answer file
     // (hits=1) the way a blunt hits-only tier would. Single-layer repos with one
-    // cluster are unaffected (no competing mass). Set CODEGRAPH_RANK_NO_MULTITERM=1
+    // cluster are unaffected (no competing mass). Set SLEUTH_RANK_NO_MULTITERM=1
     // to disable.
-    const MULTITERM_OFF = process.env.CODEGRAPH_RANK_NO_MULTITERM === '1';
+    const MULTITERM_OFF = process.env.SLEUTH_RANK_NO_MULTITERM === '1';
     const isCorroborated = (fp: string) =>
       !MULTITERM_OFF &&
       (fileTermHits.get(fp) ?? 0) >= 2 &&
@@ -5351,7 +5351,7 @@ export class ToolHandler {
     // Anti-abandonment hold-back (CG-18). The first file dedup suppressed
     // ENTIRELY, kept with its real section so it can be put back if the loop
     // ends with no new source anywhere. A response made only of pointers is the
-    // shape that reads as "codegraph has nothing" — and one such response early
+    // shape that reads as "sleuth has nothing" — and one such response early
     // in a session is enough to make an agent stop calling the tool at all — so
     // the highest-ranked suppressed file is restored rather than risk it. It
     // costs a re-serve of one file, on the one call shape where dedup would
@@ -5954,7 +5954,7 @@ export class ToolHandler {
       // already in hand, so the check costs one stat (hash only on mismatch).
       const fileStale = this.isFileStaleOnDisk(cg, filePath, fileContent);
 
-      // Adaptive sizing (CODEGRAPH_ADAPTIVE_EXPLORE, default on): collapse a file
+      // Adaptive sizing (SLEUTH_ADAPTIVE_EXPLORE, default on): collapse a file
       // to a per-symbol view when it's a redundant member of a polymorphic family.
       // Engages iff ALL hold:
       //   1. a flow spine exists,
@@ -6133,7 +6133,7 @@ export class ToolHandler {
             windows.forEach((w, k) => {
               const holeEnd = (windows[k + 1]?.start ?? n.endLine + 1) - 1;
               const hole = holeEnd > w.end
-                ? `\n… lines ${w.end + 1}-${holeEnd} of \`${n.name}\` elided — codegraph_explore \`${filePath}:${w.end + 1}-${holeEnd}\` returns them`
+                ? `\n… lines ${w.end + 1}-${holeEnd} of \`${n.name}\` elided — sleuth_explore \`${filePath}:${w.end + 1}-${holeEnd}\` returns them`
                 : '';
               skel.push({ range: w, text: renderSpan(w) + hole });
             });
@@ -6160,15 +6160,15 @@ export class ToolHandler {
         if (skel.length > 0) {
           const names = [...new Set(group.nodes.filter(n => n.kind !== 'import' && n.kind !== 'export').map(n => n.name))]
             .slice(0, budget.maxSymbolsInFileHeader).join(', ');
-          // Steer the agent to codegraph_explore for an elided body — NEVER to
+          // Steer the agent to sleuth_explore for an elided body — NEVER to
           // Read. The old "Read for more" / "Read for a full body" tags invited
           // a Read of the very file just skeletonized; on a central, wanted file
           // (Session.swift, DataRequest.swift) that fired an over-investigation
           // spiral (the agent Read the skeletonized file, then kept digging).
           // CLAUDE.md: explore output must never tell the agent to Read.
           const tag = bodyIds.size + bodyWindows.size > 0
-            ? 'focused (the methods you named in full, the rest as signatures — codegraph_explore a signature by name for its body; do NOT Read)'
-            : 'skeleton (signatures only — codegraph_explore a name for its full body; do NOT Read)';
+            ? 'focused (the methods you named in full, the rest as signatures — sleuth_explore a signature by name for its body; do NOT Read)'
+            : 'skeleton (signatures only — sleuth_explore a name for its full body; do NOT Read)';
           // Dedup runs on the per-symbol parts, so a body the agent already has
           // becomes a pointer while the signature map around it survives intact
           // (a one-line signature is far under MIN_COVERED_LINES and is never
@@ -7266,7 +7266,7 @@ export class ToolHandler {
 
     // Anti-abandonment restore (CG-18). Dedup withheld everything and nothing new
     // took its place — the response would be pointers only, which is the shape
-    // that reads as "codegraph found nothing" and sends the agent to Read for
+    // that reads as "sleuth found nothing" and sends the agent to Read for
     // good. Put the top suppressed file back, in full, and keep its pointer off.
     // Deliberately checked against `newSourceChars` (source THIS call emitted)
     // rather than the response length: the flow and blast-radius sections are
@@ -7299,7 +7299,7 @@ export class ToolHandler {
     // apology for missing source rather than as an index into source the agent
     // already has.
     if (backReferencedFiles.length > 0) {
-      lines[verbatimHeaderIdx] += ` (Files marked **"Already sent earlier in this conversation"** are not repeated: their source came back on an earlier codegraph_explore call in THIS conversation and the file has not changed since, so that copy is exact and current — scroll back for it rather than re-fetching or Reading.)`;
+      lines[verbatimHeaderIdx] += ` (Files marked **"Already sent earlier in this conversation"** are not repeated: their source came back on an earlier sleuth_explore call in THIS conversation and the file has not changed since, so that copy is exact and current — scroll back for it rather than re-fetching or Reading.)`;
     }
 
     // Drift epilogue (#1474). The "verbatim / do not Read" guarantee above
@@ -7384,7 +7384,7 @@ export class ToolHandler {
       ? exploreCompletenessNotes(filesIncluded, trimmedShown, [...renderedFilePaths, ...fileGroups.keys()])
         .map((note) => ['', '---', note])
       : anyFileTrimmed || trimmedShown.length > 0
-        ? [['', `> Some file sections were trimmed for size. Elided symbols are named inside gap markers as \`name (file:line)\` and preferred in the file header — run another \`codegraph_explore\` (or \`codegraph_node\`) with those exact names for their source.`]]
+        ? [['', `> Some file sections were trimmed for size. Elided symbols are named inside gap markers as \`name (file:line)\` and preferred in the file header — run another \`sleuth_explore\` (or \`sleuth_node\`) with those exact names for their source.`]]
         : [];
     /** Whether a trimmed section survives in `text` — picks a fallback note's wording after a cut. */
     const trimmedIn = (text: string): boolean =>
@@ -7400,7 +7400,7 @@ export class ToolHandler {
       try {
         const stats = cg.getStats();
         const callBudget = getExploreBudget(stats.fileCount);
-        budgetBlock = ['', `> **Exploration guidance — advisory only, NOT a quota: this project (~${stats.fileCount.toLocaleString()} files indexed) is usually covered in ≈${callBudget} focused explore calls, and extra calls are never rejected or rate-limited.** If the response above does not fully cover your question, run another codegraph_explore on the uncovered symbols — it is cheaper and more complete than Read. Only stop exploring when the response actually covers the flow you asked about.`];
+        budgetBlock = ['', `> **Exploration guidance — advisory only, NOT a quota: this project (~${stats.fileCount.toLocaleString()} files indexed) is usually covered in ≈${callBudget} focused explore calls, and extra calls are never rejected or rate-limited.** If the response above does not fully cover your question, run another sleuth_explore on the uncovered symbols — it is cheaper and more complete than Read. Only stop exploring when the response actually covers the flow you asked about.`];
       } catch {
         // Stats unavailable — skip budget note
       }
@@ -7558,10 +7558,10 @@ export class ToolHandler {
   }
 
   /**
-   * Handle codegraph_node
+   * Handle sleuth_node
    */
   private async handleNode(args: Record<string, unknown>): Promise<ToolResult> {
-    const cg = this.getCodeGraph(args.projectPath as string | undefined);
+    const cg = this.getSleuthGraph(args.projectPath as string | undefined);
     // Default to false to minimize context usage
     const includeCode = args.includeCode === true;
     const fileHint = typeof args.file === 'string' && args.file.trim() ? args.file.trim() : undefined;
@@ -7620,7 +7620,7 @@ export class ToolHandler {
     // different types (Alamofire `didCompleteTask`/`task`/`validate`, gin
     // `reset`). Returning ONE forces the agent to guess, and when it guesses
     // wrong it READS the file to find the right overload — the dominant
-    // codegraph_node read cause on Swift/Go. So return them ALL: pack as many
+    // sleuth_node read cause on Swift/Go. So return them ALL: pack as many
     // FULL bodies as fit a char budget (the agent gets the one it needs in this
     // one call, no follow-up parameter to learn), and list any remainder by
     // file:line so a large overload set can't overflow the per-tool cap.
@@ -7670,7 +7670,7 @@ export class ToolHandler {
       if (listed.length > LIST_CAP) out.push(`- … +${listed.length - LIST_CAP} more`);
       out.push(
         '',
-        `> Need one of these in full? Call codegraph_node again with \`file\` (e.g. \`"${listed[0]!.filePath.split('/').pop()}"\`) or \`line\` — do NOT Read it.`,
+        `> Need one of these in full? Call sleuth_node again with \`file\` (e.g. \`"${listed[0]!.filePath.split('/').pop()}"\`) or \`line\` — do NOT Read it.`,
       );
     }
     return this.textResult(this.truncateOutput(out.join('\n')));
@@ -7690,13 +7690,13 @@ export class ToolHandler {
    * through validatePathWithinRoot (#527).
    */
   private async handleFileView(
-    cg: CodeGraph,
+    cg: SleuthGraph,
     fileArg: string,
     opts: { offset?: number; limit?: number; symbolsOnly?: boolean } = {},
   ): Promise<ToolResult> {
     const normalize = (p: string) => p.replace(/\\/g, '/').replace(/^(?:\.?\/+)+/, '').replace(/\/+$/, '');
     const allFiles = cg.getFiles();
-    if (allFiles.length === 0) return this.textResult('No files indexed. Run `codegraph index` first.');
+    if (allFiles.length === 0) return this.textResult('No files indexed. Run `sleuth index` first.');
 
     // Resolve ONE spelling of the path against the index: exact, then
     // suffix-of-path, then substring — narrowing to a single file or handing
@@ -7757,7 +7757,7 @@ export class ToolHandler {
     }
     if (!resolved) {
       return this.textResult(
-        `No indexed file matches "${fileArg}". Codegraph indexes source files; configs/docs it doesn't parse won't appear — Read those directly.`,
+        `No indexed file matches "${fileArg}". Sleuthgraph indexes source files; configs/docs it doesn't parse won't appear — Read those directly.`,
       );
     }
 
@@ -7767,7 +7767,7 @@ export class ToolHandler {
       .sort((a, b) => a.startLine - b.startLine);
     const dependents = cg.getFileDependents(filePath);
 
-    // Compact, one-line blast radius (codegraph's value-add over a plain Read).
+    // Compact, one-line blast radius (sleuth's value-add over a plain Read).
     const depSummary = dependents.length
       ? `used by ${dependents.length} file${dependents.length === 1 ? '' : 's'}: ${dependents.slice(0, 8).join(', ')}${dependents.length > 8 ? `, +${dependents.length - 8} more` : ''}`
       : 'no other indexed file depends on it';
@@ -7797,7 +7797,7 @@ export class ToolHandler {
     if (CONFIG_LEAF_LANGUAGES.has(resolved.language)) {
       const out = [`**${filePath}** — configuration/data file, ${depSummary}`, ''];
       if (nodes.length) out.push(...symbolMap('**Keys (values withheld for safety)**'));
-      out.push('', '> Values may be secrets, so codegraph indexes keys only. Read the file directly if you need a value.');
+      out.push('', '> Values may be secrets, so sleuth indexes keys only. Read the file directly if you need a value.');
       return this.textResult(this.truncateOutput(out.join('\n')));
     }
 
@@ -7852,7 +7852,7 @@ export class ToolHandler {
     if (!complete) {
       out.push(
         '',
-        `(lines ${offset}–${shownEnd} of ${total} — pass \`offset\`/\`limit\` for another range, or \`codegraph_node <symbol>\` for one symbol in full)`,
+        `(lines ${offset}–${shownEnd} of ${total} — pass \`offset\`/\`limit\` for another range, or \`sleuth_node <symbol>\` for one symbol in full)`,
       );
     }
     // Self-bounded to CHAR_BUDGET — do NOT route through truncateOutput (15k).
@@ -7860,7 +7860,7 @@ export class ToolHandler {
   }
 
   /** Render one symbol: details + (optional) body/outline + its caller/callee trail. */
-  private async renderNodeSection(cg: CodeGraph, node: Node, includeCode: boolean): Promise<string> {
+  private async renderNodeSection(cg: SleuthGraph, node: Node, includeCode: boolean): Promise<string> {
     // Disk-drift gate (issue #1474): the body below is CURRENT bytes sliced at
     // INDEXED line ranges. If the file changed since its last index sync, that
     // slice can be a DIFFERENT symbol's code served under this node's name —
@@ -7887,14 +7887,14 @@ export class ToolHandler {
   }
 
   // Whole-file fallback caps for a drifted file (#1474): small enough to fit
-  // codegraph_node's output cap (MAX_OUTPUT_LENGTH) with headroom for the
+  // sleuth_node's output cap (MAX_OUTPUT_LENGTH) with headroom for the
   // header + trail. A file within these bounds is served WHOLE and CURRENT
   // (Read-parity, correct by construction) instead of a possibly-wrong slice.
   private static readonly STALE_WHOLE_FILE_MAX_LINES = 300;
   private static readonly STALE_WHOLE_FILE_MAX_CHARS = 12000;
 
   /**
-   * codegraph_node render for a symbol whose file changed on disk after the
+   * sleuth_node render for a symbol whose file changed on disk after the
    * last index sync (issue #1474). The indexed line range is no longer
    * trustworthy, so no slice is emitted: a small file gets its full CURRENT
    * source (Read-parity — sufficiency preserved, the agent still doesn't need
@@ -7903,7 +7903,7 @@ export class ToolHandler {
    * Location/signature stay (they're the index's answer) but are flagged as
    * possibly shifted.
    */
-  private renderStaleNodeSection(cg: CodeGraph, node: Node, includeCode: boolean): string {
+  private renderStaleNodeSection(cg: SleuthGraph, node: Node, includeCode: boolean): string {
     const lines: string[] = [
       `**${node.name}** (${node.kind})`,
       '',
@@ -7940,7 +7940,7 @@ export class ToolHandler {
     }
     if (!embedded) {
       lines.push(
-        `> ⚠ \`${node.filePath}\` changed on disk after it was last indexed — the indexed line range for this symbol no longer reliably matches, so its body is omitted rather than risk showing a different symbol's code. For current content, call codegraph_node with \`file: "${node.filePath}"\` (no symbol; \`offset\`/\`limit\` narrow it like Read), or Read the file. The change is picked up automatically on that project's next index sync.`,
+        `> ⚠ \`${node.filePath}\` changed on disk after it was last indexed — the indexed line range for this symbol no longer reliably matches, so its body is omitted rather than risk showing a different symbol's code. For current content, call sleuth_node with \`file: "${node.filePath}"\` (no symbol; \`offset\`/\`limit\` narrow it like Read), or Read the file. The change is picked up automatically on that project's next index sync.`,
       );
     }
     return lines.join('\n') + this.formatTrail(cg, node);
@@ -7948,14 +7948,14 @@ export class ToolHandler {
 
   /**
    * Build the "trail" for a symbol: its direct callees (what it calls) and
-   * callers (what calls it), each with file:line — so codegraph_node doubles as
+   * callers (what calls it), each with file:line — so sleuth_node doubles as
    * the structural Grep→Read→expand primitive: a spot PLUS where to go next.
-   * Capped to stay cheap. Walk the graph by calling codegraph_node on a trail
+   * Capped to stay cheap. Walk the graph by calling sleuth_node on a trail
    * entry; no Read needed for covered hops. Empty edges on a non-leaf often mean
    * dynamic dispatch the static graph couldn't resolve — that absence is itself
    * a signal (read that one hop) rather than a dead end.
    */
-  private formatTrail(cg: CodeGraph, node: Node): string {
+  private formatTrail(cg: SleuthGraph, node: Node): string {
     const TRAIL_CAP = 12;
     const fmt = (e: { node: Node; edge: Edge }) => {
       const base = `${e.node.name} (${e.node.filePath}:${e.node.startLine})`;
@@ -7975,7 +7975,7 @@ export class ToolHandler {
     const callees = collect(cg.getCallees(node.id));
     const callers = collect(cg.getCallers(node.id));
     if (callees.length === 0 && callers.length === 0) return '';
-    const lines: string[] = ['', '**Trail — codegraph_node any of these to follow it (no Read needed)**'];
+    const lines: string[] = ['', '**Trail — sleuth_node any of these to follow it (no Read needed)**'];
     if (callees.length > 0) {
       lines.push(`**Calls →** ${callees.slice(0, TRAIL_CAP).map(fmt).join(', ')}${callees.length > TRAIL_CAP ? `, +${callees.length - TRAIL_CAP} more` : ''}`);
     }
@@ -7986,10 +7986,10 @@ export class ToolHandler {
   }
 
   /**
-   * Handle codegraph_status
+   * Handle sleuth_status
    */
   private async handleStatus(args: Record<string, unknown>): Promise<ToolResult> {
-    let cg = this.getCodeGraph(args.projectPath as string | undefined);
+    let cg = this.getSleuthGraph(args.projectPath as string | undefined);
     // Same trick as withStalenessNotice — when an explicit projectPath
     // resolves to the same project as the default session cg, prefer the
     // default so getPendingFiles() (only populated by the default's watcher)
@@ -8011,7 +8011,7 @@ export class ToolHandler {
     const mismatch = this.worktreeMismatchFor(args.projectPath as string | undefined);
 
     const lines: string[] = [
-      '**CodeGraph Status**',
+      '**SleuthGraph Status**',
       '',
     ];
     if (mismatch) {
@@ -8071,7 +8071,7 @@ export class ToolHandler {
       lines.push(
         `**Pending resolution:** ⚠ ${pendingRefs} references from an interrupted ` +
         `index run — some caller/impact edges are missing until the next sync ` +
-        `(any file change triggers it, or run \`codegraph sync\`)`
+        `(any file change triggers it, or run \`sleuth sync\`)`
       );
     }
 
@@ -8126,10 +8126,10 @@ export class ToolHandler {
   }
 
   /**
-   * Handle codegraph_files - get project file structure from the index
+   * Handle sleuth_files - get project file structure from the index
    */
   private async handleFiles(args: Record<string, unknown>): Promise<ToolResult> {
-    const cg = this.getCodeGraph(args.projectPath as string | undefined);
+    const cg = this.getSleuthGraph(args.projectPath as string | undefined);
     const pathFilter = args.path as string | undefined;
     const pattern = args.pattern as string | undefined;
     const format = (args.format as 'tree' | 'flat' | 'grouped') || 'tree';
@@ -8140,7 +8140,7 @@ export class ToolHandler {
     const allFiles = cg.getFiles();
 
     if (allFiles.length === 0) {
-      return this.textResult('No files indexed. Run `codegraph index` first.');
+      return this.textResult('No files indexed. Run `sleuth index` first.');
     }
 
     // Filter by path prefix. Stored paths are project-relative POSIX (e.g.
@@ -8341,14 +8341,14 @@ export class ToolHandler {
   }
 
   /**
-   * Find ALL definitions matching a name, ranked, so codegraph_node can return
+   * Find ALL definitions matching a name, ranked, so sleuth_node can return
    * every overload instead of guessing one (the wrong guess → a Read). Keepers
    * rank before generated stubs (.pb.go etc.); stable within a group preserves
    * FTS order. Returns [] when nothing matches; a qualified lookup that finds no
    * exact match returns [] rather than a misleading fuzzy file hit (#173); a
    * bare name with no exact match falls back to the single top fuzzy result.
    */
-  private findSymbolMatches(cg: CodeGraph, symbol: string): Node[] {
+  private findSymbolMatches(cg: SleuthGraph, symbol: string): Node[] {
     const isQualified = /[.\/]|::/.test(symbol);
 
     // For a bare name, enumerate EVERY exact-name definition via the direct index
@@ -8403,9 +8403,9 @@ export class ToolHandler {
    * results across all matching symbols (e.g., multiple classes with an `execute` method).
    *
    * The resolution itself lives in `../graph/named-symbol-flow`, so the Flow
-   * strip and `codegraph_explore` resolve a written name to the same nodes.
+   * strip and `sleuth_explore` resolve a written name to the same nodes.
    */
-  private findAllSymbols(cg: CodeGraph, symbol: string): { nodes: Node[]; note: string } {
+  private findAllSymbols(cg: SleuthGraph, symbol: string): { nodes: Node[]; note: string } {
     return findAllSymbols(cg, symbol);
   }
 
@@ -8506,7 +8506,7 @@ export class ToolHandler {
    * without the full source of every method. Returns '' when the container
    * has no indexed children, so the caller can fall back to full source.
    */
-  private buildContainerOutline(cg: CodeGraph, node: Node): string {
+  private buildContainerOutline(cg: SleuthGraph, node: Node): string {
     const children = cg.getChildren(node.id)
       .filter(c => c.kind !== 'import' && c.kind !== 'export')
       .sort((a, b) => (a.startLine ?? 0) - (b.startLine ?? 0));
@@ -8540,9 +8540,9 @@ export class ToolHandler {
 
     if (outline) {
       lines.push('', outline, '',
-        `> Structural outline only. Read \`${node.filePath}\` or call codegraph_node on a specific member for its body.`);
+        `> Structural outline only. Read \`${node.filePath}\` or call sleuth_node on a specific member for its body.`);
     } else if (code) {
-      // Line-numbered (cat -n style, like codegraph_explore and Read) so the
+      // Line-numbered (cat -n style, like sleuth_explore and Read) so the
       // agent can cite/edit exact lines without re-Reading the file for them.
       const numbered = node.startLine ? numberSourceLines(code, node.startLine) : code;
       lines.push('', '```' + node.language, numbered, '```');

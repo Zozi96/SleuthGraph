@@ -10,7 +10,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import type { Node } from '../src/types';
 import { buildNode } from '../src/ui-server/api/node';
 
@@ -19,18 +19,18 @@ afterEach(() => {
   for (const r of roots.splice(0)) fs.rmSync(r, { recursive: true, force: true });
 });
 
-async function indexed(files: Record<string, string>): Promise<{ cg: CodeGraph; root: string }> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-test-requests-'));
+async function indexed(files: Record<string, string>): Promise<{ cg: SleuthGraph; root: string }> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-test-requests-'));
   roots.push(root);
   for (const [rel, content] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), content);
   }
-  return { cg: await CodeGraph.init(root, { index: true }), root };
+  return { cg: await SleuthGraph.init(root, { index: true }), root };
 }
 
 /** Every test-request edge as `test → route`. */
-function requests(cg: CodeGraph): string[] {
+function requests(cg: SleuthGraph): string[] {
   const out: string[] = [];
   for (const route of cg.getNodesByKind('route')) {
     for (const { node, edge } of cg.getCallers(route.id)) {
@@ -42,7 +42,7 @@ function requests(cg: CodeGraph): string[] {
   return out.sort();
 }
 
-const method = (cg: CodeGraph, name: string): Node => {
+const method = (cg: SleuthGraph, name: string): Node => {
   const n = cg.getNodesByKind('method').find((m) => m.name === name);
   if (!n) throw new Error(`no method ${name}`);
   return n;

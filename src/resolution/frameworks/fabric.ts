@@ -334,7 +334,7 @@ function extractFabricNodes(filePath: string, source: string): Node[] {
   // — they're JS-visible bindings the consumer sets via JSX attributes —
   // so use `property` kind. (The JSX synthesizer doesn't currently
   // produce per-attribute edges, but surfacing the prop names as nodes
-  // lets `codegraph_search('onFinishTransitioning')` discover them.)
+  // lets `sleuth_search('onFinishTransitioning')` discover them.)
   const body = findNativePropsBody(source);
   if (body) {
     const props = extractPropNames(body);

@@ -2,7 +2,7 @@
 /**
  * Assert that the browser viewer actually built.
  *
- * `codegraph ui` serves dist/viewer/ as static files. If that tree is missing
+ * `sleuth ui` serves dist/viewer/ as static files. If that tree is missing
  * or half-written, the CLI still starts and the browser gets a 404 — a failure
  * that would otherwise surface after the release is published. So the build
  * fails here instead: index.html must exist, be non-trivial, and every local
@@ -87,7 +87,7 @@ if (assets === 0) {
 }
 
 // The viewer build must never have eaten the tsc output next door.
-for (const compiled of [join('bin', 'codegraph.js'), 'index.js', join('ui', 'shimmer-progress.js')]) {
+for (const compiled of [join('bin', 'sleuth.js'), 'index.js', join('ui', 'shimmer-progress.js')]) {
   if (!existsSync(join(root, 'dist', compiled))) {
     fail(
       `dist/${compiled.split(sep).join('/')} is missing — the compiled engine is incomplete`,

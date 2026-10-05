@@ -1,10 +1,10 @@
 node_modules
 dist
 .git
-.codegraph
+.sleuth
 .kommandr
 docs
 assets
-codegraph-kernel/target
-codegraph-kernel/prebuilds
+sleuth-kernel/target
+sleuth-kernel/prebuilds
 release

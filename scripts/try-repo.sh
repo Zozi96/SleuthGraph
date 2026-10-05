@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Try the Steps / Screens / Entry-points pictures on a real project with the
 # CURRENT build: clone (shallow) a preset or any git URL, index it with
-# dist/bin/codegraph.js (a full rebuild, so new synthesizers and resolvers
+# dist/bin/sleuth.js (a full rebuild, so new synthesizers and resolvers
 # apply), print what the index holds — routes, cross-tier edges, navigations —
 # and open the viewer on it.
 #
@@ -12,15 +12,15 @@
 #   scripts/try-repo.sh https://github.com/x/y.git
 #   scripts/try-repo.sh ~/code/my-app        # a local project (re-indexed with this build)
 #
-# Env:  CODEGRAPH_TRY_DIR   where clones live (default ~/.cache/codegraph-try)
-#       CODEGRAPH_TRY_NO_OPEN=1   print the URL instead of opening a browser
-#       CODEGRAPH_TRY_REINDEX=0   reuse an existing index instead of rebuilding
+# Env:  SLEUTH_TRY_DIR   where clones live (default ~/.cache/sleuth-try)
+#       SLEUTH_TRY_NO_OPEN=1   print the URL instead of opening a browser
+#       SLEUTH_TRY_REINDEX=0   reuse an existing index instead of rebuilding
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
-CLI="$HERE/dist/bin/codegraph.js"
-DIR="${CODEGRAPH_TRY_DIR:-$HOME/.cache/codegraph-try}"
-export CODEGRAPH_TELEMETRY=0 DO_NOT_TRACK=1
+CLI="$HERE/dist/bin/sleuth.js"
+DIR="${SLEUTH_TRY_DIR:-$HOME/.cache/sleuth-try}"
+export SLEUTH_TELEMETRY=0 DO_NOT_TRACK=1
 
 # name|url|what to look at (hash URLs relative to the viewer)
 PRESETS='
@@ -78,10 +78,10 @@ else
 fi
 
 cd "$REPO"
-if [ ! -d .codegraph ]; then
+if [ ! -d .sleuth ]; then
   echo "indexing $REPO (first time)"
   node "$CLI" init . 2>&1 | tail -2
-elif [ "${CODEGRAPH_TRY_REINDEX:-1}" != "0" ]; then
+elif [ "${SLEUTH_TRY_REINDEX:-1}" != "0" ]; then
   echo "re-indexing $REPO with the current build"
   node "$CLI" index . 2>&1 | tail -2
 fi
@@ -89,7 +89,7 @@ fi
 # What the index holds for the pictures: routes, cross-tier edges, navigations.
 node --disable-warning=ExperimentalWarning - <<'JS'
 const { DatabaseSync } = require('node:sqlite');
-const db = new DatabaseSync('.codegraph/codegraph.db', { readOnly: true });
+const db = new DatabaseSync('.sleuth/sleuth.db', { readOnly: true });
 const routes = db.prepare("select name from nodes where kind='route' order by name").all().map((r) => r.name);
 const verbs = routes.filter((n) => /^[A-Z]+ /.test(n));
 const pages = routes.filter((n) => !/^[A-Z]+ /.test(n));
@@ -107,6 +107,6 @@ echo
 [ -n "$HINT" ] && { echo "look at: $HINT"; echo; }
 ARGS=(ui)
 [ -n "$PORT" ] && ARGS+=(--port "$PORT")
-[ "${CODEGRAPH_TRY_NO_OPEN:-0}" = "1" ] && ARGS+=(--no-open)
+[ "${SLEUTH_TRY_NO_OPEN:-0}" = "1" ] && ARGS+=(--no-open)
 echo "tabs: #/entry (Entry points)  #/screens  #/steps (chooser)  #/steps?symbol=<route or function name>&through=1"
 exec node "$CLI" "${ARGS[@]}" .

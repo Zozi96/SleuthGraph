@@ -18,7 +18,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { ToolHandler } from '../src/mcp/tools';
 
 const FIXTURE = 'explore-path-pinning';
@@ -26,10 +26,10 @@ const TARGET = 'src/routes/m/projects/[id]/runs/[runId]/+page.ts';
 const DECOY_CHAT = 'src/routes/(protected)/chat-window/+page.ts';
 
 let dir: string;
-let cg: CodeGraph;
+let cg: SleuthGraph;
 
 async function explore(query: string): Promise<string> {
-  const res = await new ToolHandler(cg).execute('codegraph_explore', { query });
+  const res = await new ToolHandler(cg).execute('sleuth_explore', { query });
   return res.content?.[0]?.text ?? '';
 }
 
@@ -38,10 +38,10 @@ const hasSection = (response: string, file: string): boolean =>
   response.includes('**`' + file + '`');
 
 beforeAll(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-path-pin-'));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-path-pin-'));
   fs.cpSync(path.join(__dirname, 'fixtures', FIXTURE), dir, { recursive: true });
-  fs.rmSync(path.join(dir, '.codegraph'), { recursive: true, force: true });
-  cg = CodeGraph.initSync(dir);
+  fs.rmSync(path.join(dir, '.sleuth'), { recursive: true, force: true });
+  cg = SleuthGraph.initSync(dir);
   await cg.indexAll();
 }, 180_000);
 

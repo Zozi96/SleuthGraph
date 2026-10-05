@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { ReferenceResolver } from '../src/resolution';
 import type { ResolutionContext } from '../src/resolution/types';
 import { MAX_SOURCE_FILE_SIZE_BYTES } from '../src/file-limits';
@@ -11,13 +11,13 @@ vi.mock('fs', async (importOriginal) => ({ ...await importOriginal<typeof import
 
 describe('resolution file reads', () => {
   let root: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
   let resolver: ReferenceResolver;
   let context: ResolutionContext;
 
   beforeEach(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-resolution-read-'));
-    cg = CodeGraph.initSync(root);
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-resolution-read-'));
+    cg = SleuthGraph.initSync(root);
     resolver = new ReferenceResolver(root, cg.queries);
     context = resolver.getResolutionContext();
   });

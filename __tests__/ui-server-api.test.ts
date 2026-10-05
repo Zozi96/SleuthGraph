@@ -1,5 +1,5 @@
 /**
- * The `codegraph ui` read-only JSON API (CG-42).
+ * The `sleuth ui` read-only JSON API (CG-42).
  *
  * Everything runs against a real indexed fixture project over a real loopback
  * server — no mocks — because the properties worth pinning are the ones that
@@ -18,7 +18,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import CodeGraph from '../src/index';
+import SleuthGraph from '../src/index';
 import { createGraphApi, startUiServer, type GraphApi, type UiServerHandle } from '../src/ui-server';
 import { buildRoutes } from '../src/ui-server/api/routes';
 
@@ -100,7 +100,7 @@ async function idOf(name: string, kind?: string): Promise<string> {
 }
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-api-'));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-api-'));
   projectRoot = path.join(tempDir, 'project');
   const srcDir = path.join(projectRoot, 'src');
   const testsDir = path.join(projectRoot, '__tests__');
@@ -233,7 +233,7 @@ testLoadsThroughCache();
 `
   );
 
-  const cg = CodeGraph.initSync(projectRoot, {
+  const cg = SleuthGraph.initSync(projectRoot, {
     config: { include: ['src/**/*.ts', '__tests__/**/*.ts'], exclude: [] },
   });
   await cg.indexAll();
@@ -927,7 +927,7 @@ describe('GET /api/routes', () => {
       path.join(root, 'src', 'app.ts'),
       `import express from 'express';\n${imports.join('\n')}\nconst app = express();\n${mounts.join('\n')}\nexport default app;\n`
     );
-    const cg = CodeGraph.initSync(root, { config: { include: ['src/**/*.ts'], exclude: [] } });
+    const cg = SleuthGraph.initSync(root, { config: { include: ['src/**/*.ts'], exclude: [] } });
     try {
       await cg.indexAll();
       cg.resolveReferences();
@@ -966,7 +966,7 @@ app.delete('/users/:id', deleteUser);
 export default app;
 `
       );
-      const routedCg = CodeGraph.initSync(routedRoot, {
+      const routedCg = SleuthGraph.initSync(routedRoot, {
         config: { include: ['src/**/*.ts'], exclude: [] },
       });
       await routedCg.indexAll();
@@ -1053,11 +1053,11 @@ export default app;
  * `get` calls on maps and caches that were never LRUCache's, so the count is
  * held to the cap, not to that number.)
  *
- * `.codegraph/` is gitignored, so this only runs on a machine that has indexed
+ * `.sleuth/` is gitignored, so this only runs on a machine that has indexed
  * this repository. The fixture test above covers the same properties in CI; this
  * one is the check against the real, messy graph the number came from.
  */
-describe.runIf(CodeGraph.isInitialized(path.resolve(__dirname, '..')))(
+describe.runIf(SleuthGraph.isInitialized(path.resolve(__dirname, '..')))(
   "the engine's own busiest symbol",
   () => {
     const repoRoot = path.resolve(__dirname, '..');
@@ -1235,7 +1235,7 @@ describe('GET /api/nodes', () => {
 
 describe('an index that is not there', () => {
   it('answers with the same guidance the CLI prints, not a stack trace', async () => {
-    const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-ui-noindex-'));
+    const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuthgraph-ui-noindex-'));
     const detached = createGraphApi({ projectRoot: emptyRoot });
     const detachedServer = await startUiServer({
       projectRoot: emptyRoot,
@@ -1249,8 +1249,8 @@ describe('an index that is not there', () => {
       expect(res.status).toBe(503);
       const body = JSON.parse(res.body);
       expect(body.code).toBe('no-index');
-      expect(body.error).toContain('No CodeGraph index found');
-      expect(body.hint).toContain('codegraph init');
+      expect(body.error).toContain('No SleuthGraph index found');
+      expect(body.hint).toContain('sleuth init');
       expect(body.error).not.toContain('    at ');
     } finally {
       detached.close();

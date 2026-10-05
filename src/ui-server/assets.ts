@@ -26,10 +26,10 @@ export { VIEWER_PATH_ENV };
 export class ViewerMissingError extends Error {
   constructor(searched: readonly string[]) {
     super(
-      'The CodeGraph viewer assets are missing from this installation.\n' +
+      'The SleuthGraph viewer assets are missing from this installation.\n' +
         'Looked in:\n' +
         searched.map((p) => `  ${p}`).join('\n') +
-        '\n\nIf you installed CodeGraph normally, reinstall it — the release bundle ' +
+        '\n\nIf you installed SleuthGraph normally, reinstall it — the release bundle ' +
         'ships the viewer.\nIf you are working from a source checkout, run: npm run build'
     );
     this.name = 'ViewerMissingError';
@@ -39,7 +39,7 @@ export class ViewerMissingError extends Error {
 /**
  * Candidate locations for the viewer, most-specific first.
  *
- * 1. The `CODEGRAPH_VIEWER_PATH` override.
+ * 1. The `SLEUTH_VIEWER_PATH` override.
  * 2. `<__dirname>/../viewer` — the shipped layout (`dist/ui-server/` →
  *    `dist/viewer/`).
  * 3. `<__dirname>/../../dist/viewer` — running the TypeScript straight out of

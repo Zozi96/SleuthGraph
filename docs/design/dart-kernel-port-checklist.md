@@ -62,7 +62,7 @@ change dart's grammar, which is exactly the hazard this vendor kills.
   `src/extraction/wasm/tree-sitter-dart.wasm` + `VENDORED_WASM_LANGS +=
   'dart'` (R7b comment: commit sha + "wasm is the byte-copied
   tree-sitter-wasms 0.1.13 artifact; kernel compiles the same-commit vendored
-  C — codegraph-kernel/grammars/dart"). No rebuild, no `tree-sitter
+  C — sleuth-kernel/grammars/dart"). No rebuild, no `tree-sitter
   generate` — the shipped bytes ARE the reference. `copy-assets` already
   globs `src/extraction/wasm/*.wasm`. MIT license.
 - **External scanner: YES** — `src/scanner.c` PRESENT at the pinned commit.
@@ -83,7 +83,7 @@ change dart's grammar, which is exactly the hazard this vendor kills.
   not revisit unless the TS side migrates grammars.
 - **Kernel side — vendored-grammar-C (the kotlin #1382 mechanism, second
   use):** copy the three-file set above (parser.c, scanner.c, tree_sitter/*.h)
-  to `codegraph-kernel/grammars/dart/`; extend `codegraph-kernel/build.rs`'s
+  to `sleuth-kernel/grammars/dart/`; extend `sleuth-kernel/build.rs`'s
   cc::Build to compile both C files with the grammar's own flags (its
   checked-in `bindings/rust/build.rs` uses `-Wno-unused-parameter`,
   `-Wno-unused-but-set-variable`, `-Wno-trigraphs`, msvc `-utf-8` — same set
@@ -155,7 +155,7 @@ change dart's grammar, which is exactly the hazard this vendor kills.
    ride the raw buffers path. All three gate repos are expected raw-path —
    verify at sweep time; a mixed Vue+dart repo is the decoded-path smoke
    check.
-3. **One walker module** (suggest `codegraph-kernel/src/dart.rs`), registered
+3. **One walker module** (suggest `sleuth-kernel/src/dart.rs`), registered
    in langs.rs; per-file `has_error()` → `defer:`. Cribs: **kotlin.rs** for
    the visitNode-hook-consumed constants + hook/scan interplay; **java.rs**
    for the class-like scope stack, static-member refs, decorators, and
@@ -787,7 +787,7 @@ import extents (probed — import_or_export ends at the `;`).
 
 ### Value-reference edges (:398-931) — dart IS in VALUE_REF_LANGS (:401)
 
-Port the full machinery (crib java.rs/kotlin.rs): `CODEGRAPH_VALUE_REFS=0`
+Port the full machinery (crib java.rs/kotlin.rs): `SLEUTH_VALUE_REFS=0`
 kill; MAX_VALUE_REF_NODES = 20,000 caps both DFS passes; isGeneratedFile
 skip (`.g.dart` and friends!).
 
@@ -994,7 +994,7 @@ NO unwrap, NO ungatedModes, NO addressOfOnly. Pins:
   (all three cloned fresh at survey; re-clone public OSS — agent-eval
   policy). Expect 0-diff on every non-deferred file and ~the §Grammar-prep
   deferral counts. Then **full-init dump-diffs byte-identical** (kernel arm
-  vs `CODEGRAPH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on the same
+  vs `SLEUTH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on the same
   three.
 - **Census spot-check** (double-walk belt-and-suspenders): after a bloc
   kernel-arm index, `select kind, count(*) from nodes where language='dart'
@@ -1003,7 +1003,7 @@ NO unwrap, NO ungatedModes, NO addressOfOnly. Pins:
   runs.
 - **Suite**: torture + CRLF + a defer fixture (empty-object-pattern file —
   kernel defers, wasm output served) + the `library;` defer shape; full
-  suite ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  suite ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'dart'`** (kernel/index.ts:37) only after ALL of the
   above; changelog rides the existing kernel entry.
 - Post-route perf sanity: all three gate repos ride the raw path (§arch-2);

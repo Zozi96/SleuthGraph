@@ -15,7 +15,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { isVisibleCppMacro } from '../src/resolution/cpp-macro-visibility';
 import type { ResolutionContext, UnresolvedRef } from '../src/resolution/types';
 
@@ -102,7 +102,7 @@ describe('#2127 — indexing a deep include graph keeps #1838 macro suppression'
   });
 
   it('the macro reached through value-guarded headers still does not bind to the decoy function', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-cpp-walk-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-cpp-walk-'));
     roots.push(root);
     const files = {
       ...layeredHeaders(24, 'value'),
@@ -111,7 +111,7 @@ describe('#2127 — indexing a deep include graph keeps #1838 macro suppression'
       'decoy.cpp': 'void TRACE(int v) {}\nvoid caller() { TRACE(2); }\n',
     };
     for (const [rel, content] of Object.entries(files)) fs.writeFileSync(path.join(root, rel), content);
-    const cg = await CodeGraph.init(root, { index: true });
+    const cg = await SleuthGraph.init(root, { index: true });
     try {
       const fn = (name: string) => cg.getNodesByKind('function').find((n) => n.name === name)!;
       const callees = (name: string) =>

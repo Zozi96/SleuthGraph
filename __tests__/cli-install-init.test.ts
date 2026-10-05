@@ -1,5 +1,5 @@
 /**
- * `codegraph install --init` and `codegraph init --yes` (#1578): the one-shot,
+ * `sleuth install --init` and `sleuth init --yes` (#1578): the one-shot,
  * non-interactive "wire agents + build this project's index" bootstrap a fresh
  * container / CI job needs.
  *
@@ -7,7 +7,7 @@
  * `runInit` flow, the flag plumbing, exit codes) is what's covered. Every run
  * uses `--target none`, so the installer touches no agent config on the
  * machine running the suite; the only side effect is the temp project's
- * `.codegraph/`.
+ * `.sleuth/`.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -16,7 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 interface RunResult {
   status: number;
@@ -25,15 +25,15 @@ interface RunResult {
 }
 
 /** Run the CLI with stdin closed — a prompt that blocks would hang / fail here. */
-function runCodegraph(args: string[], cwd: string): RunResult {
+function runSleuthgraph(args: string[], cwd: string): RunResult {
   try {
     const stdout = execFileSync(process.execPath, [BIN, ...args], {
       cwd,
       encoding: 'utf-8',
       env: {
         ...process.env,
-        CODEGRAPH_NO_DAEMON: '1',
-        CODEGRAPH_TELEMETRY: '0',
+        SLEUTH_NO_DAEMON: '1',
+        SLEUTH_TELEMETRY: '0',
         DO_NOT_TRACK: '1',
         NO_COLOR: '1',
       },
@@ -51,11 +51,11 @@ function runCodegraph(args: string[], cwd: string): RunResult {
   }
 }
 
-describe('codegraph install --init / init --yes (#1578)', () => {
+describe('sleuth install --init / init --yes (#1578)', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-install-init-'));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-install-init-'));
     fs.writeFileSync(
       path.join(tempDir, 'a.ts'),
       `export function greet(name: string) { return hello(name); }\n` +
@@ -68,18 +68,18 @@ describe('codegraph install --init / init --yes (#1578)', () => {
   });
 
   it('install --yes --target none --init builds the current project\'s index in one command', () => {
-    const r = runCodegraph(['install', '--yes', '--target', 'none', '--init'], tempDir);
+    const r = runSleuthgraph(['install', '--yes', '--target', 'none', '--init'], tempDir);
     expect(r.status, r.stdout + r.stderr).toBe(0);
     // The installer ran (and had nothing to wire) …
     expect(r.stdout).toContain('No agent targets selected');
     // … and the init ran afterwards, in cwd.
     expect(r.stdout).toContain(`Initialized in ${fs.realpathSync(tempDir)}`);
-    expect(fs.existsSync(path.join(tempDir, '.codegraph', 'codegraph.db'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, '.sleuth', 'sleuth.db'))).toBe(true);
   });
 
   it('install --init on an already-initialized project reports that and still exits 0', () => {
-    expect(runCodegraph(['init', '--yes'], tempDir).status).toBe(0);
-    const r = runCodegraph(['install', '--yes', '--target', 'none', '--init'], tempDir);
+    expect(runSleuthgraph(['init', '--yes'], tempDir).status).toBe(0);
+    const r = runSleuthgraph(['install', '--yes', '--target', 'none', '--init'], tempDir);
     expect(r.status, r.stdout + r.stderr).toBe(0);
     expect(r.stdout).toContain('Already initialized');
   });
@@ -88,21 +88,21 @@ describe('codegraph install --init / init --yes (#1578)', () => {
     // `/` (or the drive root on Windows) is the canonical unsafe root: the
     // refusal fires before anything is created, so nothing is written there.
     const root = path.parse(process.cwd()).root;
-    const r = runCodegraph(['install', '--yes', '--target', 'none', '--init'], root);
+    const r = runSleuthgraph(['install', '--yes', '--target', 'none', '--init'], root);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('Refusing to initialize');
-    expect(fs.existsSync(path.join(root, '.codegraph'))).toBe(false);
+    expect(fs.existsSync(path.join(root, '.sleuth'))).toBe(false);
   });
 
   it('init --yes runs non-interactively with stdin closed and builds the index', () => {
-    const r = runCodegraph(['init', '--yes'], tempDir);
+    const r = runSleuthgraph(['init', '--yes'], tempDir);
     expect(r.status, r.stdout + r.stderr).toBe(0);
     expect(r.stdout).toContain('Initialized in');
-    expect(fs.existsSync(path.join(tempDir, '.codegraph', 'codegraph.db'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, '.sleuth', 'sleuth.db'))).toBe(true);
   });
 
   it('documents the new flags in --help', () => {
-    expect(runCodegraph(['init', '--help'], tempDir).stdout).toMatch(/-y, --yes\b/);
-    expect(runCodegraph(['install', '--help'], tempDir).stdout).toMatch(/-i, --init\b/);
+    expect(runSleuthgraph(['init', '--help'], tempDir).stdout).toMatch(/-y, --yes\b/);
+    expect(runSleuthgraph(['install', '--help'], tempDir).stdout).toMatch(/-i, --init\b/);
   });
 });

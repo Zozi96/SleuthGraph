@@ -18,19 +18,19 @@ import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { once } from 'events';
 import { WASM_RUNTIME_FLAGS } from '../src/extraction/wasm-runtime-flags';
 
-const BIN = path.resolve(__dirname, '../dist/bin/codegraph.js');
+const BIN = path.resolve(__dirname, '../dist/bin/sleuth.js');
 
 function spawnServer(cwd: string): ChildProcessWithoutNullStreams {
-  // --no-watch keeps the test deterministic; CODEGRAPH_NO_DAEMON keeps the
+  // --no-watch keeps the test deterministic; SLEUTH_NO_DAEMON keeps the
   // session in direct mode so no detached daemon outlives the test.
   return spawn(process.execPath, [...WASM_RUNTIME_FLAGS, BIN, 'serve', '--mcp', '--no-watch'], {
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, CODEGRAPH_NO_DAEMON: '1', CODEGRAPH_WASM_RELAUNCHED: '1' },
+    env: { ...process.env, SLEUTH_NO_DAEMON: '1', SLEUTH_WASM_RELAUNCHED: '1' },
   }) as ChildProcessWithoutNullStreams;
 }
 
@@ -81,17 +81,17 @@ function send(child: ChildProcessWithoutNullStreams, msg: object): void {
 
 const CLIENT_INFO = { name: 'test', version: '0.0.0' };
 
-/** Create ws/<name> with one source file and an initialized .codegraph/. */
+/** Create ws/<name> with one source file and an initialized .sleuth/. */
 async function makeIndexedChild(ws: string, name: string): Promise<string> {
   const dir = path.join(ws, name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'a.ts'), `export function hello_${name}() { return 1; }\n`);
-  const cg = await CodeGraph.init(dir);
+  const cg = await SleuthGraph.init(dir);
   cg.close();
   return dir;
 }
 
-/** initialize (no rootUri, no roots capability) → initialized → codegraph_status. */
+/** initialize (no rootUri, no roots capability) → initialized → sleuth_status. */
 async function driveStatusCall(
   child: ChildProcessWithoutNullStreams,
   messages: Array<Record<string, any>>,
@@ -102,7 +102,7 @@ async function driveStatusCall(
   });
   const initResult = await waitForMessage(messages, (m) => m.id === 0 && !!m.result, 5000);
   send(child, { jsonrpc: '2.0', method: 'notifications/initialized' });
-  send(child, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'codegraph_status', arguments: {} } });
+  send(child, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'sleuth_status', arguments: {} } });
   const resp = await waitForMessage(messages, (m) => m.id === 1, 10000);
   return { initResult, statusText: resp.result.content[0].text as string };
 }
@@ -112,7 +112,7 @@ describe('MCP workspace sub-project adoption (#1606) + no-default diagnostics (#
   let child: ChildProcessWithoutNullStreams | null = null;
 
   beforeEach(() => {
-    ws = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-mcp-ws-'));
+    ws = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-mcp-ws-'));
   });
 
   afterEach(async () => {
@@ -138,8 +138,8 @@ describe('MCP workspace sub-project adoption (#1606) + no-default diagnostics (#
     const { initResult, statusText } = await driveStatusCall(child, messages);
 
     // The default project works without any projectPath.
-    expect(statusText).toContain('CodeGraph Status');
-    expect(statusText).not.toContain('No CodeGraph project is loaded');
+    expect(statusText).toContain('SleuthGraph Status');
+    expect(statusText).not.toContain('No SleuthGraph project is loaded');
     // The adoption is announced on stderr (#1607 discoverability).
     expect(stderr.text()).toContain('adopted the single indexed sub-project');
     expect(stderr.text()).toContain('service-a');
@@ -161,7 +161,7 @@ describe('MCP workspace sub-project adoption (#1606) + no-default diagnostics (#
     const { initResult, statusText } = await driveStatusCall(child, messages);
 
     // No default was adopted — ambiguous — but the state is said, not silent.
-    expect(statusText).toContain('No CodeGraph project is loaded');
+    expect(statusText).toContain('No SleuthGraph project is loaded');
     // Protocol-reachable listing (#1607): the tool response names what IS there.
     expect(statusText).toContain('Indexed sub-projects were found below it');
     expect(statusText).toContain('service-a');
@@ -186,7 +186,7 @@ describe('MCP workspace sub-project adoption (#1606) + no-default diagnostics (#
 
     const { statusText } = await driveStatusCall(child, messages);
 
-    expect(statusText).toContain('No CodeGraph project is loaded');
+    expect(statusText).toContain('No SleuthGraph project is loaded');
     expect(statusText).not.toContain('Indexed sub-projects were found below it');
     expect(stderr.text()).toContain('no default project, live sync disabled');
     expect(stderr.text()).not.toContain('Indexed sub-projects found:');

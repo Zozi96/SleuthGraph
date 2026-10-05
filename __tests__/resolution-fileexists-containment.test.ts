@@ -25,7 +25,7 @@ describe('fileExists containment (#1631)', () => {
     new ReferenceResolver(root, {} as unknown as QueryBuilder).getResolutionContext();
 
   beforeEach(() => {
-    sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'codegraph-test-'));
+    sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'sleuth-test-'));
     projectRoot = path.join(sandbox, 'proj');
     fs.mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
     fs.writeFileSync(path.join(projectRoot, 'src', 'a.js'), 'export const a = 1;');

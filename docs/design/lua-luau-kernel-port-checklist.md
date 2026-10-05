@@ -3,7 +3,7 @@
 **Status: SURVEY COMPLETE (2026-07-20)** — one combined checklist for BOTH
 languages: `languages/luau.ts` is 36 lines extending `languages/lua.ts`, the two
 grammars share their node-name vocabulary, and the recommendation is ONE walker
-module (`codegraph-kernel/src/lua.rs`, ccpp-style language-parameterized —
+module (`sleuth-kernel/src/lua.rs`, ccpp-style language-parameterized —
 `"lua" | "luau" => lua::extract(&file_path, &content, &language)` in
 lib.rs:214-226). Survey basis: every TS-side branch a `.lua`/`.luau` file
 exercises, with file:line anchors as of **`45a53eb`** (HEAD at survey time,
@@ -58,7 +58,7 @@ shared WASM heap). Provenance was verified in the batch-4 grammar probe
   **ABI 15, STATE_COUNT 262, SYMBOL_COUNT 137, FIELD_COUNT 22** (verified in
   the tag clone — matches the wasm's tables). **v0.4.1 is NOT on crates.io**
   (only 0.1/0.2/0.5 exist) → **vendored-grammar-C route**, the kotlin
-  mechanism (`codegraph-kernel/grammars/kotlin` + build.rs cc precedent).
+  mechanism (`sleuth-kernel/grammars/kotlin` + build.rs cc precedent).
   0.5.0 adds Lua-5.5 `global` (+1 field) — a future accuracy bump, NOT this
   batch.
 - **luau** — vendored wasm ≡ **tree-sitter-grammars/tree-sitter-luau v1.2.0
@@ -70,9 +70,9 @@ shared WASM heap). Provenance was verified in the batch-4 grammar probe
   **ABI 14, STATE_COUNT 585, SYMBOL_COUNT 197, FIELD_COUNT 21**. Crate deps:
   `tree-sitter-language = "0.1"` + `cc` build-dep, `tree-sitter` only as a
   dev-dep (0.26.3) → **no pin conflict** with the kernel's tree-sitter 0.25.
-  Route: **`tree-sitter-luau = "=1.2.0"`** in codegraph-kernel/Cargo.toml,
+  Route: **`tree-sitter-luau = "=1.2.0"`** in sleuth-kernel/Cargo.toml,
   `"luau" => Some(tree_sitter_luau::LANGUAGE.into())` in langs.rs.
-- **Lua kernel C vendor** (`codegraph-kernel/grammars/lua/`), from the v0.4.1
+- **Lua kernel C vendor** (`sleuth-kernel/grammars/lua/`), from the v0.4.1
   tag's CHECKED-IN generated artifacts (lua HAS an external scanner — comments
   and long strings):
   - `src/parser.c`  `b34a362e43f0311f405721f3089e94f97f31da403b154d456d093e64609a4081`
@@ -124,7 +124,7 @@ shared WASM heap). Provenance was verified in the batch-4 grammar probe
 
 ## Architecture decisions
 
-1. **One walker module, two grammar entries.** `codegraph-kernel/src/lua.rs`
+1. **One walker module, two grammar entries.** `sleuth-kernel/src/lua.rs`
    with a dialect flag (ccpp precedent — lib.rs:219 `"c" | "cpp" =>
    ccpp::extract(..., &language)`). The dialect differences are exactly four
    (§Extractor config): typeAliasTypes, isExported, getSignature return
@@ -145,7 +145,7 @@ shared WASM heap). Provenance was verified in the batch-4 grammar probe
    contract-pinned in §Resolution consumers.
 4. **`.lua` → `lua`, `.luau` → `luau`** purely by extension
    (grammars.ts:122-123, `detectLanguage` :469 — no content sniffing; project
-   `codegraph.json` extension overrides are TS-side and upstream of the
+   `sleuth.json` extension overrides are TS-side and upstream of the
    kernel). MAX_FILE_SIZE (1 MiB) and generated-file skips are
    orchestrator-side and shared.
 5. **REF_FLAG_FILE_PATH (wire v2) is NOT needed.** The lua hook's
@@ -652,7 +652,7 @@ special, no unwrap, no ungatedModes, no addressOfOnly.
   untouched.
 - **Torture fixtures** per §Fixtures below, in a new
   `__tests__/kernel-lua-parity.test.ts` (or kernel-lua-luau-parity) with
-  CRLF variants; full suite ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  CRLF variants; full suite ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **Parity sweeps** (`scripts/kernel-parity.mjs <dir>`, default
   `--max-deferral 0.1`):
   - `…/svy-lua/gate-repos/kong` (large lua, 1,309 files — expect ≤1 deferral:
@@ -667,7 +667,7 @@ special, no unwrap, no ungatedModes, no addressOfOnly.
     only the non-deferred parity).
   (Re-clone public OSS fresh if the scratchpad is gone — agent-eval policy.)
   Then **full-init dump-diffs byte-identical** (kernel arm vs
-  `CODEGRAPH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on kong + lazy.nvim +
+  `SLEUTH_KERNEL=0`, `scripts/dump-graph.mjs`, cmp) on kong + lazy.nvim +
   lune + Fusion.
 - **`DEFAULT_ROUTED += 'lua', 'luau'`** (kernel/index.ts:37) only after all
   of the above; changelog rides the existing kernel entry.

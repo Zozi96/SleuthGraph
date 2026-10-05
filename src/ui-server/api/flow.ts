@@ -8,7 +8,7 @@
  * it; the geometry is a pure function in the viewer (`ui/src/lib/flow-model.ts`).
  *
  * **The path finder is not ours.** It is `resolveNamedSymbolFlow` in
- * `src/graph/named-symbol-flow.ts` — literally the search `codegraph_explore`
+ * `src/graph/named-symbol-flow.ts` — literally the search `sleuth_explore`
  * leads its answer with, extracted so both callers ride one implementation.
  * A viewer that drew a different path from the one the MCP tool describes would
  * be worse than no viewer: the two would be quoted against each other in a code
@@ -33,7 +33,7 @@
  * lines each.
  */
 
-import type CodeGraph from '../../index';
+import type SleuthGraph from '../../index';
 import type { Edge, Language, Node } from '../../types';
 import { guardLabel, guardsForFile, siteKey, supportsBranchGuards } from '../../graph/branch-guards';
 import {
@@ -183,7 +183,7 @@ export interface WireFlowContinuation {
  * Where the graph stops (design spec §3.5).
  *
  * Attached to a flow that does not reach everything the question named. It is
- * the same verdict `codegraph_explore` announces in prose — both render
+ * the same verdict `sleuth_explore` announces in prose — both render
  * `findDynamicBoundaries` — so the strip's end cap and the MCP answer can never
  * disagree about where a path ends or what could continue it.
  */
@@ -353,7 +353,7 @@ interface FileCache {
 }
 
 function loadFile(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   cache: Map<string, FileCache>,
   filePath: string
@@ -406,7 +406,7 @@ function loadFile(
  * hops to get there wants to see what they arrived at.
  */
 async function windowFor(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   cache: Map<string, FileCache>,
   node: Node,
@@ -451,7 +451,7 @@ async function windowFor(
 
 /** The branch label for `edge`'s call site in `siteNode`'s file, or ''. */
 async function whenAt(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   cache: Map<string, FileCache>,
   siteNode: Node,
@@ -483,7 +483,7 @@ interface RawHop {
 }
 
 async function toWireFlow(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   cache: Map<string, FileCache>,
   raw: readonly RawHop[],
@@ -572,14 +572,14 @@ function toContinuation(c: BoundaryContinuation): WireFlowContinuation {
  * Build the end cap for a path that stopped short.
  *
  * `reports` comes from the shared detector, so the form, the key and the
- * candidate targets are the ones `codegraph_explore` would print. Everything
+ * candidate targets are the ones `sleuth_explore` would print. Everything
  * else on the cap is graph state around the stopping symbol: the calls it makes
  * that this path did not need, and the name-only matches under 0.6 that the
  * search refused to follow. That last list is the honest half — an unfollowed
  * guess left invisible reads as "there is nothing here".
  */
 function buildBoundary(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   stop: Node,
   reports: readonly NodeBoundary[],
   missed: readonly Node[],
@@ -625,7 +625,7 @@ function buildBoundary(
  * `upward` exists and why the link says "called by" rather than "calls".
  */
 function edgeBetween(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   from: Node,
   to: Node
 ): { edge: Edge; upward: boolean } | null {
@@ -667,7 +667,7 @@ function ambiguitiesOf(
 }
 
 export async function buildFlow(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   projectRoot: string,
   query: URLSearchParams
 ): Promise<WireFlowPayload> {
@@ -823,7 +823,7 @@ export async function buildFlow(
  *
  * Per TOKEN, not per node: a token whose overloads are all off the path is
  * genuinely unreached, but a token with one overload on it is answered — which
- * is exactly how `codegraph_explore` decides whether to announce a boundary.
+ * is exactly how `sleuth_explore` decides whether to announce a boundary.
  * The reader's own vocabulary (`uniqueNamedNodeIds`) sorts first, because a
  * symbol only they named is the one they are actually asking about.
  */

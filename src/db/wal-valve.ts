@@ -87,7 +87,7 @@ const MAX_PAUSED_BACKFILL_PASSES = 20;
 const CHECK_INTERVAL_MS = 2000;
 
 /**
- * Resolve the valve's soft threshold from the `CODEGRAPH_WAL_VALVE_MB`
+ * Resolve the valve's soft threshold from the `SLEUTH_WAL_VALVE_MB`
  * override; non-numeric / non-positive values fall back to the default.
  */
 export function resolveWalValveMb(envVal: string | undefined, dbSizeBytes?: number): number {
@@ -129,17 +129,17 @@ export class WalCheckpointValve {
 
   constructor(
     private readonly db: DatabaseConnection,
-    softMb: number = resolveWalValveMb(process.env.CODEGRAPH_WAL_VALVE_MB),
+    softMb: number = resolveWalValveMb(process.env.SLEUTH_WAL_VALVE_MB),
     private readonly intervalMs: number = CHECK_INTERVAL_MS,
     log: (msg: string) => void = () => {}
   ) {
     this.softBytes = softMb * 1024 * 1024;
     this.hardBytes = this.softBytes * HARD_CAP_MULTIPLIER;
     this.fileCapBytes = this.softBytes * FILE_CAP_MULTIPLIER;
-    // CODEGRAPH_WAL_VALVE_DEBUG=1 surfaces valve decisions to stderr without
+    // SLEUTH_WAL_VALVE_DEBUG=1 surfaces valve decisions to stderr without
     // needing the caller's verbose plumbing — the observability gap that let
     // §7a.1 run 1 fail silently (give-ups were verbose-gated and invisible).
-    this.log = process.env.CODEGRAPH_WAL_VALVE_DEBUG
+    this.log = process.env.SLEUTH_WAL_VALVE_DEBUG
       ? (m) => console.error(`[wal-valve] ${m}`)
       : log;
   }
@@ -161,7 +161,7 @@ export class WalCheckpointValve {
     // One armed line per run under either diagnostics env: §7a.1's failed
     // kernel-scale runs burned three 25-minute cycles before "is the valve
     // even alive?" could be answered.
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS || process.env.CODEGRAPH_WAL_VALVE_DEBUG) {
+    if (process.env.SLEUTH_SYNTH_TIMINGS || process.env.SLEUTH_WAL_VALVE_DEBUG) {
       console.error(`[wal-valve] armed soft=${this.mb(this.softBytes)} hard=${this.mb(this.hardBytes)} wal=${this.mb(this.db.getWalSizeBytes())}`);
     }
     let ticks = 0;
@@ -291,7 +291,7 @@ export class WalCheckpointValve {
     this.log(msg);
     // Give-ups are rare and load-bearing for §7a.1-class diagnosis — surface
     // them on any timing-instrumented run, not just valve-debug ones.
-    if (process.env.CODEGRAPH_SYNTH_TIMINGS && !process.env.CODEGRAPH_WAL_VALVE_DEBUG) {
+    if (process.env.SLEUTH_SYNTH_TIMINGS && !process.env.SLEUTH_WAL_VALVE_DEBUG) {
       console.error(`[wal-valve] ${msg}`);
     }
     // Fail closed (#1539): never release the writer past the documented caps
@@ -304,7 +304,7 @@ export class WalCheckpointValve {
           `fileCap=${this.mb(this.fileCapBytes)}, hard=${this.mb(this.hardBytes)}, ` +
           `give-ups=${this.consecutiveGiveUps}). Aborting to avoid unbounded disk growth. ` +
           `Close concurrent readers (for example the MCP query pool) and retry, ` +
-          `or raise CODEGRAPH_WAL_VALVE_MB if the threshold is too tight for this project.`,
+          `or raise SLEUTH_WAL_VALVE_MB if the threshold is too tight for this project.`,
         { walBytes, fileCapBytes: this.fileCapBytes, hardBytes: this.hardBytes }
       );
     }

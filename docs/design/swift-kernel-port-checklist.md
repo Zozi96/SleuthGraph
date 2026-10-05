@@ -1,6 +1,6 @@
 # Swift kernel port (R7b) — the bug-for-bug checklist
 
-**Status: PORT COMPLETE (2026-07-20)** — walker `codegraph-kernel/src/swift.rs`,
+**Status: PORT COMPLETE (2026-07-20)** — walker `sleuth-kernel/src/swift.rs`,
 all gates passed (bump validated standalone with the diff classified per the
 error-union rule + ripple pairing + two gate-found categories 7/8 below;
 parity sweeps 0-diff Alamofire 89/98 / vapor 224/247 / swift-nio 407/554 at
@@ -98,7 +98,7 @@ grammars.ts:105), a 2023/24-era **ABI-13** build of npm tree-sitter-swift
 - **Staging plan:** vendor to `src/extraction/wasm/tree-sitter-swift.wasm`;
   add `'swift'` to `VENDORED_WASM_LANGS` (grammars.ts:291) with an R7b
   comment noting the crate-tarball provenance (NOT tag-sha-matched — state
-  why); pin `tree-sitter-swift = "=0.7.3"` in codegraph-kernel/Cargo.toml
+  why); pin `tree-sitter-swift = "=0.7.3"` in sleuth-kernel/Cargo.toml
   (crate + wasm move TOGETHER); add `'swift'` to `GRAMMAR_LANGUAGES` in
   `__tests__/kernel-grammar-parity.test.ts:39`; kernel symbol
   `tree_sitter_swift::LANGUAGE` in langs.rs `grammar_for` + the `LANGUAGES`
@@ -242,7 +242,7 @@ compared set is the ~73–91% that parse clean.
    torture/Alamofire runs has filePath undefined). **The v2 REF_FLAG_FILE_PATH
    wire slot (buffers.rs:125 / layout.ts:98) stays UNUSED for swift** — flag
    0 on every ref, like rust/csharp.
-5. **One walker module** (suggest `codegraph-kernel/src/swift.rs`), registered
+5. **One walker module** (suggest `sleuth-kernel/src/swift.rs`), registered
    in langs.rs (`grammar_for` → `tree_sitter_swift::LANGUAGE.into()`,
    `LANGUAGES` += "swift"). Skeleton cribs: **java.rs** for the class-like
    scope stack + static-member refs + decorators; **ruby.rs/php.rs** for
@@ -787,7 +787,7 @@ members, import nodes.
 
 ## Value-reference edges (:398-931) — swift IS in VALUE_REF_LANGS (:401)
 
-Port the full machinery (crib go.rs/java.rs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib go.rs/java.rs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES = 20,000 caps the prune DFS and each reader scan;
 isGeneratedFile skip.
 
@@ -961,7 +961,7 @@ extraction-side feed that keeps pivot models un-orphaned on Fluent repos.
   - `…/scratchpad/gate-repos/swift-nio` (large, 554 files, **raw-buffers
     path** — no framework detects)
   (all three cloned at survey time; re-clone fresh if gone). Then **full-init
-  dump-diffs byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`,
+  dump-diffs byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`,
   dump-graph.mjs, cmp) on the same three.
 - **Alamofire #1020 spot-check** (belt to the dump gate's suspenders): after
   a kernel-arm index, node-kind census must match the wasm arm EXACTLY —
@@ -976,7 +976,7 @@ extraction-side feed that keeps pivot models un-orphaned on Fluent repos.
   variants + an intentionally-erroring defer fixture (use a NEW-only
   regression construct — e.g. `#if DEBUG` between enum cases — asserting the
   kernel defers and wasm output is served); full suite ×2 green with
-  `CODEGRAPH_KERNEL_EXPECT=1`.
+  `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'swift'`** (kernel/index.ts:37) only after ALL of the
   above; changelog rides the existing kernel entry.
 - Post-route sanity: §Architecture #2 — Alamofire/vapor ride the decoded

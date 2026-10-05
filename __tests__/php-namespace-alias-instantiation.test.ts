@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 
 /**
  * `use App\Fields as Alias;` aliases a namespace, so `new Alias\X()` names
@@ -11,7 +11,7 @@ import { CodeGraph } from '../src';
  */
 describe('PHP instantiation through a namespace alias', () => {
   let dir: string;
-  let cg: CodeGraph | undefined;
+  let cg: SleuthGraph | undefined;
 
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'php-ns-alias-'));
@@ -54,7 +54,7 @@ class Personal
 
   /** `instantiates` targets of the `fields` method, as `<qualifiedName>`. */
   const instantiated = async (): Promise<string[]> => {
-    cg = await CodeGraph.init(dir, { silent: true });
+    cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const fields = cg.searchNodes('fields')
       .map(({ node }) => node)
@@ -101,7 +101,7 @@ class Personal
 
   /** Non-`contains` edges out of a file, as `<source> <kind> <target qualifiedName>`. */
   const edgesFrom = async (file: string): Promise<string[]> => {
-    cg = await CodeGraph.init(dir, { silent: true });
+    cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
     const db = (cg as any).db.db;
     const rows: { s: string; k: string; t: string }[] = db

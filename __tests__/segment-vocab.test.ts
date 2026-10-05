@@ -2,20 +2,20 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { CodeGraph } from '../src';
+import { SleuthGraph } from '../src';
 import { extractProseCandidates } from '../src/search/identifier-segments';
 
 /**
  * The graph-derived gate behind the prompt hook's MEDIUM tier: symbol names
  * are segmented into the words a human uses for them in prose
  * (name_segment_vocab, populated on the node write path), and
- * CodeGraph.getSegmentMatches verifies prompt words against them with
+ * SleuthGraph.getSegmentMatches verifies prompt words against them with
  * co-occurrence / rarity rules. Precision comes from the repo's own naming
  * statistics — no keyword vocabulary involved.
  */
 describe('name-segment vocabulary + getSegmentMatches (graph-derived gate)', () => {
   let dir: string;
-  let cg: CodeGraph;
+  let cg: SleuthGraph;
 
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'segment-vocab-'));
@@ -52,7 +52,7 @@ export function writeConfig(): void {}
 `;
     fs.writeFileSync(path.join(dir, 'src', 'noise.ts'), noise + fpBait + '\n');
 
-    cg = await CodeGraph.init(dir, { silent: true });
+    cg = await SleuthGraph.init(dir, { silent: true });
     await cg.indexAll();
   });
 

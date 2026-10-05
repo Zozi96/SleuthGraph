@@ -3,7 +3,7 @@
   as one card per hop, each opened at the line that makes the next call.
 
   The path is not computed here and is not computed by the server either — it
-  comes from `resolveNamedSymbolFlow`, the search `codegraph_explore` leads its
+  comes from `resolveNamedSymbolFlow`, the search `sleuth_explore` leads its
   answers with. That is deliberate: a viewer that drew a different path from the
   one the MCP tool describes would get the two quoted against each other in a
   review, and one of them would be wrong.
@@ -78,7 +78,7 @@
     }
     // Re-run when the index moves: a path is a walk over edges that a sync can
     // add, remove or re-route, and a strip drawn from the previous graph would
-    // disagree with `codegraph_explore` about the same question.
+    // disagree with `sleuth_explore` about the same question.
     void live.indexTick;
     const controller = new AbortController();
     loading = true;
@@ -223,7 +223,7 @@
     if (p.query.kind === 'directed') {
       return 'Every card is a call the graph recorded. A dashed link is a hop no one can see in the source — a callback, an interface, a re-render — and it names where it was wired.';
     }
-    return 'The longest call path among the symbols you named, the same one codegraph_explore leads with.';
+    return 'The longest call path among the symbols you named, the same one sleuth_explore leads with.';
   }
 
   /**

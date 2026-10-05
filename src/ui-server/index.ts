@@ -1,5 +1,5 @@
 /**
- * The `codegraph ui` server.
+ * The `sleuth ui` server.
  *
  * A loopback-only `node:http` server that hands the browser the built viewer
  * (`dist/viewer/`) and, through the JSON API mounted on the `api` seam below
@@ -8,7 +8,7 @@
  *
  * It is a reader with one exception, added deliberately and scoped as narrowly
  * as it could be: `POST`/`DELETE /api/trails` saves and removes the reader's own
- * named trails, as JSON files under `.codegraph/ui/trails/`. Nothing else it
+ * named trails, as JSON files under `.sleuth/ui/trails/`. Nothing else it
  * serves has a side effect, no other path accepts a write, and `--read-only`
  * turns even that one off. See `security.ts` for what a write has to carry.
  *
@@ -246,7 +246,7 @@ async function handleRequest(
 
   if (!ALLOWED_METHODS.includes(method)) {
     res.setHeader('Allow', ALLOWED_METHODS.join(', '));
-    sendText(res, 405, `codegraph ui does not answer ${method}.`, method);
+    sendText(res, 405, `sleuth ui does not answer ${method}.`, method);
     return;
   }
 
@@ -257,7 +257,7 @@ async function handleRequest(
     sendText(
       res,
       403,
-      'Refused: codegraph ui only answers requests addressed to this machine ' +
+      'Refused: sleuth ui only answers requests addressed to this machine ' +
         `(localhost, 127.0.0.1 or [::1] on port ${port}).\n` +
         `This request said Host: ${forEcho(req.headers.host)}`,
       method
@@ -464,7 +464,7 @@ function describeBindFailure(
       ? new Error(
           `Ports ${opts.port}–${port} are all in use. Free one, or pick another with --port.`
         )
-      : new Error(`Port ${port} is already in use. Pick another with --port, or omit --port to let CodeGraph find a free one.`);
+      : new Error(`Port ${port} is already in use. Pick another with --port, or omit --port to let SleuthGraph find a free one.`);
   }
   if (code === 'EACCES') {
     return new Error(`Not allowed to listen on port ${port}. Ports below 1024 usually need elevated privileges — pick a higher one with --port.`);

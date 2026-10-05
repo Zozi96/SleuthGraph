@@ -1,7 +1,7 @@
 # C/C++ kernel port (R7a) — the bug-for-bug checklist
 
 **Status: COMPLETE — walker SHIPPED + gates PASSED, c/cpp DEFAULT-ROUTED
-(2026-07-17).** Walker: `codegraph-kernel/src/ccpp/mod.rs` (one dual-language
+(2026-07-17).** Walker: `sleuth-kernel/src/ccpp/mod.rs` (one dual-language
 module, every branch below mirrored; its header comment lists the quirks).
 Grammars: tree-sitter-c v0.24.2 (`b780e47`, parser.c `f2883ff9…`) +
 tree-sitter-cpp v0.23.4 (`f41e1a0`, parser.c `2a35a43b…`, scanner.c
@@ -19,14 +19,14 @@ and the raw bulk path), so no blanking ported to Rust.
 - Torture fixtures torture.c/.cpp/.hpp + CRLF variants + Metal/CUDA
   hoist-parity + defer tests in `__tests__/kernel-ccpp-parity.test.ts`; new
   preParse blanks unit-tested in extraction.test.ts; full suite green with
-  `CODEGRAPH_KERNEL_EXPECT=1`.
+  `SLEUTH_KERNEL_EXPECT=1`.
 - **Deferral-rate guard — CORRECTED BY MEASUREMENT** (the §4f pattern): the
   <10% bar was calibrated on ts/java/py/go (0–0.42% parse-error incidence).
   Macro-heavy C/C++ genuinely parses with errors at double-digit file rates
   (final sweeps: als 9%, git 16.1%, redis 25.3%, protobuf 25.8%, fmt 42% —
   fmt's template metaprogramming + `.operator[]`-in-decltype shapes are
   grammar-inherent), and every erroring file defers BY POLICY. Measured with
-  the defer disabled (`CODEGRAPH_KERNEL_CCPP_ERROR_EXTRACT=1`, sweep-only
+  the defer disabled (`SLEUTH_KERNEL_CCPP_ERROR_EXTRACT=1`, sweep-only
   hatch): recovery-divergence is real (21/207 redis, 8/382 git, 9/31 fmt
   erroring files extract differently across UTF-8/UTF-16), so the defer
   stays. The sweep harness now takes `--max-deferral` (default 0.1; use 0.5
@@ -129,7 +129,7 @@ walker mirrors, with file:line anchors (as of `705e501`). Read WITH
    those files come along as blanked cpp. The preParse hoist MUST pass
    `filePath` (the extension gates Metal-attribute blanking) and the CUDA
    content gate rides for free. Their suite tests are the parity insurance.
-3. **One walker module, dual language** (`codegraph-kernel/src/ccpp/`), flagged
+3. **One walker module, dual language** (`sleuth-kernel/src/ccpp/`), flagged
    c vs cpp like `tsjs/` flags its four dialects. Grammars: tree-sitter-c +
    tree-sitter-cpp crates, wasm vendored from the SAME tags (sha-matched
    parser.c + scanner, ts-cli 0.25.10). Upgrade the production wasm FIRST and
@@ -196,7 +196,7 @@ function_declarator → null, 12-hop guard).
 | 5183 | fn-ptr binding recording | inside a body: `declaration>init_declarator` (identifier declarator) or `assignment_expression` (identifier left); value must be pointer_expression whose child(0) is `&`; target ∈ {identifier, template_function, qualified_identifier}, template-stripped; per-callerId map of per-local Sets (branch reassignments accumulate) |
 | 5408 | base_class_clause → extends (#1043) | per base: type_identifier / qualified_identifier / template_type, stripCppTemplateArgs'd; access-specifier keywords skipped |
 | 4740 | static member refs — **cpp only** (c not in STATIC_MEMBER_LANGS, line 345) | `Foo::BAR` value reads → `references` edge; VERIFY the MEMBER_ACCESS_TYPES shapes for qualified_identifier + the call-callee skip during the port |
-| — | value-reference edges | **c: YES** (VALUE_REF_LANGS line 401), **cpp: NO**. Port the value-ref machinery for C only (crib go.rs / tsjs — shadow prune, scope stack, MAX_VALUE_REF_NODES cap, CODEGRAPH_VALUE_REFS=0 kill) |
+| — | value-reference edges | **c: YES** (VALUE_REF_LANGS line 401), **cpp: NO**. Port the value-ref machinery for C only (crib go.rs / tsjs — shadow prune, scope stack, MAX_VALUE_REF_NODES cap, SLEUTH_VALUE_REFS=0 kill) |
 | — | fn-ref capture (#756) | function-ref.ts:376: `c: cFamilySpec()`, `cpp: cFamilySpec({ addressOfOnly: true })`; note line ~582: `&Cls::m` exemption from the bare-ids-are-free-functions rule — read cFamilySpec fully when porting |
 | 355 | INSTANTIATION_KINDS | includes new_expression → cpp `new Foo(...)` instantiates (verify the cpp entry list when porting) |
 

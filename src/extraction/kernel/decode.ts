@@ -1,7 +1,7 @@
 /**
  * Decode the kernel's flat buffers into an ExtractionResult — the single
  * JS-side pass over the per-file tables. See layout.ts for the byte layout
- * and codegraph-kernel/src/buffers.rs for the writer.
+ * and sleuth-kernel/src/buffers.rs for the writer.
  */
 
 import type {

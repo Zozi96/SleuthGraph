@@ -4,7 +4,7 @@
  * daemon".
  *
  * The daemon's named pipe (Windows) / tmpdir socket (POSIX) is
- * `…codegraph-<sha256(canonical root)>.slice(0,16)`, and the lockfile is shared
+ * `…sleuth-<sha256(canonical root)>.slice(0,16)`, and the lockfile is shared
  * while the SOCKET NAME is derived independently by each process. So the moment
  * two processes hash the same directory differently they stop meeting: the
  * proxy's probe finds nothing, it spawns a redundant daemon, and that daemon
@@ -13,7 +13,7 @@
  * serves in-process, without the shared watcher or auto-sync.
  *
  * That is reachable on Windows because the root arrives two ways: a cwd-derived
- * root is the on-disk casing (`D:\work\codegraph`), while a client-supplied
+ * root is the on-disk casing (`D:\work\sleuth`), while a client-supplied
  * `rootUri`/`workspaceFolders` path arrives as `file:///d%3A/…` → `d:\…`, and
  * `path.resolve` preserves whichever it got (NTFS is case-insensitive, so both
  * name one directory). Pinned here at the level that actually broke: the key,
@@ -31,7 +31,7 @@ import * as path from 'path';
 import { canonicalProjectRoot } from '../src/directory';
 import { getDaemonSocketPath } from '../src/mcp/daemon-paths';
 import { acquireProject } from '../src/mcp/project-lifecycle';
-import type CodeGraph from '../src/index';
+import type SleuthGraph from '../src/index';
 
 const tmpDirs: string[] = [];
 function makeDir(): string {
@@ -83,7 +83,7 @@ describe('daemon rendezvous key', () => {
   it.runIf(process.platform === 'win32')(
     'converges case variants even when the root cannot be realpath’d',
     () => {
-      // The `.codegraph/` root normally exists, so this is the fallback arm —
+      // The `.sleuth/` root normally exists, so this is the fallback arm —
       // but a divergence there would fail identically, so pin it.
       const missing = path.join(os.tmpdir(), 'cg-rendezvous-absent', 'nested');
       expect(canonicalProjectRoot(missing)).toBe(canonicalProjectRoot(missing.toUpperCase()));
@@ -108,7 +108,7 @@ describe('in-process project sharing (#2278)', () => {
     let opened = 0;
     const open = () => {
       opened++;
-      return { close() {}, isIndexing: () => false } as unknown as CodeGraph;
+      return { close() {}, isIndexing: () => false } as unknown as SleuthGraph;
     };
     const a = acquireProject(root, open, {});
     const b = acquireProject(path.join(path.dirname(root), 'REPO'), open, {});

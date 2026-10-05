@@ -19,7 +19,7 @@
  * They are listed separately, as what they are — outside the index.
  */
 
-import type { CodeGraph } from '../../index';
+import type { SleuthGraph } from '../../index';
 import type { Edge, Node } from '../../types';
 import { isTestFile } from '../../search/query-utils';
 import { hasDriftedOnDisk, resolveRequestedFile } from './source';
@@ -58,7 +58,7 @@ export interface WireImportRow {
   symbolCount: number;
 }
 
-export function buildFile(cg: CodeGraph, projectRoot: string, requested: string): unknown {
+export function buildFile(cg: SleuthGraph, projectRoot: string, requested: string): unknown {
   // Refusal first, index lookup second — a traversal out of the project is a
   // refusal, not "no such file". See `resolveRequestedFile`.
   const { record, storedPath } = resolveRequestedFile(cg, projectRoot, requested);
@@ -178,7 +178,7 @@ export function buildFile(cg: CodeGraph, projectRoot: string, requested: string)
  *          has to print — see `wireList`.
  */
 export function buildOutlineEntries(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   nodes: readonly Node[]
 ): { entries: WireOutlineEntry[]; total: number } {
   const nodeIds = nodes.map((n) => n.id);
@@ -286,7 +286,7 @@ function groupByFile(
 }
 
 function unresolvedImportsOf(
-  cg: CodeGraph,
+  cg: SleuthGraph,
   fileNodeId: string
 ): Array<{ name: string; line: number }> {
   try {

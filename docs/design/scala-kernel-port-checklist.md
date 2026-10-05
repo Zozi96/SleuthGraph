@@ -47,7 +47,7 @@ child list, not "the" field (§Extractor config, §Extension).
 > node type or field removed; new ones: capture checking, XML literals,
 > `uses_clause`, `early_defs`, …). Wasm = the release asset, sha256
 > `37d7fe5a91ca98941dc05493b0c05a0df0f36df5035890fa00b02497c68aaac3`; C sources
-> from the tag's `src/` (shas in `codegraph-kernel/build.rs`). The record below
+> from the tag's `src/` (shas in `sleuth-kernel/build.rs`). The record below
 > describes the original port.
 
 - **Production wasm**: `src/extraction/wasm/tree-sitter-scala.wasm`, sha256
@@ -67,7 +67,7 @@ child list, not "the" field (§Extractor config, §Extension).
   a future-bump candidate, NOT this port. Full record:
   `../scratchpad/batch4-grammar-probe.md`.
 - **Vendored-C route (kotlin mechanism, second use)** — copy from the
-  `0aca5d0a6f` clone into `codegraph-kernel/grammars/scala/` (shas recorded in
+  `0aca5d0a6f` clone into `sleuth-kernel/grammars/scala/` (shas recorded in
   a comment; survey record `grammar-shas.txt`):
   - `src/parser.c`  `bc3c3c794f19461d99d04de6c31d57fa3e41243509b9ab023a9b88ed3273d102` (34,970,232 bytes — 35 MB, the biggest grammar in the tree; expect a slow `cc` step)
   - `src/scanner.c` `e4ba242568ee3493015598997bf60f613802616eade62717c21109287ef64752` (17,731 bytes — a REAL external scanner: significant-indentation + interpolation; it handles `\r` explicitly, scanner.c:476)
@@ -151,7 +151,7 @@ All classes are grammar-inherent and identical across arms by construction
    for `conf/routes`/`*.routes` files (isPlayRoutesFile, grammars.ts:222-228)
    which are NOT scala files (extensionless → no-grammar path) — the cost of
    detection is only the decode, not wrong output.
-3. **One walker module** (`codegraph-kernel/src/scala.rs`), registered in
+3. **One walker module** (`sleuth-kernel/src/scala.rs`), registered in
    langs.rs; per-file `has_error()` → `defer:`. **kotlin.rs is the closest
    crib** (visitNode-hook property branch, classify-by-node-type, re-encode
    gate, JVM import shapes) but scala diverges in TEN places, each detailed
@@ -675,7 +675,7 @@ nothing**. Line-comment runs are CRLF-clean (per-comment trim eats the
 
 ### Value-reference edges (:398-931) — scala IS in VALUE_REF_LANGS (:401)
 
-Port the full machinery (crib kotlin.rs): `CODEGRAPH_VALUE_REFS=0` kill;
+Port the full machinery (crib kotlin.rs): `SLEUTH_VALUE_REFS=0` kill;
 MAX_VALUE_REF_NODES 20,000; isGeneratedFile skip.
 
 - **Targets** (captureValueRefScope:735): kind constant|variable, name len ≥3
@@ -884,10 +884,10 @@ No layers/special/ungatedModes/addressOfOnly. NAME_STOPLIST applies
     parity denominator).
   (cloned fresh at survey; re-clone public OSS if gone — agent-eval policy.)
   Expect 0-diff on every NON-deferred file. Then **full-init dump-diffs
-  byte-identical** (kernel arm vs `CODEGRAPH_KERNEL=0`, `dump-graph.mjs`,
+  byte-identical** (kernel arm vs `SLEUTH_KERNEL=0`, `dump-graph.mjs`,
   cmp) on all three.
 - **Suite**: kernel-scala-parity torture + CRLF variants + `.sc` fixture +
-  defer fixtures (§Fixtures 5-6) ×2 green with `CODEGRAPH_KERNEL_EXPECT=1`.
+  defer fixtures (§Fixtures 5-6) ×2 green with `SLEUTH_KERNEL_EXPECT=1`.
 - **`DEFAULT_ROUTED += 'scala'`** (kernel/index.ts:37 list) only after ALL of
   the above; changelog rides the existing kernel entry.
 - Post-route perf sanity: gate repos ride the raw path; a Play-detected repo
